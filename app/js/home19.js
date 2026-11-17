@@ -187,13 +187,25 @@ function remindOn() {
   if (p === 'ok') return !!(S.push && S.push.url) && !('Notification' in window && Notification.permission === 'denied');
   return p === 'install';
 }
-function remindCard() {
-  if (!remindOn()) return '';
+function remindNote() {
+  if (!remindOn()) return null;
   const it = S.items.find(i => i.time) || S.items[S.items.length - 1];
   const when = [it.repeat ? repText(it) : it.date && it.date !== T() ? dayShort(it.date) : '', it.time || ''].filter(Boolean).join(' · ');
-  return '<section class="remc frost"><div class="rt"><b>' + esc(t('remQ')) + '</b><span>' + esc(it.t + (when ? ' · ' + when : '')) + '. ' + esc(pushSupport() === 'install' ? t('remInst') : t('remPush')) + '</span></div>'
-    + '<button class="pbtn cr press" data-a="remYes">' + esc(t('yes')) + '</button><button class="xbtn in press" data-a="remNo" aria-label="' + esc(t('cancel')) + '">' + ico('x', 14, 2.4) + '</button></section>';
+  return { id: 'remind', c: '#ffcf5c', icon: ico('bell', 18, 2.2), t: t('remQ'), s: it.t + (when ? ' · ' + when : ''), btn: t('yes'), act: 'remYes', x: 'remNo' };
 }
+/* ---------- v20 · notifications: one slim bar between the arc and the widgets ----------
+   A direct step (do it now), not a widget. Its height never changes, so nothing below jumps;
+   more than one → "+1" shows the next. Others (Lab DLC) register in HOME_NOTES. */
+const HOME_NOTES = [];
+function homeNotes() { const n = []; const r = remindNote(); if (r) n.push(r); HOME_NOTES.forEach(f => { try { const x = f(); if (x) n.push(x); } catch (e) {} }); return n; }
+function notesBar() {
+  const ns = homeNotes(); if (!ns.length) return '';
+  V.noteIdx = (V.noteIdx || 0) % ns.length; const n = ns[V.noteIdx];
+  return '<section class="hnote frost" data-k="' + n.id + '"><button class="hn-b press" data-a="' + (n.open || n.act) + '"><span class="hn-i" style="--c:' + n.c + '">' + n.icon + (n.badge ? '<b>' + n.badge + '</b>' : '') + '</span><span class="hn-t"><b>' + esc(n.t) + '</b><small>' + esc(n.s) + '</small></span></button>'
+    + '<button class="hn-go press" data-a="' + n.act + '">' + esc(n.btn) + '</button>'
+    + (ns.length > 1 ? '<button class="hn-n press" data-a="noteNext" aria-label="' + esc(lang() === 'cs' ? 'Další oznámení' : 'Next notification') + '">+' + (ns.length - 1) + '</button>' : n.x ? '<button class="hn-n press" data-a="' + n.x + '" aria-label="' + esc(t('cancel')) + '">' + ico('x', 13, 2.4) + '</button>' : '') + '</section>';
+}
+ACT.noteNext = () => { V.noteIdx = (V.noteIdx || 0) + 1; renderHome(); };
 ACT.remYes = () => {
   S.remAsk = Date.now(); if (S.push) S.push.asked = true; save();
   if (pushSupport() === 'install') { try { localStorage.removeItem('aurBrowser'); } catch (e) {} showInstall(() => renderHome()); renderHome(); return; }
@@ -205,7 +217,7 @@ ACT.remNo = () => { S.remAsk = Date.now(); save(); renderHome(); };
 function renderHome() {
   const M = homeModel(); const el = $('#s-home');
   el.innerHTML = '<div class="hdr"><img class="logo" src="logo.svg" alt="aurora"><button class="cb frost press" data-a="openSettings" aria-label="' + esc(t('settings')) + '">' + ico('gear', 21, 1.8) + '</button></div>'
-    + remindCard() + '<div class="stack"><section class="inst big frost h19">' + h19Top(M) + '</section>' + h19StackHTML(M) + '</div>';
+    + '<div class="stack"><section class="inst big frost h19">' + h19Top(M) + '</section>' + notesBar() + h19StackHTML(M) + '</div>';
   el._arcs = M.arcs;
   h19Mount(el, true);
   auraFromCards(M.nextAny && M.nextAny.card ? cardColor(M.nextAny.card) : null);

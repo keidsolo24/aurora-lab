@@ -38,18 +38,41 @@
   window.keiroLoad = function () {
     if (window.KR) return Promise.resolve(window.KR);
     if (kLoading) return kLoading;
-    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2000'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
+    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2001'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
     return kLoading;
   };
   if (KCFG().on) keiroLoad().then(() => { if (S) render(); }).catch(() => {});
 
   /* ---------- hooks into the existing screens ---------- */
   const _home = renderHome;
-  renderHome = function () { _home(); if (window.KR) KR.homeHook($('#s-home')); labBadge(); };
+  renderHome = function () { _home(); labBadge(); };
+  /* Home: Keiro speaks through the notification bar between the arc and the widgets */
+  HOME_NOTES.push(() => (window.KR ? KR.note() : null));
   const _spaces = renderSpaces;
   renderSpaces = function () { _spaces(); if (window.KR) KR.spacesHook($('#s-spaces')); };
   function labBadge() { const h = $('#s-home .hdr .logo'); if (h && !h.nextElementSibling?.classList.contains('labtag')) h.insertAdjacentHTML('afterend', '<span class="labtag">LAB</span>'); }
 
+  /* 2.0 week (checklist 03 · Týden): one row per day with the day's things as chips, today highlighted.
+     Tap a day → that day in the list, tap a chip → the item. Desktop keeps its own week. */
+  const _plan = renderPlan;
+  renderPlan = function () {
+    _plan();
+    if (V.planMode !== 'week' || document.body.classList.contains('desk')) return;
+    const el = $('#s-plan'); const g = el.querySelector('.wgrid'); if (!g) return;
+    const sum = g.querySelector('.wg-sum'); const hint = g.nextElementSibling;
+    let rows = '';
+    for (let k = 0; k < 7; k++) {
+      const d = addD(V.planWeek, k); const its = itemsOn(d); const isT = d === T(); const past = d < T();
+      const shown = its.slice(0, isT ? 5 : 4);
+      rows += '<div class="wk2r' + (isT ? ' td' : '') + (past ? ' past' : '') + '"><button class="wk2d press" data-a="openDay" data-d="' + d + '"><b>' + esc(WD[lang()][k]) + ' ' + dOf(d).getDate() + '</b>' + (isT ? '<span class="cap">' + esc(L('today', 'dnes')) + '</span>' : '') + '</button><div class="wk2c">'
+        + (shown.length ? shown.map(i => '<button class="chip in press' + (isDone(i, d) ? ' dn' : '') + '" data-a="openItem" data-id="' + i.id + '"><span class="dot" style="--c:' + itemColor(i) + '"></span>' + (i.time ? '<span class="muted">' + i.time + '</span>' : '') + '<span class="t">' + esc(i.t) + '</span></button>').join('')
+          + (its.length > shown.length ? '<button class="wk2m press" data-a="openDay" data-d="' + d + '">+' + (its.length - shown.length) + '</button>' : '')
+          : '<span class="wk2f">' + esc(L('free', 'volno')) + '</span>') + '</div></div>';
+    }
+    const sec = document.createElement('section'); sec.className = 'wk2 frost solid';
+    sec.innerHTML = (sum ? '<div class="wg-sum">' + sum.innerHTML + '</div>' : '') + rows;
+    g.replaceWith(sec); if (hint && !hint.matches('section')) hint.remove();
+  };
   const _set = renderSettings;
   renderSettings = function () {
     if (V.settingsPage === 'keiro') { keiroLoad().then(() => KR.settingsPage($('#s-settings'))); return; }

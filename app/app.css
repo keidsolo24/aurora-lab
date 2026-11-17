@@ -1251,3 +1251,12 @@ html body.lightui .kcol.on{box-shadow:inset 0 0 0 2px #141414}
 .fex{margin:12px 2px 2px}
 .fex .chips{margin-top:8px;display:flex;flex-wrap:wrap;gap:8px}
 .fq{margin:2px 4px 14px;font:800 26px/1.1 'Bricolage Grotesque',Inter,sans-serif;letter-spacing:-.015em;text-wrap:balance}
+.hnote{display:flex;align-items:center;gap:8px;height:64px;flex:0 0 64px;box-sizing:border-box;border-radius:24px;padding:0 8px 0 10px}
+.hn-b{flex:1;min-width:0;display:flex;align-items:center;gap:11px;text-align:left;height:100%}
+.hn-i{position:relative;width:40px;height:40px;border-radius:13px;flex:none;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--c) 20%,transparent);color:var(--c)}
+.hn-i b{position:absolute;right:-5px;top:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#f3ead8;color:#13233a;font:800 10.5px/18px Inter;text-align:center}
+.hn-t{min-width:0;display:flex;flex-direction:column;gap:4px}
+.hn-t b{font:700 15px/1.15 Inter;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hn-t small{font:400 12.5px/1.15 Inter;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hn-go{flex:none;height:40px;padding:0 16px;border-radius:20px;background:rgba(243,234,216,.92);color:#141414;font:700 14px/1 Inter}
+.hn-n{flex:none;min-width:32px;height:32px;padding:0 8px;border-radius:16px;display:flex;align-items:center;justify-content:center;font:700 12px/1 Inter;color:var(--ink2);background:color-mix(in srgb,var(--ink) 10%,transparent)}
