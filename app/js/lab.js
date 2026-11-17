@@ -38,7 +38,7 @@
   window.keiroLoad = function () {
     if (window.KR) return Promise.resolve(window.KR);
     if (kLoading) return kLoading;
-    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2001'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
+    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2002'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
     return kLoading;
   };
   if (KCFG().on) keiroLoad().then(() => { if (S) render(); }).catch(() => {});
@@ -57,6 +57,7 @@
   const _plan = renderPlan;
   renderPlan = function () {
     _plan();
+    if (V.planMode === 'list' && window.KR) KR.planHook($('#s-plan'));
     if (V.planMode !== 'week' || document.body.classList.contains('desk')) return;
     const el = $('#s-plan'); const g = el.querySelector('.wgrid'); if (!g) return;
     const sum = g.querySelector('.wg-sum'); const hint = g.nextElementSibling;
