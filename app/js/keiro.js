@@ -113,6 +113,21 @@ window.KR = (function () {
 
   /* ---------- formatting ---------- */
   const F = () => C.feed || { review: [], hold: [], scheduled: [], posted: [], stats_today: {}, automat: {} };
+  /* release window: a clip is out at `when`; the link must go to the campaign within 30 min */
+  const WIN = 30 * 60000;
+  const dueT = s => new Date(+new Date(s.when) + WIN);
+  const liveRel = s => { const a = +new Date(s.when), n = Date.now(); return n >= a && n < a + WIN; };
+  /* scheduled releases, kept until their 30 min window is over (clips already in posted[] are handled as send-link tasks) */
+  function rels() {
+    const f = F(), n = Date.now(), seen = new Set(), out = [];
+    (f.scheduled || []).forEach(s => { if (+new Date(s.when) + WIN <= n) return; seen.add(s.clip_id); out.push(s); });
+    return out.sort((a, b) => new Date(a.when) - new Date(b.when));
+  }
+  function relSub(s, ny) {
+    const due = L('send by ', 'odeslat do ') + hm(dueT(s));
+    if (liveRel(s)) { const left = Math.max(1, Math.ceil((+dueT(s) - Date.now()) / 60000)); return L('Out now · ', 'Vyšel · ') + due + ' · ' + L(left + ' min left', 'zbývá ' + left + ' min'); }
+    return [due, ny].filter(Boolean).join(' · ');
+  }
   const hm = (d, tz) => new Date(d).toLocaleTimeString(tz === 'ny' ? 'en-US' : 'cs-CZ', { hour: tz === 'ny' ? 'numeric' : '2-digit', minute: '2-digit', timeZone: tz === 'ny' ? 'America/New_York' : 'Europe/Prague' });
   const pDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Europe/Prague' });
   function dayLabel(d) {
@@ -161,7 +176,7 @@ window.KR = (function () {
     const f = F(), st = f.stats_today || {}, rv = f.review || [], y = el.scrollTop;
     const oldest = rv.length ? rv.map(x => x.created_at).filter(Boolean).sort()[0] : null;
     const camp = rv.filter(x => x.campaign_active).length;
-    const groups = {}; (f.scheduled || []).slice().sort((a, b) => new Date(a.when) - new Date(b.when)).forEach(s => { const k = dayLabel(s.when); (groups[k] = groups[k] || []).push(s); });
+    const groups = {}; rels().forEach(s => { const k = dayLabel(s.when); (groups[k] = groups[k] || []).push(s); });
     const unsent = (f.posted || []).filter(p => !p.submitted).length;
     el.innerHTML = '<div class="hdr"><button class="cb frost press" data-a="krClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span style="display:flex;gap:8px"><button class="cb frost press" data-a="krRefresh" aria-label="' + esc(L('Refresh', 'Obnovit')) + '">' + ico('sync', 18, 2.2) + '</button><button class="cb frost press" data-a="krSettings" aria-label="' + esc(L('Keiro settings', 'Nastavení Keira')) + '">' + ico('gear', 19, 2) + '</button></span></div>'
       + '<span class="kick cap" style="color:var(--ink)"><span class="led" style="--c:' + KC() + '"></span>DLC · ' + esc(L('Clips', 'Klipy')) + '</span><h1 class="cname">Keiro</h1>' + pill()
@@ -170,16 +185,55 @@ window.KR = (function () {
         + '<button class="pbtn cr press kgo" data-a="krReview">' + ico('play', 16, 2.4) + esc(L('Review', 'Schvalovat')) + '</button>' : '<p class="muted" style="margin:10px 0 2px;font:400 14px/1.4 Inter">' + esc(L('Nothing waiting. New clips show up here.', 'Nic nečeká. Nové klipy se objeví tady.')) + '</p>') + '</section>'
       + '<div class="stat3"><div class="frost"><span class="cap">' + esc(L('Cut today', 'Dnes nastříháno')) + '</span><span class="num">' + (st.rendered ?? 0) + '</span></div><div class="frost"><span class="cap">' + esc(L('Approved', 'Schváleno')) + '</span><span class="num">' + (st.approved ?? 0) + '</span></div><div class="frost"><span class="cap">' + esc(L('Posted', 'Postnuto')) + '</span><span class="num">' + (st.posted ?? 0) + '</span></div></div></div>'
       + '<div class="sec"><span class="cap">' + esc(L('Release times · Czech time', 'Termíny vydání · český čas')) + '</span><section class="frost solid kbox">'
-      + (Object.keys(groups).length ? Object.entries(groups).map(([d, ss]) => '<div class="kday">' + esc(d) + '</div>' + ss.map(s => '<div class="kxr"><span class="ktm">' + hm(s.when) + '</span><span class="tx"><b>' + esc(s.hook || '') + '</b><small>' + esc(hm(s.when, 'ny') + ' New York') + '</small></span>' + pf(s.platforms) + '</div>').join('')).join('') : '<div class="kxr"><span class="tx"><small>' + esc(L('Nothing scheduled', 'Nic naplánovaného')) + '</small></span></div>')
+      + (Object.keys(groups).length ? Object.entries(groups).map(([d, ss]) => '<div class="kday">' + esc(d) + '</div>' + ss.map(s => '<div class="kxr' + (liveRel(s) ? ' klive' : '') + '"><span class="ktm">' + hm(s.when) + '</span><span class="tx"><b>' + esc(s.hook || '') + '</b><small>' + esc(relSub(s, hm(s.when, 'ny') + ' NY')) + '</small></span>' + pf(s.platforms) + '</div>').join('')).join('') : '<div class="kxr"><span class="tx"><small>' + esc(L('Nothing scheduled', 'Nic naplánovaného')) + '</small></span></div>')
       + '</section></div>'
       + ((f.hold || []).length ? '<div class="sec"><span class="cap">' + esc(L('To post · no campaign yet', 'K postnutí · zatím bez kampaně')) + '</span><div class="khold">' + f.hold.map(h => '<div class="kxt frost solid">' + thumb(h) + '<b>' + esc(h.hook || '') + '</b><small>' + esc(h.streamer || '') + '</small><button class="pbtn cr press" data-a="krSchedule" data-id="' + h.id + '">' + esc(L('Schedule', 'Naplánovat')) + '</button></div>').join('') + '</div></div>' : '')
-      + '<div class="sec"><span class="cap">' + esc(L('Posted', 'Postnuto') + (unsent ? ' · ' + L(unsent + ' links to send', unsent + ' odkazy k odeslání') : '')) + '</span><section class="frost solid kbox">'
-      + ((f.posted || []).length ? f.posted.map(p => '<div class="kxr' + (p.submitted ? '' : ' todo') + '"><span class="pf big">' + (PF[p.platform] || '?') + '</span><span class="tx"><b>' + esc(p.hook || '') + '</b><small>' + esc(p.submitted ? L('Sent to ', 'Odesláno do ') + (p.campaign || '') : L('Send to campaign ', 'Odeslat do kampaně ') + (p.campaign || '')) + (p.views != null ? ' · ' + p.views + ' ' + L('views', 'zhlédnutí') : '') + '</small></span>'
-        + (p.url ? '<button class="cb in press kcopy" data-a="krCopy" data-u="' + esc(p.url) + '" aria-label="' + esc(L('Copy link', 'Kopírovat odkaz')) + '">' + ico('link', 15, 2.2) + '</button>' : '')
-        + '<button class="ktog" data-a="krSent" data-id="' + p.post_id + '" aria-pressed="' + !!p.submitted + '" aria-label="' + esc(L('Sent to campaign', 'Odesláno do kampaně')) + '"><span class="tg' + (p.submitted ? ' on' : '') + '"></span><span>' + esc(L('sent', 'odesláno')) + '</span></button></div>').join('') : '<div class="kxr"><span class="tx"><small>' + esc(L('No posts yet', 'Zatím žádné posty')) + '</small></span></div>')
-      + '</section></div><div class="kfoot">' + esc(live() ? L('From your laptop · updated ', 'Z notebooku · aktualizováno ') + (C.at ? clock(C.at) : '–') + L(' · every ', ' · každé ') + C.every + ' min' : L('Demo data from the brief · add the address in Keiro settings', 'Ukázková data z briefu · adresu doplníš v nastavení Keira')) + '</div>';
+      + postedSec()
+      + '<div class="kfoot">' + esc(live() ? L('From your laptop · updated ', 'Z notebooku · aktualizováno ') + (C.at ? clock(C.at) : '–') + L(' · every ', ' · každé ') + C.every + ' min' : L('Demo data from the brief · add the address in Keiro settings', 'Ukázková data z briefu · adresu doplníš v nastavení Keira')) + '</div>';
     el.scrollTop = y;
   }
+
+
+  /* ---------- Posted: one row per clip, platform chips, one "sent" switch ---------- */
+  const DAY = 864e5;
+  const dl = p => p.deadline ? +new Date(p.deadline) : p.when ? +new Date(p.when) + WIN : 0;
+  function clips() {
+    const m = new Map();
+    for (const p of (F().posted || [])) {
+      const k = p.clip_id != null ? 'c' + p.clip_id : 'p' + p.post_id;
+      let g = m.get(k); if (!g) { g = { key: k, clip_id: p.clip_id, hook: p.hook, campaign: p.campaign, posts: [], when: 0, due: 0, views: 0, hasViews: false }; m.set(k, g); }
+      g.posts.push(p); if (p.when) { const w = +new Date(p.when); g.when = g.when ? Math.min(g.when, w) : w; }
+      if (!p.submitted && dl(p)) g.due = g.due ? Math.min(g.due, dl(p)) : dl(p);
+      if (p.views != null) { g.views += +p.views || 0; g.hasViews = true; }
+      if (!g.campaign && p.campaign) g.campaign = p.campaign;
+    }
+    const out = [...m.values()]; out.forEach(g => { g.sent = g.posts.every(p => p.submitted); g.recent = !g.sent || (g.when && Date.now() - g.when < DAY); });
+    return out.sort((a, b) => (a.sent - b.sent) || (!a.sent ? (a.due || 9e15) - (b.due || 9e15) : (b.when || 0) - (a.when || 0)));
+  }
+  function clipRow(g) {
+    const left = g.due ? g.due - Date.now() : null; const urg = !g.sent && left != null && left < 10 * 60000;
+    const sub = g.sent ? L('Sent', 'Odesláno') + (g.campaign ? ' · ' + g.campaign : '') + (g.hasViews ? ' · ' + g.views + ' ' + L('views', 'zhlédnutí') : '')
+      : (g.due ? (left < 0 ? L('late · was due ', 'po termínu · mělo jít do ') : L('send by ', 'odeslat do ')) + hm(g.due) + (left >= 0 && left < 60 * 60000 ? ' · ' + L(Math.max(1, Math.ceil(left / 60000)) + ' min left', 'zbývá ' + Math.max(1, Math.ceil(left / 60000)) + ' min') : '') : L('send to the campaign', 'odeslat do kampaně')) + (g.campaign ? ' · ' + g.campaign : '');
+    const ids = g.posts.map(p => p.post_id).join(',');
+    const chips = g.posts.map(p => p.url ? '<a class="kpc' + (p.submitted ? ' on' : '') + '" href="' + esc(media(p.url)) + '" target="_blank" rel="noopener">' + (PF[p.platform] || esc(String(p.platform || '?').slice(0, 2).toUpperCase())) + '</a>' : '<span class="kpc off">' + (PF[p.platform] || '?') + '</span>').join('');
+    return '<div class="kxr kclip' + (g.sent ? ' sent' : ' todo') + (urg ? ' urg' : '') + '"><span class="tx"><b>' + esc(g.hook || '') + '</b><small>' + esc(sub) + '</small><span class="kpcs">' + chips + '</span></span>'
+      + '<button class="ktog" data-a="krClipSent" data-ids="' + ids + '" aria-pressed="' + g.sent + '" aria-label="' + esc(L('Sent to campaign', 'Odesláno do kampaně')) + '"><span class="tg' + (g.sent ? ' on' : '') + '"></span><span>' + esc(L('sent', 'odesláno')) + '</span></button></div>';
+  }
+  function postedSec() {
+    const all = clips(); const top = all.filter(g => g.recent), rest = all.filter(g => !g.recent);
+    const unsent = all.filter(g => !g.sent).length;
+    const shown = KV.allPosted ? all : top;
+    return '<div class="sec"><span class="cap">' + esc(L('Posted', 'Postnuto') + (unsent ? ' · ' + L(unsent + ' to send', 'k odeslání: ' + unsent) : '')) + '</span><section class="frost solid kbox">'
+      + (shown.length ? shown.map(clipRow).join('') : '<div class="kxr"><span class="tx"><small>' + esc(all.length ? L('All sent · nothing from the last 24 h', 'Vše odesláno · nic za posledních 24 h') : L('No posts yet', 'Zatím žádné posty')) + '</small></span></div>')
+      + (rest.length ? '<button class="kall press" data-a="krAllPosted">' + esc(KV.allPosted ? L('Show less', 'Méně') : L('Show all', 'Zobrazit vše') + ' · ' + rest.length) + '</button>' : '')
+      + '</section></div>';
+  }
+  ACT.krAllPosted = () => { KV.allPosted = !KV.allPosted; paint(); };
+  ACT.krClipSent = async el => {
+    const ids = el.dataset.ids.split(',').map(Number); const ps = (F().posted || []).filter(p => ids.includes(p.post_id));
+    const v = !ps.every(p => p.submitted); el.querySelector('.tg').classList.toggle('on', v); haptic();
+    for (const p of ps) { if (!!p.submitted === v) continue; const ok = await act('/api/post/' + p.post_id + '/submitted', { v }); if (!ok) break; }
+  };
 
   /* ---------- review (full screen, swipe) ---------- */
   function review(i) {
@@ -297,7 +351,7 @@ window.KR = (function () {
       const at = Date.parse(x.when); if (!at || at < now - 60000 || at > lim) continue;
       const PN = { instagram: 'IG', youtube: 'YT', tiktok: 'TT' }; const pl = (x.platforms || []).map(z => PN[z] || String(z).slice(0, 2).toUpperCase()).join(' ');
       out.push({ k: 'kr:' + x.clip_id + '@' + x.when, at: Math.max(at, now + 5000), title: (cs ? 'Vyšel: ' : 'Out now: ') + (x.hook || 'Keiro'),
-        body: [pl, cs ? 'pošli odkaz do kampaně' : 'send the link to the campaign'].filter(Boolean).join(' · '), url: './?keiro=posted' });
+        body: [pl, (cs ? 'odešli do kampaně do ' : 'send to the campaign by ') + hm(dueT(x))].filter(Boolean).join(' · '), url: './?keiro=posted' });
     }
     return out.sort((a, b) => a.at - b.at).slice(0, 100);
   }
@@ -356,27 +410,47 @@ window.KR = (function () {
     const nwr = stk.querySelector('[data-a="newCard"]'); if (nwr) nwr.insertAdjacentHTML('beforebegin', row); else stk.insertAdjacentHTML('beforeend', row);
   }
   /* Plan (list): today shows the links to send as tasks, and every day shows its release times. Read from the automat, never saved into Aurora. */
+  /* Plan: Keiro is its own layer. Osobní (default) = your day + one Keiro summary row,
+     Keiro = only Keiro (max 3 a day + "+N more"), Vše = both. */
+  ACT.krLayer = el => { C.layer = el.dataset.k; persist(); renderPlan(); };
+  ACT.krSum = () => { KV.sumOpen = !KV.sumOpen; renderPlan(); };
+  ACT.krMore = () => { KV.more = !KV.more; renderPlan(); };
   function planHook(el) {
     if (!C.on || !C.feed) return; const d = V.planDay || T();
     const sec = el.querySelector('.dayp'); if (!sec) return;
-    const add = sec.querySelector('.addday'); const ref = () => [...sec.querySelectorAll(':scope > .trow')].filter(r => !/\D{3} \d/.test((r.querySelector('.tm') || {}).textContent || ''));
-    const f = F(); const c = KC();
-    const rel = (f.scheduled || []).filter(s => pDay(s.when) === d).sort((a, b) => new Date(a.when) - new Date(b.when));
-    rel.forEach(s => {
-      const t0 = hm(s.when); const html = '<div class="trow kplan" role="button" data-a="krOpen" style="--c:' + c + '"><span class="tm">' + t0 + '</span><span class="bar"></span><span class="tx"><span>' + esc(s.hook || '') + '</span><small>' + esc('Keiro · ' + hm(s.when, 'ny') + ' NY') + '</small></span>' + pf(s.platforms) + '</div>';
-      const before = ref().find(r => { const tm = (r.querySelector('.tm') || {}).textContent || ''; return !/^\d\d:\d\d$/.test(tm) || tm > t0; });
-      (before || add).insertAdjacentHTML('beforebegin', html);
-    });
-    if (d !== T()) return;
-    const groups = {}; (f.posted || []).filter(p => !p.submitted).forEach(p => { const k = (p.hook || '') + '|' + (p.campaign || ''); (groups[k] = groups[k] || []).push(p); });
-    Object.values(groups).forEach(ps => {
-      const p = ps[0]; const ids = ps.map(x => x.post_id).join(',');
-      const html = '<div class="trow kplan" role="button" data-a="krOpen" style="--c:' + c + '"><span class="tm">' + esc(L('any', 'kdykoli')) + '</span><span class="bar"></span><span class="tx"><span>' + esc(L('Send link → ', 'Odeslat odkaz → ') + (p.campaign || '')) + '</span><small>' + esc('Keiro · ' + (p.hook || '') + ' · ' + ps.map(x => PF[x.platform] || x.platform).join(' + ')) + '</small></span>'
-        + (p.url ? '<button class="cb in press kcopy" data-a="krCopy" data-u="' + esc(ps.map(x => x.url).filter(Boolean).join('\n')) + '" aria-label="' + esc(L('Copy link', 'Kopírovat odkaz')) + '">' + ico('link', 14, 2.2) + '</button>' : '')
-        + '<button class="c0" style="--c:' + c + '" data-a="krSentAll" data-ids="' + ids + '" aria-label="' + esc(L('Sent to campaign', 'Odesláno do kampaně')) + '">' + ico('check', 14, 3) + '</button></div>';
-      const first = ref().find(r => !/^\d\d:\d\d$/.test((r.querySelector('.tm') || {}).textContent || ''));
-      (first || add).insertAdjacentHTML('beforebegin', html);
-    });
+    const layer = C.layer || 'me'; const c = KC(); const f = F();
+    const add = sec.querySelector('.addday');
+    const ref = () => [...sec.querySelectorAll(':scope > .trow:not(.kplan)')].filter(r => !r.classList.contains('late') && !/\D{2,} \d/.test((r.querySelector('.tm') || {}).textContent || ''));
+    /* layer switch */
+    const seg = document.createElement('div'); seg.className = 'klay seg frost'; seg.setAttribute('role', 'tablist');
+    seg.innerHTML = [['me', L('Personal', 'Osobní')], ['k', 'Keiro'], ['all', L('All', 'Vše')]].map(([k, l]) => '<button class="' + (layer === k ? 'on' : '') + '" role="tab" aria-selected="' + (layer === k) + '" data-a="krLayer" data-k="' + k + '">' + (k === 'k' ? '<i style="background:' + c + '"></i>' : '') + esc(l) + '</button>').join('');
+    sec.parentNode.insertBefore(seg, sec);
+    sec.classList.toggle('kl-k', layer === 'k'); const nd = el.querySelector('.nodue'); if (nd) nd.hidden = layer === 'k';
+    /* the day's Keiro things */
+    const rel = rels().filter(s => pDay(s.when) === d);
+    const tasks = d !== T() ? [] : clips().filter(g => !g.sent);
+    const relRow = s => '<div class="trow kplan' + (liveRel(s) ? ' klive' : '') + '" role="button" data-a="krOpen" style="--c:' + c + '"><span class="tm">' + hm(s.when) + '</span><span class="bar"></span><span class="tx"><span>' + esc(s.hook || '') + '</span><small>' + esc(liveRel(s) ? relSub(s) : 'Keiro · ' + relSub(s)) + '</small></span>' + pf(s.platforms) + '</div>';
+    const taskRow = g => { const left = g.due ? g.due - Date.now() : null; const urg = left != null && left < 10 * 60000;
+      return '<div class="trow kplan ktask' + (urg ? ' urg' : '') + '" role="button" data-a="krOpen" style="--c:' + c + '"><span class="tm">' + esc(g.due ? L('by ', 'do ') + hm(g.due) : L('any', 'kdykoli')) + '</span><span class="bar"></span><span class="tx"><span>' + esc(L('Send link', 'Odeslat odkaz') + (g.campaign ? ' → ' + g.campaign : '')) + '</span><small>' + esc('Keiro · ' + (g.hook || '')) + '</small></span>'
+        + '<button class="c0" style="--c:' + c + '" data-a="krClipSent" data-ids="' + g.posts.map(p => p.post_id).join(',') + '" aria-label="' + esc(L('Sent to campaign', 'Odesláno do kampaně')) + '"><span class="tg" hidden></span>' + ico('check', 14, 3) + '</button></div>'; };
+    const items = tasks.map(g => ({ t: g.due ? hm(g.due) : '00:00', h: taskRow(g) })).concat(rel.map(s => ({ t: hm(s.when), h: relRow(s) })));
+    const place = (html, t0) => { const before = ref().find(r => { const tm = (r.querySelector('.tm') || {}).textContent || ''; return !/^\d\d:\d\d$/.test(tm) || tm > t0; }); (before || add).insertAdjacentHTML('beforebegin', html); };
+    if (!items.length) { if (layer === 'k') add.insertAdjacentHTML('beforebegin', '<div class="kempty muted">' + esc(L('No Keiro releases this day', 'Tenhle den žádná vydání z Keira')) + '</div>'); return; }
+    if (layer === 'all') { items.sort((a, b) => a.t < b.t ? -1 : 1).forEach(x => place(x.h, x.t)); return; }
+    if (layer === 'k') {
+      const ord = items.slice().sort((a, b) => a.t < b.t ? -1 : 1).map(x => x.h); const cap = KV.more ? ord.length : 3;
+      add.insertAdjacentHTML('beforebegin', ord.slice(0, cap).join('') + (ord.length > 3 ? '<button class="kmore2 press" data-a="krMore">' + esc(KV.more ? L('Show less', 'Méně') : L('+' + (ord.length - 3) + ' more', '+' + (ord.length - 3) + ' dalších')) + '</button>' : ''));
+      return;
+    }
+    /* Osobní: one summary row, tap opens the list underneath */
+    const nxt = rel.find(s => +new Date(s.when) > Date.now()); const lv = rel.find(liveRel);
+    const bits = [rel.length ? L(rel.length + (rel.length === 1 ? ' release' : ' releases'), rel.length + ' vydání') : '',
+      lv ? L('out, send by ', 'vyšel, do ') + hm(dueT(lv)) : nxt ? L('next ', 'další ') + hm(nxt.when) : '',
+      tasks.length ? L(tasks.length + ' to send', tasks.length + ' k odeslání') : ''].filter(Boolean);
+    const urg = tasks.some(g => g.due && g.due - Date.now() < 10 * 60000);
+    const row = '<div class="trow kplan ksum' + (lv ? ' klive' : '') + (urg ? ' urg' : '') + '" role="button" data-a="krSum" aria-expanded="' + !!KV.sumOpen + '" style="--c:' + c + '"><span class="tm"><span class="kdot" style="background:' + c + '"></span></span><span class="bar"></span><span class="tx"><span>Keiro</span><small>' + esc(bits.join(' · ')) + '</small></span><span class="kchev' + (KV.sumOpen ? ' on' : '') + '">' + ico('chev', 14, 2.4) + '</span></div>'
+      + (KV.sumOpen ? '<div class="ksumx">' + items.sort((a, b) => a.t < b.t ? -1 : 1).map(x => x.h).join('') + '</div>' : '');
+    const first = ref()[0]; (first || add).insertAdjacentHTML('beforebegin', row);
   }
   function settingsPage(el) {
     const row = (a, l, v, sub) => '<button class="srow" data-a="' + a + '"><span class="tx">' + esc(l) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span><span class="kval">' + esc(v) + '</span><span class="r">' + ico('chev', 15, 2.2) + '</span></button>';
@@ -435,6 +509,7 @@ window.KR = (function () {
     if ($('#kv')) { if (e.key === 'Escape') closeKV(); else if (e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'Enter') decide('approve'); else if (e.key === 'Backspace' || e.key === 'Delete') decide('reject'); else if (e.key === 'ArrowUp') redo(); else if (e.key === ' ') toggleSound(); else if (e.key === 'i') ACT.krPan(); else return; e.preventDefault(); return; }
     if (V.keiro && e.key === 'Escape') close();
   });
+  setInterval(() => { if (!C.on || document.hidden) return; const n = Date.now(); if (rels().some(r => { const a = +new Date(r.when); return n >= a - 60000 && n < a + WIN + 60000; })) paint(); }, 30000);
   if (C.on) { loop(); if (!C.feed || Date.now() - C.at > 30000) refresh(true); }
   return { pushList, note, planHook, spacesHook, settingsPage, statusLine, refresh, _C: () => C };
 })();

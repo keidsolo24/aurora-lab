@@ -157,3 +157,36 @@ body.kvon #toast{top:calc(var(--st) + 122px);bottom:auto}
   #kv .kbars,#kv .top,#kv .pan{left:0;right:0;margin:0 auto;width:calc(100vh * 9 / 16 - 24px);max-width:calc(100% - 24px)}
   #kv .ksnd{right:calc(50% - 100vh * 9 / 32 + 14px)}
 }
+/* release window: out now, link must go out within 30 min */
+.kxr.klive{background:linear-gradient(90deg,color-mix(in srgb,var(--kc,#ff4f7b) 18%,transparent),transparent 75%)}
+.kxr.klive::after{content:"";position:absolute;left:6px;top:12px;bottom:12px;width:3px;border-radius:2px;background:var(--kc,#ff4f7b);animation:klive 1.6s ease-in-out infinite}
+.kxr.klive .ktm,.kxr.klive .tx small{color:var(--kc,#ff4f7b);filter:brightness(1.25)}
+.kxr.klive .tx small{font-weight:600}
+.trow.kplan.klive{background:color-mix(in srgb,var(--kc,#ff4f7b) 14%,transparent);border-radius:16px}
+.trow.kplan.klive .tm,.trow.kplan.klive small{color:var(--kc,#ff4f7b);filter:brightness(1.25);font-weight:600}
+@keyframes klive{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.kxr.klive::after{animation:none}}
+/* Posted: one row per clip */
+.kclip{align-items:flex-start;padding-top:13px;padding-bottom:13px}
+.kclip .tx b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.kpcs{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.kpc{height:28px;min-width:40px;padding:0 10px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font:700 11.5px/1 Inter;letter-spacing:.04em;color:var(--ink);background:color-mix(in srgb,var(--ink) 10%,transparent);text-decoration:none}
+.kpc.on{opacity:.55}.kpc.off{opacity:.35}
+.kclip .ktog{align-self:center}
+.kclip.sent .tx b{color:var(--ink2)}
+.kxr.urg::after{background:#ff5c5c!important}
+.kxr.urg .tx small{color:#ff8a8a!important;font-weight:600}
+.kall{display:block;width:100%;height:46px;text-align:center;font:600 14px/1 Inter;color:var(--ink2);border-top:1px solid color-mix(in srgb,var(--ink) 9%,transparent);background:none}
+/* Plan layers */
+.klay{margin:6px 0 12px;width:100%}
+.klay button{flex:1}
+.klay button i{width:8px;height:8px;border-radius:4px;flex:none}
+.dayp.kl-k>.trow:not(.kplan),.dayp.kl-k>.nowl,.dayp.kl-k>.addday,.dayp.kl-k>.cap,.dayp.kl-k>div:not([class]),.dayp.kl-k>div[class=""]{display:none}
+.kmore2{display:block;width:100%;height:44px;font:600 14px/1 Inter;color:var(--ink2);background:none;text-align:left;padding-left:16px}
+.kempty{padding:14px 16px;font:400 14px/1.4 Inter}
+.trow.ksum .tm{display:flex;align-items:center;justify-content:center}
+.trow.ksum .kdot{width:10px;height:10px;border-radius:5px;box-shadow:0 0 10px currentColor}
+.trow.ksum .kchev{flex:none;margin-right:8px;color:var(--ink3);transform:rotate(90deg);transition:transform .25s}
+.trow.ksum .kchev.on{transform:rotate(-90deg)}
+.ksumx{margin:2px 0 6px 14px;padding-left:8px;border-left:2px solid color-mix(in srgb,var(--kc,#ff4f7b) 45%,transparent)}
+.trow.kplan.urg .tm,.trow.kplan.urg small{color:#ff8a8a!important;font-weight:600}
