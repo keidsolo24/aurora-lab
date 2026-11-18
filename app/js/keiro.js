@@ -80,21 +80,24 @@ window.KR = (function () {
         if (typeof pushSchedule === 'function') pushSchedule();
       }
     } catch (e) {
+      C.ek = e.status === 401 || e.status === 403 ? 'pin' : 'net';
       C.err = e.status === 401 || e.status === 403 ? L('Wrong PIN', 'Špatný PIN') : e.name === 'AbortError' ? L('No answer', 'Bez odpovědi') : (e.message && e.status ? e.message : L('Laptop not reachable', 'Notebook není dostupný'));
       if (!C.offSince) C.offSince = Date.now();
       if (!quiet) toast(esc(C.err));
     } finally { busy = false; persist(); paint(); }
   }
+  const CAMP = 'https://contentrewards.com/c/campaigns/a5c63fad-cd53-4b81-9305-4a2d1696872a';
+  function srvText(t) { t = String(t == null ? '' : t).trim(); if (t[0] === '{') { try { const j = JSON.parse(t); t = j.message || j.msg || j.text || j.detail || j.error || j.status || t; } catch (e) {} } return String(t).slice(0, 180); }
   async function act(path, body, after) {
     if (offline()) { toast(esc(L('The automat is offline, try again later', 'Automat je offline, zkus to později'))); return false; }
     try {
       const msg = live() ? await api(path, body || {}) : mockAct(path, body || {});
-      toast(esc(String(msg || 'OK').slice(0, 160))); haptic();
+      toast(esc(srvText(msg) || 'OK')); haptic();
       if (live()) optim(path, body || {}); else persist();
       if (after) after();
       if (live()) refresh(true); else paint();
       return true;
-    } catch (e) { toast(esc(e.message || L('Did not go through', 'Neprošlo'))); return false; }
+    } catch (e) { toast(esc((e.status === 400 ? L('Error: ', 'Chyba: ') : '') + (srvText(e.message) || L('Did not go through', 'Neprošlo')))); haptic(); return false; }
   }
   /* live mode: reflect the change right away, the next /api/feed brings the real state */
   function optim(path, body) {
@@ -120,7 +123,8 @@ window.KR = (function () {
   /* scheduled releases, kept until their 30 min window is over (clips already in posted[] are handled as send-link tasks) */
   function rels() {
     const f = F(), n = Date.now(), seen = new Set(), out = [];
-    (f.scheduled || []).forEach(s => { if (+new Date(s.when) + WIN <= n) return; seen.add(s.clip_id); out.push(s); });
+    const out2 = new Set((f.posted || []).map(p => p.clip_id));
+    (f.scheduled || []).forEach(s => { if (+new Date(s.when) + WIN <= n || out2.has(s.clip_id)) return; seen.add(s.clip_id); out.push(s); });
     return out.sort((a, b) => new Date(a.when) - new Date(b.when));
   }
   function relSub(s, ny) {
@@ -147,6 +151,16 @@ window.KR = (function () {
     if (offline()) return L('Offline · last data ', 'Offline · poslední data ') + (C.at ? clock(C.at) : '–');
     return L('On · connected · ', 'Zapnuto · připojeno · ') + (C.at ? clock(C.at) : '–');
   }
+  function statCard() {
+    const a = F().automat || {};
+    if (offline()) {
+      const pin = C.ek === 'pin';
+      return '<section class="kstat off frost solid"><div class="kst1"><i></i><b>' + esc(pin ? L('Wrong PIN', 'Špatný PIN') : L('Laptop offline', 'Notebook offline')) + '</b></div><p>' + esc(pin ? L('Fix the PIN in Keiro settings.', 'Oprav PIN v nastavení Keira.') : L('Turn on Tailscale on the laptop and the phone, then try again.', 'Zapni Tailscale v notebooku i v telefonu a zkus to znovu.')) + '</p><div class="kst2"><button class="pbtn cr press" data-a="' + (pin ? 'krSettings' : 'krRefresh') + '">' + esc(pin ? L('Settings', 'Nastavení') : L('Try again', 'Zkusit znovu')) + '</button><small>' + esc(C.at ? L('Last data ', 'Poslední data ') + clock(C.at) : L('No data yet', 'Zatím bez dat')) + '</small></div></section>';
+    }
+    const recs = a.recording || [], run = a.status === 'running';
+    const sub = recs.length ? recs.map(r => L('recording ', 'nahrává ') + r.streamer + ' · ' + ago(r.since)).join(' · ') : run ? L('nothing recording', 'nic se nenahrává') : L('waiting for a stream', 'čeká na stream');
+    return '<section class="kstat' + (recs.length ? ' rec' : run ? '' : ' idle') + ' frost solid"><div class="kst1"><i></i><b>' + (run ? 'Running' : 'Idle') + '</b>' + (!live() ? '<span class="kdemo">' + esc(L('demo', 'ukázka')) + '</span>' : '') + '</div><p>' + esc(sub) + '</p></section>';
+  }
   function pill() {
     const a = F().automat || {};
     if (offline()) return '<span class="kst off"><i></i>' + esc(L('Automat offline · last data ', 'Automat offline · poslední data ') + (C.at ? clock(C.at) : '–')) + '</span>';
@@ -159,8 +173,15 @@ window.KR = (function () {
   const thumb = (c, cls) => c.thumb ? '<img class="' + (cls || '') + '" src="' + esc(media(c.thumb)) + '" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'kph ' + (cls || '') + '\'}))">' : '<span class="kph ' + (cls || '') + '">' + ico('film', 20, 1.8) + '</span>';
 
   /* ---------- Space ---------- */
+  /* pull to refresh on the Keiro screen */
+  function ptr(el) {
+    if (el._kptr) return; el._kptr = 1; let y0 = 0, dy = 0, on = false; const ind = document.createElement('div'); ind.id = 'kptr'; ind.innerHTML = ico('sync', 18, 2.4); document.body.appendChild(ind);
+    el.addEventListener('touchstart', e => { if (!V.keiro || el.scrollTop > 0 || $('#kv')) return; on = true; y0 = e.touches[0].clientY; dy = 0; }, { passive: true });
+    el.addEventListener('touchmove', e => { if (!on) return; dy = Math.max(0, e.touches[0].clientY - y0); const p = Math.min(1, dy / 80); ind.style.opacity = p; ind.style.transform = 'translate(-50%,' + Math.min(70, dy * .5) + 'px) rotate(' + dy * 3 + 'deg)'; ind.classList.toggle('go', dy > 80); }, { passive: true });
+    el.addEventListener('touchend', async () => { if (!on) return; on = false; if (dy > 80) { ind.classList.add('spin'); haptic(); await refresh(false); } ind.classList.remove('spin', 'go'); ind.style.opacity = 0; ind.style.transform = ''; });
+  }
   function open() {
-    const el = $('#s-card'); V.keiro = true;
+    const el = $('#s-card'); V.keiro = true; ptr(el);
     el.classList.remove('out'); el.classList.add('on'); el.scrollTop = 0;
     $('#nav').classList.add('away'); document.body.classList.add('navless');
     paint(); if (Date.now() - C.at > 20000) refresh(true);
@@ -179,7 +200,7 @@ window.KR = (function () {
     const groups = {}; rels().forEach(s => { const k = dayLabel(s.when); (groups[k] = groups[k] || []).push(s); });
     const unsent = (f.posted || []).filter(p => !p.submitted).length;
     el.innerHTML = '<div class="hdr"><button class="cb frost press" data-a="krClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span style="display:flex;gap:8px"><button class="cb frost press" data-a="krRefresh" aria-label="' + esc(L('Refresh', 'Obnovit')) + '">' + ico('sync', 18, 2.2) + '</button><button class="cb frost press" data-a="krSettings" aria-label="' + esc(L('Keiro settings', 'Nastavení Keira')) + '">' + ico('gear', 19, 2) + '</button></span></div>'
-      + '<span class="kick cap" style="color:var(--ink)"><span class="led" style="--c:' + KC() + '"></span>DLC · ' + esc(L('Clips', 'Klipy')) + '</span><h1 class="cname">Keiro</h1>' + pill()
+      + '<span class="kick cap" style="color:var(--ink)"><span class="led" style="--c:' + KC() + '"></span>DLC · ' + esc(L('Clips', 'Klipy')) + '</span><h1 class="cname">Keiro</h1>' + statCard()
       + '<div class="stack" style="margin-top:18px"><section class="hero frost" style="--c:' + KC() + '"><span class="cap">' + esc(L('To review', 'Ke schválení') + (oldest ? ' · ' + L('oldest ', 'nejstarší ') + ago(oldest) : '')) + '</span><div class="num" style="font-size:60px;margin-top:14px">' + rv.length + '<small style="font-size:16px">' + esc(L(rv.length === 1 ? 'clip' : 'clips', rv.length === 1 ? 'klip' : rv.length > 1 && rv.length < 5 ? 'klipy' : 'klipů')) + '</small></div>'
       + (rv.length ? '<div class="kfan">' + rv.slice(0, 5).map(x => thumb(x)).join('') + (camp ? '<span class="kmore">' + esc(L(camp + ' with a campaign', camp + ' s kampaní')) + '<br>' + esc(L('go out right away', 'jdou rovnou ven')) + '</span>' : '') + '</div>'
         + '<button class="pbtn cr press kgo" data-a="krReview">' + ico('play', 16, 2.4) + esc(L('Review', 'Schvalovat')) + '</button>' : '<p class="muted" style="margin:10px 0 2px;font:400 14px/1.4 Inter">' + esc(L('Nothing waiting. New clips show up here.', 'Nic nečeká. Nové klipy se objeví tady.')) + '</p>') + '</section>'
@@ -207,23 +228,23 @@ window.KR = (function () {
       if (p.views != null) { g.views += +p.views || 0; g.hasViews = true; }
       if (!g.campaign && p.campaign) g.campaign = p.campaign;
     }
-    const out = [...m.values()]; out.forEach(g => { g.sent = g.posts.every(p => p.submitted); g.recent = !g.sent || (g.when && Date.now() - g.when < DAY); });
-    return out.sort((a, b) => (a.sent - b.sent) || (!a.sent ? (a.due || 9e15) - (b.due || 9e15) : (b.when || 0) - (a.when || 0)));
+    const out = [...m.values()], n = Date.now(); out.forEach(g => { g.sent = g.posts.every(p => p.submitted); g.gone = !g.sent && !!g.due && g.due < n; g.rank = g.sent ? 2 : g.gone ? 1 : 0; g.recent = g.rank === 0 || (g.when && n - g.when < DAY); });
+    return out.sort((a, b) => (a.rank - b.rank) || (a.rank === 0 ? (a.due || 9e15) - (b.due || 9e15) : (b.due || b.when || 0) - (a.due || a.when || 0)));
   }
   function clipRow(g) {
-    const left = g.due ? g.due - Date.now() : null; const urg = !g.sent && left != null && left < 10 * 60000;
+    const left = g.due ? g.due - Date.now() : null; const urg = !g.sent && !g.gone && left != null && left < 10 * 60000;
     const sub = g.sent ? L('Sent', 'Odesláno') + (g.campaign ? ' · ' + g.campaign : '') + (g.hasViews ? ' · ' + g.views + ' ' + L('views', 'zhlédnutí') : '')
-      : (g.due ? (left < 0 ? L('late · was due ', 'po termínu · mělo jít do ') : L('send by ', 'odeslat do ')) + hm(g.due) + (left >= 0 && left < 60 * 60000 ? ' · ' + L(Math.max(1, Math.ceil(left / 60000)) + ' min left', 'zbývá ' + Math.max(1, Math.ceil(left / 60000)) + ' min') : '') : L('send to the campaign', 'odeslat do kampaně')) + (g.campaign ? ' · ' + g.campaign : '');
+      : (g.due ? (g.gone ? L('expired · was due ', 'propadlo · bylo do ') : L('send by ', 'odeslat do ')) + hm(g.due) + (left >= 0 && left < 60 * 60000 ? ' · ' + L(Math.max(1, Math.ceil(left / 60000)) + ' min left', 'zbývá ' + Math.max(1, Math.ceil(left / 60000)) + ' min') : '') : L('send to the campaign', 'odeslat do kampaně')) + (g.campaign ? ' · ' + g.campaign : '');
     const ids = g.posts.map(p => p.post_id).join(',');
     const chips = g.posts.map(p => p.url ? '<a class="kpc' + (p.submitted ? ' on' : '') + '" href="' + esc(media(p.url)) + '" target="_blank" rel="noopener">' + (PF[p.platform] || esc(String(p.platform || '?').slice(0, 2).toUpperCase())) + '</a>' : '<span class="kpc off">' + (PF[p.platform] || '?') + '</span>').join('');
-    return '<div class="kxr kclip' + (g.sent ? ' sent' : ' todo') + (urg ? ' urg' : '') + '"><span class="tx"><b>' + esc(g.hook || '') + '</b><small>' + esc(sub) + '</small><span class="kpcs">' + chips + '</span></span>'
+    return '<div class="kxr kclip' + (g.sent ? ' sent' : g.gone ? ' gone' : ' todo') + (urg ? ' urg' : '') + '"><span class="tx"><b>' + esc(g.hook || '') + '</b><small>' + esc(sub) + '</small><span class="kpcs">' + chips + '</span></span>'
       + '<button class="ktog" data-a="krClipSent" data-ids="' + ids + '" aria-pressed="' + g.sent + '" aria-label="' + esc(L('Sent to campaign', 'Odesláno do kampaně')) + '"><span class="tg' + (g.sent ? ' on' : '') + '"></span><span>' + esc(L('sent', 'odesláno')) + '</span></button></div>';
   }
   function postedSec() {
     const all = clips(); const top = all.filter(g => g.recent), rest = all.filter(g => !g.recent);
-    const unsent = all.filter(g => !g.sent).length;
+    const unsent = all.filter(g => !g.sent && !g.gone).length;
     const shown = KV.allPosted ? all : top;
-    return '<div class="sec"><span class="cap">' + esc(L('Posted', 'Postnuto') + (unsent ? ' · ' + L(unsent + ' to send', 'k odeslání: ' + unsent) : '')) + '</span><section class="frost solid kbox">'
+    return '<div class="sec"><div class="kcaph"><span class="cap">' + esc(L('Send to campaign', 'Odeslat do kampaně') + (unsent ? ' · ' + unsent : '')) + '</span><a class="kcamp press" href="' + CAMP + '" target="_blank" rel="noopener">' + esc(L('Open campaign', 'Otevřít kampaň')) + ico('arrow', 13, 2.4) + '</a></div><section class="frost solid kbox">'
       + (shown.length ? shown.map(clipRow).join('') : '<div class="kxr"><span class="tx"><small>' + esc(all.length ? L('All sent · nothing from the last 24 h', 'Vše odesláno · nic za posledních 24 h') : L('No posts yet', 'Zatím žádné posty')) + '</small></span></div>')
       + (rest.length ? '<button class="kall press" data-a="krAllPosted">' + esc(KV.allPosted ? L('Show less', 'Méně') : L('Show all', 'Zobrazit vše') + ' · ' + rest.length) + '</button>' : '')
       + '</section></div>';
@@ -258,16 +279,24 @@ window.KR = (function () {
     v.innerHTML = '<div class="stage">' + bg + frame + '<div class="shade"></div><span class="stamp re">' + esc(L('Redo', 'Předělat')) + '</span>'
       + (x.video ? '<span class="ksnd" aria-hidden="true"></span>' : '') + '</div>'
       + '<div class="kbars">' + KV.list.map((_, k) => '<i class="' + (k === KV.idx ? 'on' : k < KV.idx ? 'pa' : '') + '"></i>').join('') + '</div>'
-      + '<div class="top"><button class="cb frost press" data-a="krKVClose" aria-label="' + esc(L('Close', 'Zavřít')) + '">' + ico('x', 18, 2.4) + '</button><span class="who"><b>' + esc((x.streamer || '') + ' · ' + (KV.idx + 1) + L(' of ', ' z ') + n) + '</b><small>' + esc([x.duration ? x.duration + ' s' : '', x.created_at ? L('cut ', 'stříh ') + hm(x.created_at) : ''].filter(Boolean).join(' · ')) + '</small></span>' + (x.score != null ? '<span class="ksc">★ ' + x.score + '</span>' : '') + '</div>'
-      + '<section class="pan frost' + (KV.open ? ' open' : '') + '"><button class="phd" data-a="krPan" aria-expanded="' + !!KV.open + '"><span class="hk">' + esc(x.hook || '') + '</span><span class="pch">' + ico('chev', 14, 2.4) + '</span></button>'
-      + '<div class="pmore"><div>' + (x.reason ? '<p>' + esc(x.reason) + '</p>' : '')
+      + '<div class="top"><button class="cb frost press" data-a="krKVClose" aria-label="' + esc(L('Close', 'Zavřít')) + '">' + ico('x', 18, 2.4) + '</button><span class="who"><b>' + esc((x.streamer || '') + ' · ' + (KV.idx + 1) + L(' of ', ' z ') + n) + '</b><span class="ktags">' + tags(x) + '</span></span></div>'
+      + '<section class="pan frost' + (KV.open ? ' open' : '') + '"><button class="phd" data-a="krPan" aria-expanded="' + !!KV.open + '"><span class="hk">' + esc((x.format === 'meme' && x.meme_text) || x.hook || '') + '</span><span class="pch">' + ico('chev', 14, 2.4) + '</span></button>'
+      + '<div class="pmore"><div>' + (x.format === 'meme' && x.meme_text && x.hook ? '<p class="kh2"><b>Hook</b> ' + esc(x.hook) + '</p>' : '') + (x.reason ? '<p>' + esc(x.reason) + '</p>' : '')
       + '<div class="camp' + (x.campaign_active ? '' : ' hold') + '"><i></i>' + esc(x.campaign_active ? L('Campaign on → scheduled right after approval', 'Kampaň běží → po schválení se rovnou naplánuje') : L('No campaign → waits in To post', 'Bez kampaně → počká v K postnutí')) + '</div></div></div>'
-      + '<div class="acts"><button class="rj press" data-a="krReject" aria-label="' + esc(L('Discard', 'Zahodit')) + '">' + ico('x', 22, 2.6) + '</button><button class="rd press" data-a="krRedo" aria-label="' + esc(L('Redo', 'Předělat')) + '">' + ico('repeat', 21, 2.4) + '</button><button class="ap press" data-a="krApprove">' + ico('check', 20, 3) + esc(L('Approve', 'Schválit')) + '</button></div></section>';
+      + '<div class="kmenu" hidden role="menu"><button role="menuitem" data-a="krApWhen" data-k="auto"><b>Auto</b><small>' + esc(L('best free slot', 'nejlepší volný termín')) + '</small></button><button role="menuitem" data-a="krApWhen" data-k="now"><b>' + esc(L('Now', 'Teď')) + '</b><small>' + esc(L('goes out right away', 'jde ven hned')) + '</small></button><button role="menuitem" data-a="krApWhen" data-k="pick"><b>' + esc(L('Pick a time…', 'Vybrat čas…')) + '</b><small>' + esc(L('today or tomorrow', 'dnes nebo zítra')) + '</small></button></div>'
+      + '<div class="acts"><button class="rj press" data-a="krReject">' + ico('x', 18, 2.6) + '<span>' + esc(L('Discard', 'Zahodit')) + '</span></button><button class="rd press" data-a="krRedo">' + ico('repeat', 17, 2.4) + '<span>' + esc(L('Redo', 'Předělat')) + '</span></button><span class="apg"><button class="ap press" data-a="krApprove">' + ico('check', 18, 3) + '<span>' + esc(L('Approve', 'Schválit')) + '</span></button><button class="apm press" data-a="krApMenu" aria-haspopup="menu" aria-label="' + esc(L('When to post', 'Kdy vydat')) + '">' + ico('chev', 14, 2.6) + '</button></span></div></section>';
     const st = v.querySelector('.stage');
     if (dir && !RM) { st.style.transition = 'none'; st.style.transform = 'translateX(' + (dir > 0 ? 100 : -100) + '%)'; st.getBoundingClientRect(); st.style.transition = 'transform .32s cubic-bezier(.2,.8,.2,1)'; st.style.transform = ''; }
     startVideo(st); swipe(st);
     /* warm up the next poster so the next clip never opens black */
     const nx = (F().review || []).find(z => z.id === KV.list[KV.idx + 1]); if (nx && nx.thumb) { const im = new Image(); im.src = media(nx.thumb); }
+  }
+  function tags(x) {
+    const meme = x.format === 'meme', top = x.score != null && +x.score >= 8;
+    return (x.format ? '<span class="kfmt' + (meme ? ' meme' : '') + '">' + (meme ? 'MEME' : 'KLASIK') + '</span>' : '')
+      + (top ? '<span class="ktop">TOP</span>' : '')
+      + (x.score != null ? '<span class="ksc">★ ' + esc(String(x.score)) + '</span>' : '')
+      + (x.duration ? '<span class="kdur">' + Math.round(x.duration) + ' s</span>' : '');
   }
   function startVideo(st) {
     const vd = st && st.querySelector('video.fr'); if (!vd) return;
@@ -290,16 +319,16 @@ window.KR = (function () {
     const to = KV.idx + d; if (to < 0 || to >= KV.list.length) return false;
     KV.idx = to; KV.open = false; paintKV(d); return true;
   }
-  function decide(kind) {
-    const x = curClip(); if (!x) return;
+  function decide(kind, body) {
+    const x = curClip(); if (!x) return; menu(false);
     const st = $('#kv .stage');
-    const go = async () => { const ok = await act('/api/' + x.id + '/' + kind, kind === 'reject' ? { note: '' } : {}, () => { KV.list = (F().review || []).map(z => z.id); KV.idx = Math.min(KV.idx, Math.max(0, KV.list.length - 1)); KV.open = false; paintKV(1); }); if (!ok) paintKV(); };
+    const go = async () => { const ok = await act('/api/' + x.id + '/' + kind, body || (kind === 'approve' ? { when: 'auto' } : {}), () => { KV.list = (F().review || []).map(z => z.id); KV.idx = Math.min(KV.idx, Math.max(0, KV.list.length - 1)); KV.open = false; paintKV(1); }); if (!ok) paintKV(); };
     if (st && !RM) { st.style.transition = 'transform .26s cubic-bezier(.2,.8,.2,1),opacity .26s'; st.style.transform = kind === 'approve' ? 'translateY(-6%) scale(.92)' : 'translateY(8%) scale(.92)'; st.style.opacity = '0'; setTimeout(go, 220); } else go();
   }
   function swipe(st) {
     if (!st) return; let x0 = 0, y0 = 0, t0 = 0, dx = 0, dy = 0, on = false, axis = '';
     const W = () => st.clientWidth || innerWidth;
-    st.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; on = true; axis = ''; x0 = e.clientX; y0 = e.clientY; t0 = performance.now(); dx = dy = 0; st.setPointerCapture(e.pointerId); st.style.transition = 'none'; });
+    st.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; const mm = $('#kv .kmenu'); if (mm && !mm.hidden) { menu(false); return; } on = true; axis = ''; x0 = e.clientX; y0 = e.clientY; t0 = performance.now(); dx = dy = 0; st.setPointerCapture(e.pointerId); st.style.transition = 'none'; });
     st.addEventListener('pointermove', e => {
       if (!on) return; dx = e.clientX - x0; dy = e.clientY - y0;
       if (!axis && Math.hypot(dx, dy) > 10) axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
@@ -336,6 +365,41 @@ window.KR = (function () {
         + '<div class="fex"><span class="cap">' + esc(L('Quick notes', 'Rychlé poznámky')) + '</span><div class="chips wrap">' + chips.map(c => '<button class="chip in press" data-a="krChip" data-k="' + esc(c) + '">' + esc(c) + '</button>').join('') + '</div></div>',
       onSave: async () => { const note = ($('#krNote').value || '').trim(); closeSheet(true); await act('/api/' + x.id + '/redo', { note }, () => { KV.list = (F().review || []).map(z => z.id); paintKV(); }); } });
   }
+  /* approve ▾ : Auto | Teď | Vybrat čas */
+  function menu(on) { const m = $('#kv .kmenu'); if (!m) return; m.hidden = !on; const b = $('#kv .apm'); if (b) b.setAttribute('aria-expanded', !!on); }
+  ACT.krApMenu = () => { const m = $('#kv .kmenu'); menu(m && m.hidden); haptic(); };
+  ACT.krApWhen = el => { const k = el.dataset.k; menu(false); if (k === 'pick') return whenSheet(L('Approve for a time', 'Schválit na čas'), w => decide('approve', { when: w }), true); decide('approve', { when: k }); };
+  const pad = n => String(n).padStart(2, '0');
+  const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  /* time picker: Dnes | Zítra + time → "2026-11-18T20:30" (local time) */
+  function whenSheet(title, cb, pickOnly) {
+    const nx = new Date(Date.now() + 30 * 60000); nx.setMinutes(nx.getMinutes() < 30 ? 30 : 60, 0, 0);
+    let day = ymd(nx) === ymd(new Date()) ? 0 : 1;
+    const tm = pad(nx.getHours()) + ':' + pad(nx.getMinutes());
+    openSheet({ title, body:
+      (pickOnly ? '' : '<div class="kwq"><button class="pbtn cr press" data-k="auto"><b>Auto</b><small>' + esc(L('best free slot', 'nejlepší volný termín')) + '</small></button><button class="pbtn ghost press" data-k="now"><b>' + esc(L('Now', 'Teď')) + '</b><small>' + esc(L('right away', 'hned')) + '</small></button></div><span class="cap kwcap">' + esc(L('Or pick a time', 'Nebo vyber čas')) + '</span>')
+      + '<div class="kwp"><div class="seg frost kwd"><button data-d="0">' + esc(L('Today', 'Dnes')) + '</button><button data-d="1">' + esc(L('Tomorrow', 'Zítra')) + '</button></div><input id="krTime" class="kwt" type="time" step="300" value="' + tm + '" aria-label="' + esc(L('Time', 'Čas')) + '"></div>'
+      + '<button class="pbtn cr press kwgo" id="krWhenGo"></button>',
+      mount: el => {
+        const ds = [...el.querySelectorAll('.kwd button')], t = el.querySelector('#krTime'), go = el.querySelector('#krWhenGo');
+        const val = () => { const d = new Date(); d.setDate(d.getDate() + day); return ymd(d) + 'T' + (t.value || tm); };
+        const upd = () => { ds.forEach(b => b.classList.toggle('on', +b.dataset.d === day)); go.textContent = L('Schedule for ', 'Naplánovat na ') + (day ? L('tomorrow ', 'zítra ') : L('today ', 'dnes ')) + (t.value || tm); };
+        ds.forEach(b => b.onclick = () => { day = +b.dataset.d; upd(); }); t.oninput = upd; upd();
+        go.onclick = () => { const w = val(); if (new Date(w) < Date.now()) { toast(esc(L('That time has passed', 'Ten čas už byl'))); return; } closeSheet(true); cb(w); };
+        el.querySelectorAll('.kwq button').forEach(b => b.onclick = () => { closeSheet(true); cb(b.dataset.k); });
+      } });
+  }
+  /* discard: one tap = reason sent as the note (teaches the picker) */
+  const RJ = () => [L('Boring', 'Nudné'), L('Weak start', 'Slabý začátek'), L('Too long', 'Moc dlouhé'), L('Makes no sense', 'Nedává smysl')];
+  function rejectSheet() {
+    const x = curClip(); if (!x) return; menu(false);
+    openSheet({ title: L('Discard clip', 'Zahodit klip'), body: '<div class="redo-prev">' + thumb(x) + '<span><b>' + esc(x.hook || '') + '</b><small>' + esc(L('Why? One tap sends it', 'Proč? Jeden tap a je to')) + '</small></span></div>'
+      + '<div class="krj">' + RJ().map(r => '<button class="press" data-a="krRj" data-k="' + esc(r) + '">' + esc(r) + '</button>').join('') + '<button class="press krjo" data-a="krRjOther">' + esc(L('Other…', 'Jiné…')) + '</button></div>'
+      + '<div class="krjx" hidden><div class="fld in big"><textarea id="krRjNote" rows="2" style="min-height:64px" placeholder="' + esc(L('What was wrong?', 'Co bylo špatně?')) + '"></textarea></div><button class="pbtn danger press" data-a="krRjSend">' + esc(L('Discard', 'Zahodit')) + '</button></div>' });
+  }
+  ACT.krRj = el => { closeSheet(true); decide('reject', { note: el.dataset.k }); };
+  ACT.krRjOther = () => { const b = $('#sheet .krjx'); if (b) { b.hidden = false; $('#krRjNote').focus(); } };
+  ACT.krRjSend = () => { const n = ($('#krRjNote').value || '').trim(); if (!n) { $('#krRjNote').focus(); return; } closeSheet(true); decide('reject', { note: n }); };
   ACT.krChip = el => { const ta = $('#krNote'); if (!ta) return; ta.value = (ta.value.trim() ? ta.value.trim() + ', ' : '') + el.dataset.k.toLowerCase(); ta.focus(); };
 
 
@@ -428,7 +492,7 @@ window.KR = (function () {
     sec.classList.toggle('kl-k', layer === 'k'); const nd = el.querySelector('.nodue'); if (nd) nd.hidden = layer === 'k';
     /* the day's Keiro things */
     const rel = rels().filter(s => pDay(s.when) === d);
-    const tasks = d !== T() ? [] : clips().filter(g => !g.sent);
+    const tasks = d !== T() ? [] : clips().filter(g => !g.sent && !g.gone);
     const relRow = s => '<div class="trow kplan' + (liveRel(s) ? ' klive' : '') + '" role="button" data-a="krOpen" style="--c:' + c + '"><span class="tm">' + hm(s.when) + '</span><span class="bar"></span><span class="tx"><span>' + esc(s.hook || '') + '</span><small>' + esc(liveRel(s) ? relSub(s) : 'Keiro · ' + relSub(s)) + '</small></span>' + pf(s.platforms) + '</div>';
     const taskRow = g => { const left = g.due ? g.due - Date.now() : null; const urg = left != null && left < 10 * 60000;
       return '<div class="trow kplan ktask' + (urg ? ' urg' : '') + '" role="button" data-a="krOpen" style="--c:' + c + '"><span class="tm">' + esc(g.due ? L('by ', 'do ') + hm(g.due) : L('any', 'kdykoli')) + '</span><span class="bar"></span><span class="tx"><span>' + esc(L('Send link', 'Odeslat odkaz') + (g.campaign ? ' → ' + g.campaign : '')) + '</span><small>' + esc('Keiro · ' + (g.hook || '')) + '</small></span>'
@@ -483,10 +547,10 @@ window.KR = (function () {
   ACT.krReview = () => review(0);
   ACT.krHomeReview = () => { open(); review(0); };
   ACT.krKVClose = () => closeKV();
-  ACT.krApprove = () => decide('approve');
-  ACT.krReject = () => decide('reject');
+  ACT.krApprove = () => decide('approve', { when: 'auto' });
+  ACT.krReject = () => rejectSheet();
   ACT.krRedo = () => redo();
-  ACT.krSchedule = el => act('/api/' + el.dataset.id + '/schedule', {});
+  ACT.krSchedule = el => { const id = el.dataset.id; whenSheet(L('Schedule clip', 'Naplánovat klip'), w => act('/api/' + id + '/schedule', { when: w })); };
   ACT.krSent = el => { const id = +el.dataset.id; const p = (F().posted || []).find(z => z.post_id === id); if (!p) return; act('/api/post/' + id + '/submitted', { v: !p.submitted }); };
   ACT.krSentAll = async el => { const ids = el.dataset.ids.split(',').map(Number); el.classList.add('on'); for (const id of ids) { const ok = await act('/api/post/' + id + '/submitted', { v: true }); if (!ok) break; } };
   ACT.krCopy = el => { const u = el.dataset.u; const done = () => toast(esc(L('Link copied', 'Odkaz zkopírován'))); try { navigator.clipboard.writeText(u).then(done, () => toast(esc(u))); } catch (e) { toast(esc(u)); } };
@@ -506,10 +570,12 @@ window.KR = (function () {
   }
   document.addEventListener('keydown', e => {
     if (SH.open) return;
-    if ($('#kv')) { if (e.key === 'Escape') closeKV(); else if (e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'Enter') decide('approve'); else if (e.key === 'Backspace' || e.key === 'Delete') decide('reject'); else if (e.key === 'ArrowUp') redo(); else if (e.key === ' ') toggleSound(); else if (e.key === 'i') ACT.krPan(); else return; e.preventDefault(); return; }
+    if ($('#kv')) { if (e.key === 'Escape') { const m = $('#kv .kmenu'); if (m && !m.hidden) menu(false); else closeKV(); } else if (e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'Enter') decide('approve', { when: 'auto' }); else if (e.key === 'Backspace' || e.key === 'Delete') rejectSheet(); else if (e.key === 'ArrowUp') redo(); else if (e.key === ' ') toggleSound(); else if (e.key === 'i') ACT.krPan(); else return; e.preventDefault(); return; }
     if (V.keiro && e.key === 'Escape') close();
   });
   setInterval(() => { if (!C.on || document.hidden) return; const n = Date.now(); if (rels().some(r => { const a = +new Date(r.when); return n >= a - 60000 && n < a + WIN + 60000; })) paint(); }, 30000);
+  /* while the Keiro screen or review is open: fresh data every 60 s (also ticks the recording time) */
+  setInterval(() => { if (C.on && !document.hidden && (V.keiro || $('#kv'))) refresh(true); }, 60000);
   if (C.on) { loop(); if (!C.feed || Date.now() - C.at > 30000) refresh(true); }
   return { pushList, note, planHook, spacesHook, settingsPage, statusLine, refresh, _C: () => C };
 })();
