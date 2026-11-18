@@ -8,7 +8,7 @@ window.KR = (function () {
   const L = (en, c) => (cs() ? c : en);
   const DEF = { on: false, home: true, color: '#ff4f7b', url: '', pin: '', every: 2, feed: null, at: 0, err: '', offSince: 0 };
   let C = Object.assign({}, DEF, KCFG());
-  let timer = 0, busy = false, KV = { list: [], idx: 0 };
+  let timer = 0, busy = false, KV = { list: [], idx: 0, open: false, sound: false };
   const KC = () => C.color || '#ff4f7b';
   function tint() { try { document.documentElement.style.setProperty('--kc', KC()); } catch (e) {} }
   tint();
@@ -77,6 +77,7 @@ window.KR = (function () {
       else {
         const j = JSON.parse(await api('/api/feed'));
         C.feed = j; C.at = Date.now(); C.err = ''; C.offSince = 0;
+        if (typeof pushSchedule === 'function') pushSchedule();
       }
     } catch (e) {
       C.err = e.status === 401 || e.status === 403 ? L('Wrong PIN', 'Špatný PIN') : e.name === 'AbortError' ? L('No answer', 'Bez odpovědi') : (e.message && e.status ? e.message : L('Laptop not reachable', 'Notebook není dostupný'));
@@ -182,49 +183,96 @@ window.KR = (function () {
 
   /* ---------- review (full screen, swipe) ---------- */
   function review(i) {
-    KV.list = (F().review || []).map(x => x.id); KV.idx = i || 0; if (!KV.list.length) return;
+    KV.list = (F().review || []).map(x => x.id); KV.idx = i || 0; KV.open = false; if (!KV.list.length) return;
     let v = $('#kv'); if (!v) { v = document.createElement('div'); v.id = 'kv'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-label', L('Review clips', 'Schvalování klipů')); document.body.appendChild(v); }
     document.body.classList.add('viewing', 'kvon'); paintKV();
   }
   function closeKV() { const v = $('#kv'); if (v) v.remove(); document.body.classList.remove('viewing', 'kvon'); paint(); }
   function curClip() { return (F().review || []).find(x => x.id === KV.list[KV.idx]); }
-  function paintKV() {
+  /* Review screen
+     - the clip fills the screen behind the UI: video autoplays muted, poster = thumb (no black frame while loading)
+     - tap the clip = sound on/off · swipe ← → = previous/next clip · swipe ↑ = redo · buttons approve/discard
+     - the caption panel is collapsed to one line of the hook; tap it to read the reason */
+  function paintKV(dir) {
     const v = $('#kv'); if (!v) return; const x = curClip();
     if (!x) { const left = (F().review || []).length; if (left) { KV.list = F().review.map(z => z.id); KV.idx = Math.min(KV.idx, left - 1); return paintKV(); } toast(esc(L('All reviewed', 'Vše schváleno'))); closeKV(); return; }
-    const n = KV.list.length;
-    v.innerHTML = '<div class="stage">' + (x.thumb ? '<img class="fr" src="' + esc(media(x.thumb)) + '" alt="">' : '<div class="fr kph">' + ico('film', 40, 1.4) + '</div>') + '<div class="shade"></div><span class="stamp ok">' + esc(L('Approve', 'Schválit')) + '</span><span class="stamp no">' + esc(L('Discard', 'Zahodit')) + '</span><span class="stamp re">' + esc(L('Redo', 'Předělat')) + '</span>'
-      + (x.video ? '<button class="playb frost press" data-a="krPlay" aria-label="' + esc(L('Play', 'Přehrát')) + '">' + ico('play', 26, 2) + '</button><div class="playhint">' + esc(L('Video loads on tap', 'Video se načte po ťuknutí')) + '</div>' : '') + '</div>'
-      + '<div class="kbars">' + KV.list.map((_, k) => '<i class="' + (k <= KV.idx ? 'on' : '') + '"></i>').join('') + '</div>'
+    const n = KV.list.length, poster = x.thumb ? media(x.thumb) : '';
+    const bg = poster ? '<img class="fbg" src="' + esc(poster) + '" alt="">' : '';
+    const frame = x.video
+      ? '<video class="fr" src="' + esc(media(x.video)) + '"' + (poster ? ' poster="' + esc(poster) + '"' : '') + ' muted autoplay loop playsinline webkit-playsinline preload="auto" disablepictureinpicture></video>'
+      : poster ? '<img class="fr" src="' + esc(poster) + '" alt="">' : '<div class="fr kph">' + ico('film', 40, 1.4) + '</div>';
+    v.innerHTML = '<div class="stage">' + bg + frame + '<div class="shade"></div><span class="stamp re">' + esc(L('Redo', 'Předělat')) + '</span>'
+      + (x.video ? '<span class="ksnd" aria-hidden="true"></span>' : '') + '</div>'
+      + '<div class="kbars">' + KV.list.map((_, k) => '<i class="' + (k === KV.idx ? 'on' : k < KV.idx ? 'pa' : '') + '"></i>').join('') + '</div>'
       + '<div class="top"><button class="cb frost press" data-a="krKVClose" aria-label="' + esc(L('Close', 'Zavřít')) + '">' + ico('x', 18, 2.4) + '</button><span class="who"><b>' + esc((x.streamer || '') + ' · ' + (KV.idx + 1) + L(' of ', ' z ') + n) + '</b><small>' + esc([x.duration ? x.duration + ' s' : '', x.created_at ? L('cut ', 'stříh ') + hm(x.created_at) : ''].filter(Boolean).join(' · ')) + '</small></span>' + (x.score != null ? '<span class="ksc">★ ' + x.score + '</span>' : '') + '</div>'
-      + '<span class="ksw l">← ' + esc(L('discard', 'zahodit')) + '</span><span class="ksw r">' + esc(L('approve', 'schválit')) + ' →</span>'
-      + '<section class="pan frost"><h2>' + esc(x.hook || '') + '</h2>' + (x.reason ? '<p>' + esc(x.reason) + '</p>' : '')
-      + '<div class="camp' + (x.campaign_active ? '' : ' hold') + '"><i></i>' + esc(x.campaign_active ? L('Campaign on → scheduled right after approval', 'Kampaň běží → po schválení se rovnou naplánuje') : L('No campaign → waits in To post', 'Bez kampaně → počká v K postnutí')) + '</div>'
+      + '<section class="pan frost' + (KV.open ? ' open' : '') + '"><button class="phd" data-a="krPan" aria-expanded="' + !!KV.open + '"><span class="hk">' + esc(x.hook || '') + '</span><span class="pch">' + ico('chev', 14, 2.4) + '</span></button>'
+      + '<div class="pmore"><div>' + (x.reason ? '<p>' + esc(x.reason) + '</p>' : '')
+      + '<div class="camp' + (x.campaign_active ? '' : ' hold') + '"><i></i>' + esc(x.campaign_active ? L('Campaign on → scheduled right after approval', 'Kampaň běží → po schválení se rovnou naplánuje') : L('No campaign → waits in To post', 'Bez kampaně → počká v K postnutí')) + '</div></div></div>'
       + '<div class="acts"><button class="rj press" data-a="krReject" aria-label="' + esc(L('Discard', 'Zahodit')) + '">' + ico('x', 22, 2.6) + '</button><button class="rd press" data-a="krRedo" aria-label="' + esc(L('Redo', 'Předělat')) + '">' + ico('repeat', 21, 2.4) + '</button><button class="ap press" data-a="krApprove">' + ico('check', 20, 3) + esc(L('Approve', 'Schválit')) + '</button></div></section>';
-    swipe(v.querySelector('.stage'));
+    const st = v.querySelector('.stage');
+    if (dir && !RM) { st.style.transition = 'none'; st.style.transform = 'translateX(' + (dir > 0 ? 100 : -100) + '%)'; st.getBoundingClientRect(); st.style.transition = 'transform .32s cubic-bezier(.2,.8,.2,1)'; st.style.transform = ''; }
+    startVideo(st); swipe(st);
+    /* warm up the next poster so the next clip never opens black */
+    const nx = (F().review || []).find(z => z.id === KV.list[KV.idx + 1]); if (nx && nx.thumb) { const im = new Image(); im.src = media(nx.thumb); }
+  }
+  function startVideo(st) {
+    const vd = st && st.querySelector('video.fr'); if (!vd) return;
+    vd.muted = !KV.sound; vd.defaultMuted = !KV.sound; sndIcon();
+    vd.onerror = () => { toast(esc(L('Video did not load · showing the frame', 'Video se nenačetlo · ukazuju náhled'))); };
+    vd.play().catch(() => { if (!vd.muted) { vd.muted = true; KV.sound = false; sndIcon(); vd.play().catch(() => {}); } });
+  }
+  function sndIcon(flash) {
+    const s = $('#kv .ksnd'); if (!s) return;
+    s.innerHTML = KV.sound ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>'
+      : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
+    s.classList.toggle('on', !!KV.sound);
+    if (flash) { s.classList.remove('fl'); s.getBoundingClientRect(); s.classList.add('fl'); }
+  }
+  function toggleSound() {
+    const vd = $('#kv video.fr'); if (!vd) return;
+    KV.sound = !KV.sound; vd.muted = !KV.sound; if (vd.paused) vd.play().catch(() => {}); sndIcon(true); haptic();
+  }
+  function step(d) {
+    const to = KV.idx + d; if (to < 0 || to >= KV.list.length) return false;
+    KV.idx = to; KV.open = false; paintKV(d); return true;
   }
   function decide(kind) {
     const x = curClip(); if (!x) return;
     const st = $('#kv .stage');
-    const go = async () => { const ok = await act('/api/' + x.id + '/' + kind, kind === 'reject' ? { note: '' } : {}, () => { KV.list = (F().review || []).map(z => z.id); paintKV(); }); if (!ok) paintKV(); };
-    if (st && !RM) { st.style.transition = 'transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s'; st.style.transform = 'translateX(' + (kind === 'approve' ? 120 : -120) + '%) rotate(' + (kind === 'approve' ? 8 : -8) + 'deg)'; st.style.opacity = '0'; setTimeout(go, 240); } else go();
+    const go = async () => { const ok = await act('/api/' + x.id + '/' + kind, kind === 'reject' ? { note: '' } : {}, () => { KV.list = (F().review || []).map(z => z.id); KV.idx = Math.min(KV.idx, Math.max(0, KV.list.length - 1)); KV.open = false; paintKV(1); }); if (!ok) paintKV(); };
+    if (st && !RM) { st.style.transition = 'transform .26s cubic-bezier(.2,.8,.2,1),opacity .26s'; st.style.transform = kind === 'approve' ? 'translateY(-6%) scale(.92)' : 'translateY(8%) scale(.92)'; st.style.opacity = '0'; setTimeout(go, 220); } else go();
   }
   function swipe(st) {
-    if (!st) return; let x0 = 0, y0 = 0, dx = 0, dy = 0, on = false, axis = '';
-    st.addEventListener('pointerdown', e => { if (e.target.closest('button,video')) return; on = true; axis = ''; x0 = e.clientX; y0 = e.clientY; dx = dy = 0; st.setPointerCapture(e.pointerId); st.style.transition = 'none'; });
+    if (!st) return; let x0 = 0, y0 = 0, t0 = 0, dx = 0, dy = 0, on = false, axis = '';
+    const W = () => st.clientWidth || innerWidth;
+    st.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; on = true; axis = ''; x0 = e.clientX; y0 = e.clientY; t0 = performance.now(); dx = dy = 0; st.setPointerCapture(e.pointerId); st.style.transition = 'none'; });
     st.addEventListener('pointermove', e => {
       if (!on) return; dx = e.clientX - x0; dy = e.clientY - y0;
       if (!axis && Math.hypot(dx, dy) > 10) axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-      if (axis === 'x') { st.style.transform = 'translateX(' + dx + 'px) rotate(' + dx / 40 + 'deg)'; st.dataset.s = dx > 60 ? 'ok' : dx < -60 ? 'no' : ''; }
-      else if (axis === 'y' && dy < 0) { st.style.transform = 'translateY(' + dy * 0.6 + 'px)'; st.dataset.s = dy < -70 ? 're' : ''; }
+      if (axis === 'x') {
+        const edge = (dx > 0 && KV.idx === 0) || (dx < 0 && KV.idx >= KV.list.length - 1);
+        const t = edge ? dx * W() * 0.18 / (W() * 0.18 + Math.abs(dx)) : dx;   /* rubber band at the ends */
+        st.style.transform = 'translateX(' + t + 'px)';
+      } else if (axis === 'y' && dy < 0) { st.style.transform = 'translateY(' + dy * 0.6 + 'px)'; st.dataset.s = dy < -70 ? 're' : ''; }
     });
     const end = () => {
       if (!on) return; on = false; const s = st.dataset.s; st.dataset.s = '';
-      if (s === 'ok') return decide('approve'); if (s === 'no') return decide('reject');
+      if (!axis) { st.style.transform = ''; return toggleSound(); }          /* plain tap on the clip */
+      if (axis === 'x') {
+        const v = dx / Math.max(1, performance.now() - t0);                    /* px per ms */
+        const d = dx < -W() * 0.22 || v < -0.45 ? 1 : dx > W() * 0.22 || v > 0.45 ? -1 : 0;
+        if (d && KV.idx + d >= 0 && KV.idx + d < KV.list.length) {
+          if (RM) return step(d);
+          st.style.transition = 'transform .22s cubic-bezier(.2,.8,.2,1)'; st.style.transform = 'translateX(' + (d > 0 ? -100 : 100) + '%)';
+          setTimeout(() => step(d), 200); return;
+        }
+      }
       st.style.transition = 'transform .35s cubic-bezier(.2,.8,.2,1)'; st.style.transform = '';
       if (s === 're') redo();
     };
-    st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end);
+    st.addEventListener('pointerup', end); st.addEventListener('pointercancel', () => { on = false; st.dataset.s = ''; st.style.transition = 'transform .35s cubic-bezier(.2,.8,.2,1)'; st.style.transform = ''; });
   }
+  ACT.krPan = () => { KV.open = !KV.open; const p = $('#kv .pan'); if (!p) return; p.classList.toggle('open', KV.open); p.querySelector('.phd').setAttribute('aria-expanded', KV.open); };
   function redo() {
     const x = curClip(); if (!x) return;
     const chips = [L('Start earlier', 'Začni dřív'), L('Shorter', 'Kratší'), L('Other hook', 'Jiný hook'), L('Gameplay only', 'Jen gameplay'), L('No facecam', 'Bez facecamu')];
@@ -235,14 +283,45 @@ window.KR = (function () {
       onSave: async () => { const note = ($('#krNote').value || '').trim(); closeSheet(true); await act('/api/' + x.id + '/redo', { note }, () => { KV.list = (F().review || []).map(z => z.id); paintKV(); }); } });
   }
   ACT.krChip = el => { const ta = $('#krNote'); if (!ta) return; ta.value = (ta.value.trim() ? ta.value.trim() + ', ' : '') + el.dataset.k.toLowerCase(); ta.focus(); };
-  ACT.krPlay = () => {
-    const x = curClip(); const st = $('#kv .stage'); if (!x || !st || !x.video) return;
-    const vd = document.createElement('video'); vd.className = 'fr'; vd.src = media(x.video); vd.playsInline = true; vd.controls = false; vd.autoplay = true; vd.loop = true; vd.setAttribute('playsinline', '');
-    vd.addEventListener('click', () => (vd.paused ? vd.play() : vd.pause()));
-    vd.onerror = () => toast(esc(L('Video did not load', 'Video se nenačetlo')));
-    const old = st.querySelector('.fr'); old.replaceWith(vd); st.querySelectorAll('.playb,.playhint').forEach(e => e.remove()); vd.play().catch(() => {});
-  };
 
+
+  /* ---------- notifications ----------
+     Release times come from feed.scheduled[].when. Aurora hands them to its own push server (the same
+     /sync it uses for reminders), so the phone gets "Out now" at the exact time even when the app is closed.
+     "New clips to review" can only come from the automat itself: it posts to <server>/test with this phone's key. */
+  function pushList() {
+    if (!C.on || C.nRel === false || !live()) return [];
+    const now = Date.now(), lim = now + 14 * 864e5, cs = lang() === 'cs';
+    const out = [];
+    for (const x of (F().scheduled || [])) {
+      const at = Date.parse(x.when); if (!at || at < now - 60000 || at > lim) continue;
+      const PN = { instagram: 'IG', youtube: 'YT', tiktok: 'TT' }; const pl = (x.platforms || []).map(z => PN[z] || String(z).slice(0, 2).toUpperCase()).join(' ');
+      out.push({ k: 'kr:' + x.clip_id + '@' + x.when, at: Math.max(at, now + 5000), title: (cs ? 'Vyšel: ' : 'Out now: ') + (x.hook || 'Keiro'),
+        body: [pl, cs ? 'pošli odkaz do kampaně' : 'send the link to the campaign'].filter(Boolean).join(' · '), url: './?keiro=posted' });
+    }
+    return out.sort((a, b) => a.at - b.at).slice(0, 100);
+  }
+  function pushKey() { const p = S.push || {}; return JSON.stringify({ url: (p.url || '').replace(/\/+$/, '') + '/test', id: p.id, secret: p.secret }); }
+  ACT.krNRel = () => { C.nRel = C.nRel === false; persist(); if (typeof pushSync === 'function') pushSync(true); settingsPage($('#s-settings')); };
+  ACT.krPushOn = async () => { if (await pushEnable()) settingsPage($('#s-settings')); };
+  ACT.krPushTest = () => pushTest();
+  ACT.krKey = async () => { const k = pushKey(); try { await navigator.clipboard.writeText(k); toast(esc(L('Key copied · paste it into the automat', 'Klíč zkopírován · vlož ho do automatu'))); } catch (e) { toast(esc(L('Copy failed', 'Kopírování se nepovedlo'))); } };
+  function notifSec() {
+    const p = S.push || {}; const perm = 'Notification' in window ? Notification.permission : 'default'; const on = p.on && perm === 'granted'; const sup = typeof pushSupport === 'function' ? pushSupport() : 'no';
+    const head = '<div class="sec"><span class="cap">' + esc(L('Notifications', 'Upozornění')) + '</span><section class="grp frost solid">';
+    if (!on) {
+      const why = sup === 'install' ? L('Add Aurora Lab to the Home Screen first, iPhone allows notifications only there.', 'Nejdřív přidej Aurora Lab na plochu, iPhone notifikace pustí jen tam.')
+        : perm === 'denied' ? L('Blocked. Allow them in iPhone Settings → Notifications → Aurora Lab.', 'Zakázané. Povol je v Nastavení iPhonu → Notifikace → Aurora Lab.')
+        : L('Out now at the release time, and new clips to review.', 'Vyšel klip v čase vydání a nové klipy ke schválení.');
+      return head + '<div class="srow"><span class="tx">' + esc(L('Off', 'Vypnuto')) + '<small>' + esc(why) + '</small></span></div>'
+        + (sup === 'ok' && perm !== 'denied' ? '<button class="srow" data-a="krPushOn"><span class="tx" style="color:var(--kc,#ff4f7b)">' + esc(L('Turn on notifications', 'Zapnout notifikace')) + '</span><span class="r">' + ico('bell', 15, 2) + '</span></button>' : '') + '</section></div>';
+    }
+    const n = pushList().length;
+    return head + '<button class="srow" data-a="krNRel"><span class="tx">' + esc(L('Clip is out', 'Vyšel klip')) + '<small>' + esc(C.nRel === false ? L('Off', 'Vypnuto') : (n ? L(n + ' release time' + (n === 1 ? '' : 's') + ' planned', 'Naplánováno vydání: ' + n) : L('At the release time · nothing planned yet', 'V čase vydání · zatím nic naplánováno'))) + '</small></span><span class="tg' + (C.nRel === false ? '' : ' on') + '"></span></button>'
+      + '<button class="srow" data-a="krKey"><span class="tx">' + esc(L('New clips to review', 'Nové klipy ke schválení')) + '<small>' + esc(L('Sent by the automat · copy the key and give it to it', 'Posílá automat · zkopíruj klíč a dej mu ho')) + '</small></span><span class="r">' + ico('copy', 15, 2) + '</span></button>'
+      + '<button class="srow" data-a="krPushTest"><span class="tx">' + esc(L('Send a test notification', 'Poslat zkušební notifikaci')) + '</span><span class="r">' + ico('bell', 15, 2) + '</span></button></section>'
+      + '<div class="muted" style="font:400 12.5px/1.4 Inter;margin:8px 6px 0">' + esc(L('Only the hook and time of planned releases go to the Aurora server. In the Lab, only Keiro notifies, so beta reminders never come twice.', 'Na server Aurory jde jen hook a čas naplánovaných vydání. V Labu chodí jen notifikace z Keira, připomínky z bety tak nepřijdou dvakrát.')) + '</div></div>';
+  }
   /* ---------- hooks ---------- */
   /* Home: one line in the notification bar (only when clips are waiting) */
   function note() {
@@ -312,7 +391,7 @@ window.KR = (function () {
         + '<div class="srow">' + conn + '<button class="chip in press" style="margin-left:auto" data-a="krTest">' + esc(L('Test', 'Test')) + '</button></div></section>'
         + '<p class="muted" style="margin:8px 6px 0;font:400 12px/1.45 Inter">' + esc(L('Tailscale must be on, on this phone and on the laptop. Without an address Keiro shows the demo data from the brief.', 'Tailscale musí běžet v telefonu i v notebooku. Bez adresy Keiro ukazuje ukázková data z briefu.')) + '</p></div>'
         + '<div class="sec"><span class="cap">' + esc(L('Refresh', 'Obnovování')) + '</span><div class="seg frost kseg">' + [1, 2, 5, 10].map(m => '<button class="' + (C.every === m ? 'on' : '') + '" data-a="krEvery" data-k="' + m + '">' + m + ' min</button>').join('') + '</div><p class="muted" style="margin:8px 6px 0;font:400 12px/1.45 Inter">' + esc(L('And every time you open Aurora.', 'A pokaždé, když otevřeš Auroru.')) + '</p></div>'
-        + '<div class="sec"><span class="cap">' + esc(L('Notifications', 'Upozornění')) + '</span><section class="grp frost solid"><div class="srow"><span class="tx">' + esc(L('Not yet', 'Zatím ne')) + '<small>' + esc(L('For now the number on Home and in Spaces. Push needs the automat to send through the Aurora server.', 'Zatím číslo na Domově a ve Spaces. Push potřebuje, aby automat posílal přes Aurora server.')) + '</small></span></div></section></div>'
+        + notifSec()
         + '<div class="sec"><section class="grp frost solid"><button class="srow red" data-a="krRemove">' + esc(L('Remove Keiro and its data', 'Odebrat Keiro a jeho data')) + '</button></section></div>' : '')
       + '<div style="height:60px"></div>';
     const u = $('#krUrl'), p = $('#krPin');
@@ -353,9 +432,9 @@ window.KR = (function () {
   }
   document.addEventListener('keydown', e => {
     if (SH.open) return;
-    if ($('#kv')) { if (e.key === 'Escape') closeKV(); else if (e.key === 'ArrowRight') decide('approve'); else if (e.key === 'ArrowLeft') decide('reject'); else if (e.key === 'ArrowUp') redo(); else return; e.preventDefault(); return; }
+    if ($('#kv')) { if (e.key === 'Escape') closeKV(); else if (e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'Enter') decide('approve'); else if (e.key === 'Backspace' || e.key === 'Delete') decide('reject'); else if (e.key === 'ArrowUp') redo(); else if (e.key === ' ') toggleSound(); else if (e.key === 'i') ACT.krPan(); else return; e.preventDefault(); return; }
     if (V.keiro && e.key === 'Escape') close();
   });
   if (C.on) { loop(); if (!C.feed || Date.now() - C.at > 30000) refresh(true); }
-  return { note, planHook, spacesHook, settingsPage, statusLine, refresh, _C: () => C };
+  return { pushList, note, planHook, spacesHook, settingsPage, statusLine, refresh, _C: () => C };
 })();
