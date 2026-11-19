@@ -245,3 +245,66 @@ body.kvon #toast{top:calc(var(--st) + 122px);bottom:auto}
 #kv .acts{grid-template-columns:62px 62px 1fr;gap:6px}
 #kv .acts>button{flex-direction:column;gap:5px;padding:0;font:600 11px/1 Inter;border-radius:20px}
 #kv .acts .apg .apm{width:44px}
+/* v2008: release ⋯ menu */
+.kdots{flex:none;width:34px;height:34px;margin-left:4px;border-radius:17px;display:flex;align-items:center;justify-content:center;gap:3px;background:none;color:var(--ink2)}
+.kdots i{width:4px;height:4px;border-radius:50%;background:currentColor}
+.kdots:hover,.kdots:active{background:color-mix(in srgb,var(--ink) 9%,transparent)}
+.kwq.one{grid-template-columns:1fr}
+/* ---- v2009: blocks, Home widget, desktop page, FX ---- */
+.kblk{margin-top:10px;overflow:hidden}
+.kbh{display:flex;align-items:center;gap:10px;width:100%;min-height:62px;padding:10px 14px 10px 16px;text-align:left;background:none;color:var(--ink)}
+.kbh .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.kbh .tx b{font:700 15.5px/1.15 Inter}
+.kbh .tx small{font:500 12.5px/1.2 Inter;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbn{font:700 20px/1 'Space Grotesk',Inter,sans-serif;color:var(--ink);min-width:22px;text-align:right}
+.kblk .kchev{display:flex;opacity:.55;transition:transform .25s cubic-bezier(.2,.8,.2,1)} .kblk .kchev.on{transform:rotate(90deg)}
+.kblk.urg{box-shadow:inset 3px 0 0 #ff5c5c} .kblk.urg .kbh .tx small{color:#ff8a8a;font-weight:600} .kblk.urg .kbn{color:#ff8a8a}
+.kbb{border-top:1px solid color-mix(in srgb,var(--ink) 9%,transparent);animation:kbIn .32s cubic-bezier(.2,.8,.2,1)}
+.kbb .khold{padding:12px}
+.kbf{display:flex;justify-content:flex-end;padding:10px 12px 4px} .kbf .kcamp{margin:0}
+@keyframes kbIn{from{opacity:0;transform:translateY(-6px)}}
+.kwb{display:flex;flex-direction:column;align-items:stretch;gap:0;text-align:left;background:none;color:inherit;padding:0;width:100%;flex:1;min-height:0}
+/* desktop page */
+.kdp>*{grid-column:1/-1}
+.kd4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}
+.kd2{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:24px}
+.kd2.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+@media (max-width:1180px){.kd4{grid-template-columns:repeat(2,minmax(0,1fr))}.kd2,.kd2.even{grid-template-columns:1fr}}
+.kkpi{padding:18px 22px}
+.kkn{font:700 42px/1 'Space Grotesk',Inter,sans-serif;letter-spacing:-.03em;margin:12px 0 8px;font-variant-numeric:tabular-nums}
+.ksubl{font:500 13px/1.3 Inter}
+.kleg{display:flex;gap:14px;font:600 12px/1 Inter} .kleg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.kch{display:block;width:100%;height:215px;margin-top:6px}
+.kcl{font:600 12px Inter;fill:rgba(243,234,216,.6)} .kct{font:700 12px Inter;fill:#f3ead8}
+.kwait{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:205px;margin-top:8px;border:1px dashed rgba(243,234,216,.22);border-radius:18px;text-align:center;padding:18px}
+.kwait.sm{min-height:120px} .kwait b{font:600 15px/1.2 Inter} .kwait span{font:500 12.5px/1.4 Inter;color:var(--ink3)}
+.krb{display:grid;grid-template-columns:130px 1fr 30px;gap:10px;align-items:center;font:500 13.5px/1 Inter;margin-top:14px}
+.krb>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .krb b{text-align:right}
+.khl{height:10px;border-radius:5px;background:rgba(243,234,216,.1);overflow:hidden} .khl i{display:block;height:100%;border-radius:5px}
+.knote{font:500 12.5px/1.4 Inter;margin:16px 0 0}
+.ktb{width:100%;border-collapse:collapse;font:500 13.5px/1 Inter;font-variant-numeric:tabular-nums}
+.ktb th{padding:6px 0;font:600 11px/1 Inter;letter-spacing:.1em;text-transform:uppercase;text-align:left;color:var(--ink3)}
+.ktb td{padding:11px 0;border-top:1px solid rgba(243,234,216,.09);vertical-align:middle}
+.ktb td:first-child b{display:block;font:600 14px/1.2 Inter} .ktb td small{display:block;font:500 12px/1 Inter;margin-top:5px}
+.kqs{display:flex;flex-direction:column}
+.kq{display:flex;align-items:center;gap:12px;padding:12px 4px;border-top:1px solid rgba(243,234,216,.09);text-align:left;background:none;color:var(--ink);border-radius:10px}
+.kq:hover{background:rgba(243,234,216,.05)}
+.kq>b{font:700 22px/1 'Space Grotesk',Inter,sans-serif;width:36px} .kq>span{flex:1;font:600 14px/1.2 Inter} .kq small{display:block;font:500 12px/1 Inter;margin-top:5px;color:var(--ink3)} .kq svg{opacity:.5}
+.kq.urg>b,.kq.urg small{color:#ff8a8a}
+.kdst{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:17px;font:600 13px/1 Inter;background:rgba(243,234,216,.1);white-space:nowrap}
+.kdst i{width:8px;height:8px;border-radius:50%;background:#3fbf7f;box-shadow:0 0 0 4px rgba(63,191,127,.22)}
+.kdst.rec i{background:#ff4f7b;box-shadow:0 0 0 4px rgba(255,79,123,.25)} .kdst.off{color:#ff8a8a} .kdst.off i{background:#ff5c5c;box-shadow:none}
+.kd3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 2px;font:500 11.5px/1.2 Inter;color:var(--ink2)}
+.kd3 b{display:block;font:700 20px/1 'Space Grotesk',Inter,sans-serif;color:var(--ink);margin-bottom:5px}
+.kdl{padding-bottom:10px} .kdl .kxr{padding-left:0;padding-right:0} .kdl .kday{padding-left:0} .kdl .kcamp{margin:0}
+.dadd[disabled]{opacity:.45;pointer-events:none}
+/* FX */
+@keyframes fxIn{from{opacity:0;translate:0 16px}}
+.fx-in{animation:fxIn .55s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--fxi,0)*45ms)}
+@keyframes kGrowY{from{transform:scaleY(0)}} @keyframes kFade{from{opacity:0}}
+.kcb{transform-box:fill-box;transform-origin:50% 100%}
+.fx-go .kcb{animation:kGrowY .8s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*45ms + .15s)}
+.fx-go .kct{animation:kFade .4s ease both;animation-delay:calc(var(--i,0)*45ms + .7s)}
+.kdp.enter .kd4>*,.kdp.enter .kd2>*{animation:dIn .55s var(--out,cubic-bezier(.2,.8,.2,1)) both}
+.kdp.enter .kd4>*:nth-child(2),.kdp.enter .kd2>*:nth-child(2){animation-delay:.06s}.kdp.enter .kd4>*:nth-child(3){animation-delay:.12s}.kdp.enter .kd4>*:nth-child(4){animation-delay:.18s}
+@media (prefers-reduced-motion:reduce){.fx-in,.fx-go .kcb,.fx-go .kct,.kbb,.kdp.enter .kd4>*,.kdp.enter .kd2>*{animation:none}}

@@ -38,7 +38,7 @@
   window.keiroLoad = function () {
     if (window.KR) return Promise.resolve(window.KR);
     if (kLoading) return kLoading;
-    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2007'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
+    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2009'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
     return kLoading;
   };
   if (KCFG().on) keiroLoad().then(() => { if (S) render(); }).catch(() => {});
@@ -46,8 +46,58 @@
   /* ---------- hooks into the existing screens ---------- */
   const _home = renderHome;
   renderHome = function () { _home(); labBadge(); };
-  /* Home: Keiro speaks through the notification bar between the arc and the widgets */
-  HOME_NOTES.push(() => (window.KR ? KR.note() : null));
+  /* Home: Keiro is one widget in the stack. While something is urgent it goes first, otherwise it sits after the first card. */
+  let kUrg = '';
+  function withWidget(r) {
+    const w = window.KR && KR.widget ? KR.widget() : null; if (!w) { kUrg = ''; return r; }
+    const at = w.urgent ? 0 : Math.min(1, r.order.length);
+    r.order.splice(at, 0, 'keiro'); r.html.splice(at, 0, w.html);
+    const key = w.urgent ? w.kind : ''; if (key && key !== kUrg && typeof H19 !== 'undefined') H19.idx = 0;   /* newly urgent → show it */
+    kUrg = key; return r;
+  }
+
+  /* ---------- FX: things arrive instead of just appearing ----------
+     On entering a screen (tab, card, Keiro, a desktop page): sections rise in one after another, numbers count up,
+     rings draw themselves, bars grow. Only on entering, never on a plain re-render. Off with "reduce motion". */
+  window.FX = (function () {
+    const EASE = 'cubic-bezier(.2,.8,.2,1)';
+    const WRAP = '.stack,.sec,.dcards,.kd4,.kd2,.deck,.stat3,.khold';
+    const NUMS = '.num,.dring>span,.ringw>span,.kkn,.kbn,.kq>b,.kd3 b,.ktb td,.krb>b';
+    function count(el) {
+      const tn = [...el.childNodes].find(n => n.nodeType === 3 && /\d/.test(n.nodeValue)); if (!tn) return;
+      const m = tn.nodeValue.match(/^(\D{0,2})(\d+(?:[.,]\d+)?)([\s\S]*)$/); if (!m) return;
+      const end = parseFloat(m[2].replace(',', '.')); if (!(end > 0)) return;
+      const dec = (m[2].split(/[.,]/)[1] || '').length, comma = m[2].includes(','), full = tn.nodeValue;
+      const t0 = performance.now(), dur = 520 + Math.min(480, end * 8);
+      const step = t => { if (!tn.isConnected) return; const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3); let v = (end * e).toFixed(dec); if (comma) v = v.replace('.', ','); tn.nodeValue = p < 1 ? m[1] + v + m[3] : full; if (p < 1) requestAnimationFrame(step); };
+      tn.nodeValue = m[1] + (0).toFixed(dec).replace('.', comma ? ',' : '.') + m[3]; requestAnimationFrame(step);
+    }
+    function enter(root, o) {
+      if (!root || RM) return; o = o || {};
+      if (!o.noStagger) {
+        const out = []; [...root.children].forEach(c => { if (c.matches(WRAP)) out.push(...c.children); else out.push(c); });
+        const vh = innerHeight; out.filter(k => { const r = k.getBoundingClientRect(); return r.height && r.top < vh && !k.matches('.hdr,.dtop,#nav,script,style'); }).slice(0, 16).forEach((k, i) => {
+          k.style.setProperty('--fxi', i); k.classList.remove('fx-in'); void k.offsetWidth; k.classList.add('fx-in');
+          setTimeout(() => k.classList.remove('fx-in'), 1500);
+        });
+      }
+      root.querySelectorAll(NUMS).forEach(count);
+      root.querySelectorAll('path.rarc').forEach(p => { try { const len = p.getTotalLength(); p.animate([{ strokeDasharray: len, strokeDashoffset: len }, { strokeDasharray: len, strokeDashoffset: 0 }], { duration: 900, easing: EASE }); } catch (e) {} });
+      root.querySelectorAll('.pt2 .pb,.khl>i,.mprog>i').forEach((b, i) => { try { b.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 700, delay: Math.min(i, 8) * 50, easing: EASE, fill: 'backwards' }); b.style.transformOrigin = '0 50%'; } catch (e) {} });
+      root.querySelectorAll('.dwk i.on,.hc i[style]').forEach((b, i) => { try { b.animate([{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 380, delay: Math.min(i, 40) * 12, easing: EASE, fill: 'backwards' }); } catch (e) {} });
+      root.classList.remove('fx-go'); void root.offsetWidth; root.classList.add('fx-go'); clearTimeout(root._fx); root._fx = setTimeout(() => root.classList.remove('fx-go'), 1800);
+    }
+    return { enter, count };
+  })();
+  /* everything is loaded by now: put the widget into the stack and hook the "entering a screen" moments */
+  document.addEventListener('DOMContentLoaded', () => {
+    const isDesk = () => typeof DESK !== 'undefined' && DESK.on;
+    if (typeof stackCards === 'function') { const _sc = stackCards; stackCards = function (M) { return withWidget(_sc(M)); }; }
+    if (typeof deskRender === 'function') { const _dr = deskRender; deskRender = function (a) { _dr(a); const d = $('#desk'); if (window.KR && KR.deskHook && isDesk()) KR.deskHook(d); if (a === true && isDesk()) FX.enter(d.querySelector('main.dmain'), { noStagger: true }); }; }
+    const _g = go; go = function (tab) { const was = V.tab, card = V.card, kd = V.kd; V.kd = false; _g(tab); if (!isDesk() && (was !== tab || card)) FX.enter($('#s-' + tab)); };
+    const _oc = openCard; openCard = function (id) { _oc(id); if (isDesk()) FX.enter($('#desk main.dmain'), { noStagger: true }); else FX.enter($('#s-card')); };
+    setTimeout(() => { if (S && S.onboarded) { if (isDesk()) FX.enter($('#desk main.dmain'), { noStagger: true }); else FX.enter($('#s-' + V.tab)); } }, 900);
+  });
   const _spaces = renderSpaces;
   renderSpaces = function () { _spaces(); if (window.KR) KR.spacesHook($('#s-spaces')); };
   function labBadge() { const h = $('#s-home .hdr .logo'); if (h && !h.nextElementSibling?.classList.contains('labtag')) h.insertAdjacentHTML('afterend', '<span class="labtag">LAB</span>'); }

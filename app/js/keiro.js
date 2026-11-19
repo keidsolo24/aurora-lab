@@ -56,6 +56,9 @@ window.KR = (function () {
     }
     if (act === 'reject' && r) { f.review = f.review.filter(z => z !== r); return L('Discarded', 'Zahozeno'); }
     if (act === 'redo' && r) { f.review = f.review.filter(z => z !== r); return L('Will be cut again on the next run', 'Předělá se při dalším běhu'); }
+    const sc = (f.scheduled || []).find(z => z.clip_id === id);
+    if (act === 'unschedule' && sc) { f.scheduled = f.scheduled.filter(z => z !== sc); f.hold.unshift({ id, streamer: '', hook: sc.hook }); return L('Taken off the plan · the clip is in To post', 'Staženo z plánu – klip je v K postnutí'); }
+    if (act === 'reschedule' && sc) { sc.when = body.when === 'now' ? new Date().toISOString() : new Date(body.when).toISOString(); return L('Rescheduled · out ', 'Přeplánováno – vyjde ') + whenText(sc.when); }
     if (act === 'schedule' && h) { const w = slot(); f.hold = f.hold.filter(z => z !== h); f.scheduled.push({ clip_id: id, hook: h.hook, when: w, platforms: ['instagram', 'youtube', 'tiktok'] }); return L('Scheduled for ', 'Naplánováno na ') + whenText(w); }
     return 'ok';
   }
@@ -78,6 +81,7 @@ window.KR = (function () {
         const j = JSON.parse(await api('/api/feed'));
         C.feed = j; C.at = Date.now(); C.err = ''; C.offSince = 0;
         if (typeof pushSchedule === 'function') pushSchedule();
+        if (V.kd) loadStats();
       }
     } catch (e) {
       C.ek = e.status === 401 || e.status === 403 ? 'pin' : 'net';
@@ -97,13 +101,15 @@ window.KR = (function () {
       if (after) after();
       if (live()) refresh(true); else paint();
       return true;
-    } catch (e) { toast(esc((e.status === 400 ? L('Error: ', 'Chyba: ') : '') + (srvText(e.message) || L('Did not go through', 'Neprošlo')))); haptic(); return false; }
+    } catch (e) { toast(esc(e.status === 409 ? L('Already being published · can\'t change it now', 'Post se už zveřejňuje · teď to nejde změnit') : (e.status === 400 ? L('Error: ', 'Chyba: ') : '') + (srvText(e.message) || L('Did not go through', 'Neprošlo')))); haptic(); if (live()) refresh(true); return false; }
   }
   /* live mode: reflect the change right away, the next /api/feed brings the real state */
   function optim(path, body) {
     const f = C.feed; if (!f) return; const m = path.match(/^\/api\/(\d+)\/(\w+)$/), p = path.match(/^\/api\/post\/(\d+)\/submitted$/);
     if (p) { const x = (f.posted || []).find(z => z.post_id === +p[1]); if (x) x.submitted = !!body.v; return; }
     if (!m) return; const id = +m[1];
+    if (m[2] === 'unschedule') { f.scheduled = (f.scheduled || []).filter(z => z.clip_id !== id); persist(); return; }
+    if (m[2] === 'reschedule') { const z = (f.scheduled || []).find(q => q.clip_id === id); if (z && body.when && body.when !== 'now') z.when = new Date(body.when).toISOString(); persist(); return; }
     if (m[2] === 'schedule') f.hold = (f.hold || []).filter(z => z.id !== id); else f.review = (f.review || []).filter(z => z.id !== id);
     persist();
   }
@@ -118,13 +124,15 @@ window.KR = (function () {
   const F = () => C.feed || { review: [], hold: [], scheduled: [], posted: [], stats_today: {}, automat: {} };
   /* release window: a clip is out at `when`; the link must go to the campaign within 30 min */
   const WIN = 30 * 60000;
-  const dueT = s => new Date(+new Date(s.when) + WIN);
-  const liveRel = s => { const a = +new Date(s.when), n = Date.now(); return n >= a && n < a + WIN; };
+  const dueT = s => new Date(s.due || +new Date(s.when) + WIN);
+  const liveRel = s => { const n = Date.now(); if (s.out) return s.due > n; const a = +new Date(s.when); return n >= a && n < a + WIN; };
   /* scheduled releases, kept until their 30 min window is over (clips already in posted[] are handled as send-link tasks) */
   function rels() {
     const f = F(), n = Date.now(), seen = new Set(), out = [];
-    const out2 = new Set((f.posted || []).map(p => p.clip_id));
-    (f.scheduled || []).forEach(s => { if (+new Date(s.when) + WIN <= n || out2.has(s.clip_id)) return; seen.add(s.clip_id); out.push(s); });
+    const gm = new Map(); clips().forEach(g => { if (g.clip_id != null) gm.set(g.clip_id, g); });
+    const outRow = (g, s) => Object.assign({}, s || {}, { clip_id: g.clip_id, hook: (s && s.hook) || g.hook, when: (s && s.when) || new Date(g.when || g.due - WIN).toISOString(), platforms: (s && s.platforms) || g.posts.map(p => p.platform), due: g.due, out: true });
+    gm.forEach(g => { if (!g.sent && g.due > n) { seen.add(g.clip_id); out.push(outRow(g, (f.scheduled || []).find(s => s.clip_id === g.clip_id))); } });
+    (f.scheduled || []).forEach(s => { if (seen.has(s.clip_id) || gm.has(s.clip_id) || +new Date(s.when) + WIN <= n) return; seen.add(s.clip_id); out.push(s); });
     return out.sort((a, b) => new Date(a.when) - new Date(b.when));
   }
   function relSub(s, ny) {
@@ -180,13 +188,16 @@ window.KR = (function () {
     el.addEventListener('touchmove', e => { if (!on) return; dy = Math.max(0, e.touches[0].clientY - y0); const p = Math.min(1, dy / 80); ind.style.opacity = p; ind.style.transform = 'translate(-50%,' + Math.min(70, dy * .5) + 'px) rotate(' + dy * 3 + 'deg)'; ind.classList.toggle('go', dy > 80); }, { passive: true });
     el.addEventListener('touchend', async () => { if (!on) return; on = false; if (dy > 80) { ind.classList.add('spin'); haptic(); await refresh(false); } ind.classList.remove('spin', 'go'); ind.style.opacity = 0; ind.style.transform = ''; });
   }
+  const desk = () => typeof DESK !== 'undefined' && DESK.on;
   function open() {
+    if (desk()) { V.kd = true; V.card = null; V.tab = 'spaces'; deskRender(true); loadStats(); if (Date.now() - C.at > 20000) refresh(true); return; }
     const el = $('#s-card'); V.keiro = true; ptr(el);
     el.classList.remove('out'); el.classList.add('on'); el.scrollTop = 0;
     $('#nav').classList.add('away'); document.body.classList.add('navless');
-    paint(); if (Date.now() - C.at > 20000) refresh(true);
+    paint(); if (window.FX) FX.enter(el); if (Date.now() - C.at > 20000) refresh(true);
   }
   function close() {
+    if (desk()) { V.kd = false; deskRender(true); return; }
     V.keiro = false; const el = $('#s-card');
     $('#nav').classList.remove('away'); document.body.classList.remove('navless');
     if (RM) { el.classList.remove('on', 'out'); el.innerHTML = ''; } else { el.classList.add('out'); setTimeout(() => { if (!V.keiro && !V.card) { el.classList.remove('on', 'out'); el.innerHTML = ''; } }, 330); }
@@ -197,23 +208,74 @@ window.KR = (function () {
     const f = F(), st = f.stats_today || {}, rv = f.review || [], y = el.scrollTop;
     const oldest = rv.length ? rv.map(x => x.created_at).filter(Boolean).sort()[0] : null;
     const camp = rv.filter(x => x.campaign_active).length;
-    const groups = {}; rels().forEach(s => { const k = dayLabel(s.when); (groups[k] = groups[k] || []).push(s); });
     const unsent = (f.posted || []).filter(p => !p.submitted).length;
     el.innerHTML = '<div class="hdr"><button class="cb frost press" data-a="krClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span style="display:flex;gap:8px"><button class="cb frost press" data-a="krRefresh" aria-label="' + esc(L('Refresh', 'Obnovit')) + '">' + ico('sync', 18, 2.2) + '</button><button class="cb frost press" data-a="krSettings" aria-label="' + esc(L('Keiro settings', 'Nastavení Keira')) + '">' + ico('gear', 19, 2) + '</button></span></div>'
-      + '<span class="kick cap" style="color:var(--ink)"><span class="led" style="--c:' + KC() + '"></span>DLC · ' + esc(L('Clips', 'Klipy')) + '</span><h1 class="cname">Keiro</h1>' + statCard()
+      + '<span class="kick cap" style="color:var(--ink)"><span class="led" style="--c:' + KC() + '"></span>' + esc(L('Project · tool', 'Projekt · nástroj')) + '</span><h1 class="cname">Keiro</h1>' + statCard()
       + '<div class="stack" style="margin-top:18px"><section class="hero frost" style="--c:' + KC() + '"><span class="cap">' + esc(L('To review', 'Ke schválení') + (oldest ? ' · ' + L('oldest ', 'nejstarší ') + ago(oldest) : '')) + '</span><div class="num" style="font-size:60px;margin-top:14px">' + rv.length + '<small style="font-size:16px">' + esc(L(rv.length === 1 ? 'clip' : 'clips', rv.length === 1 ? 'klip' : rv.length > 1 && rv.length < 5 ? 'klipy' : 'klipů')) + '</small></div>'
       + (rv.length ? '<div class="kfan">' + rv.slice(0, 5).map(x => thumb(x)).join('') + (camp ? '<span class="kmore">' + esc(L(camp + ' with a campaign', camp + ' s kampaní')) + '<br>' + esc(L('go out right away', 'jdou rovnou ven')) + '</span>' : '') + '</div>'
         + '<button class="pbtn cr press kgo" data-a="krReview">' + ico('play', 16, 2.4) + esc(L('Review', 'Schvalovat')) + '</button>' : '<p class="muted" style="margin:10px 0 2px;font:400 14px/1.4 Inter">' + esc(L('Nothing waiting. New clips show up here.', 'Nic nečeká. Nové klipy se objeví tady.')) + '</p>') + '</section>'
       + '<div class="stat3"><div class="frost"><span class="cap">' + esc(L('Cut today', 'Dnes nastříháno')) + '</span><span class="num">' + (st.rendered ?? 0) + '</span></div><div class="frost"><span class="cap">' + esc(L('Approved', 'Schváleno')) + '</span><span class="num">' + (st.approved ?? 0) + '</span></div><div class="frost"><span class="cap">' + esc(L('Posted', 'Postnuto')) + '</span><span class="num">' + (st.posted ?? 0) + '</span></div></div></div>'
-      + '<div class="sec"><span class="cap">' + esc(L('Release times · Czech time', 'Termíny vydání · český čas')) + '</span><section class="frost solid kbox">'
-      + (Object.keys(groups).length ? Object.entries(groups).map(([d, ss]) => '<div class="kday">' + esc(d) + '</div>' + ss.map(s => '<div class="kxr' + (liveRel(s) ? ' klive' : '') + '"><span class="ktm">' + hm(s.when) + '</span><span class="tx"><b>' + esc(s.hook || '') + '</b><small>' + esc(relSub(s, hm(s.when, 'ny') + ' NY')) + '</small></span>' + pf(s.platforms) + '</div>').join('')).join('') : '<div class="kxr"><span class="tx"><small>' + esc(L('Nothing scheduled', 'Nic naplánovaného')) + '</small></span></div>')
-      + '</section></div>'
-      + ((f.hold || []).length ? '<div class="sec"><span class="cap">' + esc(L('To post · no campaign yet', 'K postnutí · zatím bez kampaně')) + '</span><div class="khold">' + f.hold.map(h => '<div class="kxt frost solid">' + thumb(h) + '<b>' + esc(h.hook || '') + '</b><small>' + esc(h.streamer || '') + '</small><button class="pbtn cr press" data-a="krSchedule" data-id="' + h.id + '">' + esc(L('Schedule', 'Naplánovat')) + '</button></div>').join('') + '</div></div>' : '')
-      + postedSec()
+      + blocks()
       + '<div class="kfoot">' + esc(live() ? L('From your laptop · updated ', 'Z notebooku · aktualizováno ') + (C.at ? clock(C.at) : '–') + L(' · every ', ' · každé ') + C.every + ' min' : L('Demo data from the brief · add the address in Keiro settings', 'Ukázková data z briefu · adresu doplníš v nastavení Keira')) + '</div>';
     el.scrollTop = y;
   }
 
+
+  /* ---------- the page as blocks: one row each, only the one with a running deadline opens by itself ---------- */
+  const klip = n => L(n === 1 ? 'clip' : 'clips', n === 1 ? 'klip' : n > 1 && n < 5 ? 'klipy' : 'klipů');
+  const kfmt = n => { n = +n || 0; if (n < 1000) return String(Math.round(n)); const v = n / 1000; return (v >= 100 ? Math.round(v) : (Math.round(v * 10) / 10)).toString().replace('.', cs() ? ',' : '.') + 'k'; };
+  function blk(k, title, sub, n, open, urg, body) {
+    return '<section class="frost solid kbox kblk' + (open ? ' open' : '') + (urg ? ' urg' : '') + '" data-k="' + k + '"><button class="kbh" data-a="krBlk" data-k="' + k + '" aria-expanded="' + !!open + '"><span class="tx"><b>' + esc(title) + '</b><small>' + esc(sub) + '</small></span><span class="kbn">' + n + '</span><span class="kchev' + (open ? ' on' : '') + '">' + ico('chev', 14, 2.4) + '</span></button>' + (open ? '<div class="kbb">' + body + '</div>' : '') + '</section>';
+  }
+  function capRows(k, rows) {
+    const all = KV.all && KV.all[k], cap = 5;
+    return (all ? rows : rows.slice(0, cap)).join('') + (rows.length > cap ? '<button class="kall press" data-a="krBlkAll" data-k="' + k + '">' + esc(all ? L('Show less', 'Méně') : '+' + (rows.length - cap) + L(' more', ' dalších')) + '</button>' : '');
+  }
+  const relRowHTML = s => '<div class="kxr' + (liveRel(s) ? ' klive' : '') + '"><span class="ktm">' + hm(s.when) + '</span><span class="tx"><b>' + esc(s.hook || '') + '</b><small>' + esc(relSub(s, hm(s.when, 'ny') + ' NY')) + '</small></span>' + pf(s.platforms) + (!s.out && +new Date(s.when) > Date.now() ? '<button class="kdots press" data-a="krRelMenu" data-id="' + s.clip_id + '" aria-label="' + esc(L('Release options', 'Možnosti vydání')) + '"><i></i><i></i><i></i></button>' : '') + '</div>';
+  function relRows() { let last = ''; return rels().filter(s => !s.out).map(s => { const d = dayLabel(s.when); const h = d !== last ? '<div class="kday">' + esc(d) + '</div>' : ''; last = d; return h + relRowHTML(s); }); }
+  const campLink = () => '<a class="kcamp press" href="' + CAMP + '" target="_blank" rel="noopener">' + esc(L('Open campaign', 'Otevřít kampaň')) + ico('arrow', 13, 2.4) + '</a>';
+  function parts() {
+    const all = clips(), n = Date.now();
+    const todo = all.filter(g => g.rank === 0), done = all.filter(g => g.rank !== 0);
+    const first = todo[0], left = first && first.due ? first.due - n : null;
+    return { todo, done, first, left, hot: left != null && left < WIN, urg: left != null && left < 10 * 60000, rl: rels().filter(s => !s.out), hold: F().hold || [] };
+  }
+  function blocks() {
+    const p = parts(), st = KV.blk || (KV.blk = {}); const isOpen = (k, auto) => st[k] != null ? st[k] : auto;
+    const mins = p.left != null ? Math.max(1, Math.ceil(p.left / 60000)) : 0;
+    const sendSub = !p.todo.length ? L('nothing to send', 'nic k odeslání') : p.first.due ? (p.urg ? L('urgent · ', 'hoří · ') : '') + L('by ', 'do ') + hm(p.first.due) + (p.left < 3600000 ? ' · ' + L(mins + ' min left', 'zbývá ' + mins + ' min') : '') : L('links waiting', 'odkazy čekají');
+    const sent = p.done.filter(g => g.sent), gone = p.done.filter(g => g.gone), views = sent.reduce((a, g) => a + (g.views || 0), 0);
+    const doneSub = [sent.length ? L('sent ', 'odesláno ') + sent.length : '', gone.length ? L('expired ', 'propadlo ') + gone.length : '', views ? kfmt(views) + ' ' + L('views', 'zhlédnutí') : ''].filter(Boolean).join(' · ') || L('nothing yet', 'zatím nic');
+    return '<div class="sec"><span class="cap">' + esc(L('Today', 'Dnes')) + '</span>'
+      + blk('send', L('Send to campaign', 'Odeslat do kampaně'), sendSub, p.todo.length, isOpen('send', p.todo.length > 0), p.urg, capRows('send', p.todo.map(clipRow)) + '<div class="kbf">' + campLink() + '</div>')
+      + blk('rel', L('Releases', 'Vydání'), p.rl.length ? L('next ', 'další ') + hm(p.rl[0].when) + (p.rl.length > 1 ? ' · ' + L('last ', 'poslední ') + hm(p.rl[p.rl.length - 1].when) : '') : L('nothing scheduled', 'nic naplánovaného'), p.rl.length, isOpen('rel', false), false, capRows('rel', relRows()))
+      + (p.hold.length ? blk('hold', L('To post', 'K postnutí'), L('no campaign yet', 'zatím bez kampaně'), p.hold.length, isOpen('hold', false), false, '<div class="khold">' + p.hold.map(h => '<div class="kxt frost solid">' + thumb(h) + '<b>' + esc(h.hook || '') + '</b><small>' + esc(h.streamer || '') + '</small><button class="pbtn cr press" data-a="krSchedule" data-id="' + h.id + '">' + esc(L('Schedule', 'Naplánovat')) + '</button></div>').join('') + '</div>') : '')
+      + blk('done', L('Done', 'Hotovo'), doneSub, p.done.length, isOpen('done', false), false, p.done.length ? capRows('done', p.done.map(clipRow)) : '<div class="kxr"><span class="tx"><small>' + esc(L('No posts yet', 'Zatím žádné posty')) + '</small></span></div>')
+      + '</div>';
+  }
+  ACT.krBlk = el => { const k = el.dataset.k, sec = el.closest('.kblk'); (KV.blk || (KV.blk = {}))[k] = !sec.classList.contains('open'); haptic(); paint(); };
+  ACT.krBlkAll = el => { const k = el.dataset.k; KV.all = KV.all || {}; KV.all[k] = !KV.all[k]; paint(); };
+  /* what needs you right now, most urgent first (Home widget, Spaces card, desktop page share it) */
+  function nowState() {
+    const f = F(), n = Date.now(), rv = f.review || [], p = parts();
+    const oldest = rv.map(x => x.created_at).filter(Boolean).sort()[0]; const stale = oldest && n - new Date(oldest) > 3600000;
+    const rec = ((f.automat || {}).recording || [])[0], run = (f.automat || {}).status === 'running';
+    const status = offline() ? L('Laptop offline', 'Notebook offline') : rec ? L('Recording ', 'Nahrává ') + rec.streamer : run ? L('Running', 'Běží') : L('Idle', 'Stojí');
+    const bits = [rv.length ? rv.length + ' ' + L('to review', 'ke schválení') : '', p.rl[0] ? L('next release ', 'další vydání ') + hm(p.rl[0].when) : '', p.todo.length ? p.todo.length + ' ' + L('to send', 'k odeslání') : ''].filter(Boolean).join(' · ');
+    const mins = p.left != null ? Math.max(1, Math.ceil(p.left / 60000)) : 0;
+    let o;
+    if (offline()) o = { kind: 'off', urgent: true, red: true, cap: L('Keiro · offline', 'Keiro · offline'), side: C.at ? L('last data ', 'poslední data ') + clock(C.at) : '', big: C.ek === 'pin' ? L('Wrong PIN.', 'Špatný PIN.') : L('Laptop offline.', 'Notebook offline.'), p: C.ek === 'pin' ? L('Fix the PIN in Keiro settings.', 'Oprav PIN v nastavení Keira.') : L('Turn on Tailscale on the laptop and the phone.', 'Zapni Tailscale v notebooku i v telefonu.'), btn: C.ek === 'pin' ? L('Settings', 'Nastavení') : L('Try again', 'Zkusit znovu'), act: C.ek === 'pin' ? 'krSettings' : 'krRefresh', t: L('Laptop offline', 'Notebook offline'), s: L('turn on Tailscale', 'zapni Tailscale') };
+    else if (p.hot) o = { kind: 'send', urgent: true, red: true, cap: L('Keiro · urgent', 'Keiro · hoří'), side: L(mins + ' min left', 'zbývá ' + mins + ' min'), big: L('Send the link to the campaign.', 'Odešli odkaz do kampaně.'), p: (p.first.hook || '') + ' · ' + L('by ', 'do ') + hm(p.first.due) + (p.todo.length > 1 ? ' · +' + (p.todo.length - 1) : ''), btn: L('Send to campaign', 'Odeslat do kampaně'), act: 'krOpen', t: L('Send link to campaign', 'Odeslat odkaz do kampaně'), s: L(mins + ' min left', 'zbývá ' + mins + ' min') + ' · ' + p.todo.length + ' ' + klip(p.todo.length) };
+    else if (stale) o = { kind: 'stale', urgent: true, cap: L('Keiro · waiting', 'Keiro · čeká'), side: L('oldest ', 'nejstarší ') + ago(oldest), big: rv.length + ' ' + klip(rv.length) + L(' waiting.', rv.length > 1 && rv.length < 5 ? ' čekají.' : ' čeká.'), p: bits, btn: L('Review', 'Schvalovat'), act: 'krHomeReview', t: L('To review', 'Ke schválení'), s: rv.length + ' ' + klip(rv.length) + ' · ' + L('oldest ', 'nejstarší ') + ago(oldest) };
+    else if (rv.length) o = { kind: 'review', cap: 'Keiro', side: status, big: rv.length + ' ' + klip(rv.length) + L(' waiting.', rv.length > 1 && rv.length < 5 ? ' čekají.' : ' čeká.'), p: bits, btn: L('Review', 'Schvalovat'), act: 'krHomeReview', t: L('To review', 'Ke schválení'), s: rv.length + ' ' + klip(rv.length) };
+    else o = { kind: 'calm', cap: 'Keiro', side: status, big: L('All reviewed.', 'Vše schváleno.'), p: bits || L('Nothing scheduled', 'Nic naplánovaného'), btn: L('Open Keiro', 'Otevřít Keiro'), act: 'krOpen', t: p.rl[0] ? L('Next release', 'Další vydání') : L('All clear', 'Vše hotovo'), s: p.rl[0] ? hm(p.rl[0].when) + ' · ' + (p.rl[0].hook || '') : status };
+    o.status = status; o.n = rv.length; return o;
+  }
+  /* Home: one widget in the stack; it goes first while something is urgent */
+  function widget() {
+    if (!C.on || !C.home || !C.feed) return null; const o = nowState();
+    return { urgent: !!o.urgent, kind: o.kind, html: '<div class="lh"><span class="cap"' + (o.red ? ' style="color:#ff8a8a"' : '') + '><span class="led" style="--c:' + KC() + ';margin-right:7px"></span>' + esc(o.cap) + '</span><span class="muted">' + esc(o.side || '') + '</span></div><button class="kwb" data-a="krOpen"><span class="hbig">' + esc(o.big) + '</span><span class="hp">' + esc(o.p || '') + '</span></button><button class="hbtn press" data-a="' + o.act + '">' + esc(o.btn) + '</button>' };
+  }
 
   /* ---------- Posted: one row per clip, platform chips, one "sent" switch ---------- */
   const DAY = 864e5;
@@ -322,7 +384,7 @@ window.KR = (function () {
   function decide(kind, body) {
     const x = curClip(); if (!x) return; menu(false);
     const st = $('#kv .stage');
-    const go = async () => { const ok = await act('/api/' + x.id + '/' + kind, body || (kind === 'approve' ? { when: 'auto' } : {}), () => { KV.list = (F().review || []).map(z => z.id); KV.idx = Math.min(KV.idx, Math.max(0, KV.list.length - 1)); KV.open = false; paintKV(1); }); if (!ok) paintKV(); };
+    const go = async () => { if (kind === 'reject' && body && body.note) { C.rj = C.rj || {}; C.rj[body.note] = (C.rj[body.note] || 0) + 1; } const ok = await act('/api/' + x.id + '/' + kind, body || (kind === 'approve' ? { when: 'auto' } : {}), () => { KV.list = (F().review || []).map(z => z.id); KV.idx = Math.min(KV.idx, Math.max(0, KV.list.length - 1)); KV.open = false; paintKV(1); }); if (!ok) paintKV(); };
     if (st && !RM) { st.style.transition = 'transform .26s cubic-bezier(.2,.8,.2,1),opacity .26s'; st.style.transform = kind === 'approve' ? 'translateY(-6%) scale(.92)' : 'translateY(8%) scale(.92)'; st.style.opacity = '0'; setTimeout(go, 220); } else go();
   }
   function swipe(st) {
@@ -377,7 +439,7 @@ window.KR = (function () {
     let day = ymd(nx) === ymd(new Date()) ? 0 : 1;
     const tm = pad(nx.getHours()) + ':' + pad(nx.getMinutes());
     openSheet({ title, body:
-      (pickOnly ? '' : '<div class="kwq"><button class="pbtn cr press" data-k="auto"><b>Auto</b><small>' + esc(L('best free slot', 'nejlepší volný termín')) + '</small></button><button class="pbtn ghost press" data-k="now"><b>' + esc(L('Now', 'Teď')) + '</b><small>' + esc(L('right away', 'hned')) + '</small></button></div><span class="cap kwcap">' + esc(L('Or pick a time', 'Nebo vyber čas')) + '</span>')
+      (pickOnly === 'now' ? '<div class="kwq one"><button class="pbtn ghost press" data-k="now"><b>' + esc(L('Now', 'Teď')) + '</b><small>' + esc(L('goes out right away', 'jde ven hned')) + '</small></button></div><span class="cap kwcap">' + esc(L('Or pick a time', 'Nebo vyber čas')) + '</span>' : pickOnly ? '' : '<div class="kwq"><button class="pbtn cr press" data-k="auto"><b>Auto</b><small>' + esc(L('best free slot', 'nejlepší volný termín')) + '</small></button><button class="pbtn ghost press" data-k="now"><b>' + esc(L('Now', 'Teď')) + '</b><small>' + esc(L('right away', 'hned')) + '</small></button></div><span class="cap kwcap">' + esc(L('Or pick a time', 'Nebo vyber čas')) + '</span>')
       + '<div class="kwp"><div class="seg frost kwd"><button data-d="0">' + esc(L('Today', 'Dnes')) + '</button><button data-d="1">' + esc(L('Tomorrow', 'Zítra')) + '</button></div><input id="krTime" class="kwt" type="time" step="300" value="' + tm + '" aria-label="' + esc(L('Time', 'Čas')) + '"></div>'
       + '<button class="pbtn cr press kwgo" id="krWhenGo"></button>',
       mount: el => {
@@ -389,6 +451,14 @@ window.KR = (function () {
         el.querySelectorAll('.kwq button').forEach(b => b.onclick = () => { closeSheet(true); cb(b.dataset.k); });
       } });
   }
+  /* release ⋯ : change time | cancel */
+  ACT.krRelMenu = el => {
+    const id = el.dataset.id; const s = (F().scheduled || []).find(z => String(z.clip_id) === id); if (!s) return; haptic();
+    openSheet({ title: s.hook || 'Keiro', body: '<div class="kwq"><button class="pbtn ghost press" data-k="re"><b>' + esc(L('Change time', 'Změnit čas')) + '</b><small>' + esc(L('set for ', 'je na ') + hm(s.when)) + '</small></button><button class="pbtn danger press" data-k="un"><b>' + esc(L('Cancel', 'Zrušit')) + '</b><small>' + esc(L('back to To post', 'zpět do K postnutí')) + '</small></button></div>',
+      mount: sh => sh.querySelectorAll('.kwq button').forEach(b => b.onclick = () => { closeSheet(true);
+        if (b.dataset.k === 're') setTimeout(() => whenSheet(L('New time', 'Nový čas'), w => act('/api/' + id + '/reschedule', { when: w }), 'now'), 320);
+        else setTimeout(() => confirmSheet(L('Cancel this release? The clip goes back to To post.', 'Zrušit vydání? Klip se vrátí do K postnutí.'), L('Cancel release', 'Zrušit vydání'), () => act('/api/' + id + '/unschedule', {})), 320); }) });
+  };
   /* discard: one tap = reason sent as the note (teaches the picker) */
   const RJ = () => [L('Boring', 'Nudné'), L('Weak start', 'Slabý začátek'), L('Too long', 'Moc dlouhé'), L('Makes no sense', 'Nedává smysl')];
   function rejectSheet() {
@@ -451,7 +521,7 @@ window.KR = (function () {
   function spacesHook(el) {
     if (!C.on || (V.deckFilter && V.deckFilter !== 'all')) return;
     const f = F(), rv = f.review || [], st = f.stats_today || {}, rec = ((f.automat || {}).recording || [])[0];
-    const next = (f.scheduled || []).slice().sort((a, b) => new Date(a.when) - new Date(b.when))[0];
+    const next = (f.scheduled || []).filter(z => +new Date(z.when) > Date.now()).sort((a, b) => new Date(a.when) - new Date(b.when))[0];
     const unsent = (f.posted || []).filter(p => !p.submitted).length;
     const oldest = rv.map(x => x.created_at).filter(Boolean).sort()[0];
     const status = offline() ? L('Automat offline', 'Automat offline') : rec ? L('Recording ', 'Nahrává ') + '<b>' + esc(rec.streamer) + '</b>' : L('Running', 'Běží');
@@ -459,7 +529,7 @@ window.KR = (function () {
     const dk = el.querySelector('#deck');
     if (dk) {
       const tot = (st.approved || 0) + rv.length;
-      const card = '<section class="spc frost kspc" data-a="krOpen" role="button"><div class="h"><span class="kick cap" style="color:var(--ink)"><span class="led" style="--c:' + KC() + '"></span>DLC · ' + esc(L('Clips', 'Klipy')) + '</span><span class="muted" style="font:400 12.5px/1 Inter">DLC</span></div>'
+      const card = '<section class="spc frost kspc" data-a="krOpen" role="button"><div class="h"><span class="kick cap" style="color:var(--ink)"><span class="led" style="--c:' + KC() + '"></span>' + esc(L('Project · tool', 'Projekt · nástroj')) + '</span><span class="muted" style="display:flex">' + ico('film', 15, 2) + '</span></div>'
         + '<div class="ringw">' + ringSVG(66, tot ? (st.approved || 0) / tot : 0, KC()) + '<span>' + rv.length + '</span></div><div class="nm">Keiro</div><div class="sub">' + (offline() ? esc(status) : status) + '</div>'
         + (rv.length ? '<div class="nextp in" role="button" data-a="krHomeReview"><span class="ic"><i style="--c:' + KC() + '"></i></span><span class="tx"><span class="cap" style="color:' + KC() + ';filter:brightness(1.3)">' + esc(L('To review', 'Ke schválení')) + '</span><span>' + esc(L(rv.length + (rv.length === 1 ? ' clip' : ' clips'), rv.length + (rv.length === 1 ? ' klip' : rv.length < 5 ? ' klipy' : ' klipů'))) + '</span></span><span class="muted" style="font:400 13px/1 Inter;flex:none">' + esc(oldest ? ago(oldest) : '') + '</span></div>'
           : '<div class="nextp in"><span class="tx"><span style="white-space:normal;font:400 14px/1.35 Inter;color:var(--ink2)">' + esc(L('Nothing to review', 'Nic ke schválení')) + '</span></span></div>')
@@ -491,7 +561,7 @@ window.KR = (function () {
     sec.parentNode.insertBefore(seg, sec);
     sec.classList.toggle('kl-k', layer === 'k'); const nd = el.querySelector('.nodue'); if (nd) nd.hidden = layer === 'k';
     /* the day's Keiro things */
-    const rel = rels().filter(s => pDay(s.when) === d);
+    const rel = rels().filter(s => !s.out && pDay(s.when) === d);
     const tasks = d !== T() ? [] : clips().filter(g => !g.sent && !g.gone);
     const relRow = s => '<div class="trow kplan' + (liveRel(s) ? ' klive' : '') + '" role="button" data-a="krOpen" style="--c:' + c + '"><span class="tm">' + hm(s.when) + '</span><span class="bar"></span><span class="tx"><span>' + esc(s.hook || '') + '</span><small>' + esc(liveRel(s) ? relSub(s) : 'Keiro · ' + relSub(s)) + '</small></span>' + pf(s.platforms) + '</div>';
     const taskRow = g => { const left = g.due ? g.due - Date.now() : null; const urg = left != null && left < 10 * 60000;
@@ -540,6 +610,118 @@ window.KR = (function () {
   }
 
   /* ---------- actions ---------- */
+  /* ---------- stats for the desktop page: GET /api/stats?days=N (optional; the page falls back to the feed) ---------- */
+  let ST = { key: '', data: null, miss: false, at: 0, busy: false };
+  const PC = { instagram: '#ff4f7b', youtube: '#f0c46b', tiktok: '#9fd6e8' };
+  function mockStats(d) {
+    const days = []; for (let i = d - 1; i >= 0; i--) { const t = new Date(Date.now() - i * DAY), k = d - i; days.push({ date: t.toISOString().slice(0, 10), instagram: 9000 + ((k * 7919) % 9000) + k * 900, youtube: 4000 + ((k * 3571) % 5000) + k * 400, tiktok: 7000 + ((k * 6007) % 14000) + k * 1100 }); }
+    const tot = days.reduce((a, x) => a + x.instagram + x.youtube + x.tiktok, 0);
+    return { days: d, demo: true, views_by_day: days, views_total: tot, views_prev_total: Math.round(tot / 1.32), approved: 6 * d - 1, reviewed: 9 * d - 3, sent_on_time: 5 * d, expired: Math.max(1, Math.round(d / 2.5)), avg_score_approved: 7.9, avg_score_rejected: 5.4,
+      reject_reasons: [{ note: L('Boring', 'Nudné'), count: 9 }, { note: L('Weak start', 'Slabý začátek'), count: 6 }, { note: L('Too long', 'Moc dlouhé'), count: 3 }, { note: L('Makes no sense', 'Nedává smysl'), count: 1 }],
+      top_clips: [{ hook: 'HE FOUND THIS IN GTA 6', streamer: 'xQc', format: 'klasik', score: 9, views: { instagram: 21000, youtube: 8000, tiktok: 34000 } }, { hook: 'CHAT WENT CRAZY', streamer: 'Marlon', format: 'meme', score: 8, views: { instagram: 14000, youtube: 6000, tiktok: 19000 } }, { hook: 'COPS EVERYWHERE', streamer: 'xQc', format: 'klasik', score: 8, views: { instagram: 11000, youtube: 5000, tiktok: 12000 } }] };
+  }
+  async function loadStats(force) {
+    const d = C.range || 7;
+    if (!live()) { if (ST.key !== 'demo' + d) { ST = { key: 'demo' + d, data: mockStats(d), miss: false, at: Date.now(), busy: false }; if (V.kd && desk()) { deskRender(); fxPage(); } } return; }
+    if (ST.busy || (!force && ST.key === 'l' + d && Date.now() - ST.at < 120000)) return;
+    ST.busy = true; let data = null, miss = false;
+    try { data = JSON.parse(await api('/api/stats?days=' + d)); } catch (e) { miss = true; }
+    const fresh = ST.key !== 'l' + d || !!ST.data !== !!data;
+    ST = { key: 'l' + d, data, miss, at: Date.now(), busy: false };
+    if (V.kd && desk()) { deskRender(); if (fresh) fxPage(); }
+  }
+  function fxPage() { if (window.FX) FX.enter($('#desk main.dmain')); }
+  ACT.krRange = el => { C.range = +el.dataset.k; persist(); ST.key = ''; deskRender(); loadStats(true); };
+  ACT.krGoto = el => { const t = $('#desk [data-kb="' + el.dataset.k + '"]'); if (t) t.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'center' }); };
+
+  /* Spaces on the computer: Keiro is a card like any other */
+  function deskCardHTML() {
+    const f = F(), st = f.stats_today || {}, o = nowState(), tot = (st.approved || 0) + o.n;
+    const n3 = (v, l) => '<span><b>' + (v ?? 0) + '</b>' + esc(l) + '</span>';
+    return '<button class="pn frost dcard press kdc" data-a="krOpen" style="--c:' + KC() + '"><div class="ph2"><span class="cap kk"><span class="led" style="--c:' + KC() + '"></span>' + esc(L('Project · tool', 'Projekt · nástroj')) + '</span><span class="muted">' + ico('film', 16, 2) + '</span></div>'
+      + '<div class="dch"><b>Keiro</b><span class="dring">' + ringSVG(64, tot ? (st.approved || 0) / tot : 0, KC(), 4) + '<span>' + o.n + '</span></span></div><div class="muted dsub">' + esc(o.status) + '</div>'
+      + '<span class="cap" style="margin-top:16px">' + esc(L('Today', 'Dnes')) + '</span><div class="kd3">' + n3(st.rendered, L('cut', 'nastříháno')) + n3(st.approved, L('approved', 'schváleno')) + n3(st.posted, L('posted', 'postnuto')) + '</div>'
+      + '<div class="dnext"><span class="cap" style="color:' + (o.red ? '#ff8a8a' : KC()) + ';filter:brightness(1.2)">' + esc(L('Now', 'Teď')) + '</span><span>' + esc(o.t) + '</span><small class="muted">' + esc(o.s) + '</small></div></button>';
+  }
+  function chart(days) {
+    const n = days.length, W = 760, H = 170, step = (W - 40) / n, bw = Math.min(40, step * .62);
+    const mx = Math.max(1, ...days.map(d => (d.instagram || 0) + (d.youtube || 0) + (d.tiktok || 0)));
+    const every = n > 14 ? 5 : n > 7 ? 2 : 1;
+    return '<svg class="kch" viewBox="0 0 ' + W + ' 215" role="img" aria-label="' + esc(L('Views by day', 'Zhlédnutí po dnech')) + '">' + days.map((d, i) => {
+      const x = 20 + i * step + (step - bw) / 2; let y = H + 12; const tot = (d.instagram || 0) + (d.youtube || 0) + (d.tiktok || 0);
+      const seg = k => { const v = d[k] || 0; if (!v) return ''; const h = v / mx * (H - 14); y -= h; return '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(1, h - 2).toFixed(1) + '" rx="' + Math.min(5, bw / 4) + '" fill="' + PC[k] + '"' + (i === n - 1 ? '' : ' opacity=".72"') + '/>'; };
+      const bars = seg('instagram') + seg('youtube') + seg('tiktok'); const dt = new Date(d.date + 'T12:00:00');
+      const lab = n <= 7 ? dt.toLocaleDateString(cs() ? 'cs-CZ' : 'en-GB', { weekday: 'short' }) : dt.getDate() + '.';
+      return '<g class="kcb" style="--i:' + i + '">' + bars + '</g>' + (i % every === 0 || i === n - 1 ? '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H + 34) + '" text-anchor="middle" class="kcl">' + esc(lab) + '</text>' : '') + (n <= 10 && tot ? '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 8).toFixed(1) + '" text-anchor="middle" class="kct" style="--i:' + i + '">' + kfmt(tot) + '</text>' : '');
+    }).join('') + '</svg>';
+  }
+  /* the tool's own page on the computer: numbers and why; actions stay one click away */
+  function deskPage() {
+    const f = F(), o = nowState(), p = parts(), D = ST.data, d = C.range || 7, st = f.stats_today || {};
+    const wait = L('waiting for data from the automat', 'čeká na data z automatu');
+    const kpi = (cap, num, sub, c) => '<section class="pn frost solid kkpi"><span class="cap">' + esc(cap) + '</span><div class="kkn">' + num + '</div><span class="muted ksubl"' + (c ? ' style="color:' + c + '"' : '') + '>' + esc(sub) + '</span></section>';
+    const pct = (a, b) => b > 0 ? Math.round(a / b * 100) + ' %' : '–';
+    const dec = v => v == null ? '–' : (Math.round(v * 10) / 10).toString().replace('.', cs() ? ',' : '.');
+    const rng = d === 1 ? L('today', 'dnes') : d + L(' days', ' dní');
+    /* numbers */
+    const all = clips(), sentN = all.filter(g => g.sent).length, goneN = all.filter(g => g.gone).length, feedViews = (f.posted || []).reduce((a, x) => a + (+x.views || 0), 0);
+    let k1, k2, k3, k4;
+    if (D) {
+      const dl = D.views_prev_total ? Math.round((D.views_total - D.views_prev_total) / D.views_prev_total * 100) : null;
+      k1 = kpi(L('Views · ', 'Zhlédnutí · ') + rng, kfmt(D.views_total), dl == null ? L('all networks', 'všechny sítě') : (dl >= 0 ? '+' : '') + dl + ' % ' + L('vs the period before', 'proti minulému období'), dl == null ? '' : dl >= 0 ? '#8be0b0' : '#ff8a8a');
+      k2 = kpi(L('Approved', 'Schváleno'), pct(D.approved, D.reviewed), (D.approved ?? 0) + L(' of ', ' z ') + (D.reviewed ?? 0) + ' ' + L('clips', 'klipů'));
+      k3 = kpi(L('Sent on time', 'Odesláno včas'), pct(D.sent_on_time, (D.sent_on_time || 0) + (D.expired || 0)), D.expired ? D.expired + ' ' + L('expired', D.expired > 1 && D.expired < 5 ? 'klipy propadly' : D.expired === 1 ? 'klip propadl' : 'klipů propadlo') : L('nothing expired', 'nic nepropadlo'), D.expired ? '#ff8a8a' : '');
+      k4 = kpi(L('Average score', 'Průměrné skóre'), dec(D.avg_score_approved), L('approved', 'schválené') + (D.avg_score_rejected != null ? ' · ' + L('discarded ', 'zahozené ') + dec(D.avg_score_rejected) : ''));
+    } else {
+      k1 = kpi(L('Views', 'Zhlédnutí'), feedViews ? kfmt(feedViews) : '–', L('posted clips in the feed', 'postnuté klipy ve feedu'));
+      k2 = kpi(L('Approved today', 'Schváleno dnes'), String(st.approved ?? 0), o.n + ' ' + L('waiting for you', 'čeká na tebe'));
+      k3 = kpi(L('Sent on time', 'Odesláno včas'), pct(sentN, sentN + goneN), goneN ? goneN + ' ' + L('expired', 'propadlo') : sentN ? L('nothing expired', 'nic nepropadlo') : L('nothing sent yet', 'zatím nic neodesláno'), goneN ? '#ff8a8a' : '');
+      k4 = kpi(L('Average score', 'Průměrné skóre'), '–', wait);
+    }
+    /* chart */
+    const leg = '<span class="muted kleg">' + ['instagram', 'youtube', 'tiktok'].map(k => '<span><i style="background:' + PC[k] + '"></i>' + PF[k] + '</span>').join('') + '</span>';
+    const vb = D && (D.views_by_day || []).length ? chart(D.views_by_day) : '<div class="kwait"><b>' + esc(ST.busy ? L('Loading…', 'Načítám…') : wait) + '</b><span>' + esc(L('The chart needs views by day: GET /api/stats?days=' + d, 'Graf potřebuje zhlédnutí po dnech: GET /api/stats?days=' + d)) + '</span></div>';
+    /* why you discard */
+    const rr = D && D.reject_reasons ? D.reject_reasons.map(x => [x.note, x.count]) : Object.entries(C.rj || {}); rr.sort((a, b) => b[1] - a[1]); const rmx = Math.max(1, ...rr.map(x => x[1])), rsum = rr.reduce((a, x) => a + x[1], 0);
+    const why = rr.length ? rr.slice(0, 6).map((x, i) => '<div class="krb" style="--i:' + i + '"><span>' + esc(x[0]) + '</span><span class="khl"><i style="width:' + (x[1] / rmx * 100).toFixed(0) + '%;background:' + KC() + '"></i></span><b>' + x[1] + '</b></div>').join('') + '<p class="muted knote">' + esc(D && D.reject_reasons ? L('The automat learns from these reasons.', 'Automat se z těch důvodů učí.') : L('Counted on this device from your Discard taps.', 'Počítáno v tomhle zařízení z tvých Zahodit.')) + '</p>'
+      : '<div class="kwait sm"><b>' + esc(L('Nothing discarded yet', 'Zatím nic nezahozeno')) + '</b><span>' + esc(L('Reasons from Discard add up here.', 'Důvody ze Zahodit se sečtou tady.')) + '</span></div>';
+    /* best clips */
+    const tops = D && D.top_clips ? D.top_clips.map(c => ({ hook: c.hook, sub: [c.streamer, c.format].filter(Boolean).join(' · '), score: c.score, v: c.views || {} }))
+      : all.map(g => { const v = {}; g.posts.forEach(x => { v[x.platform] = (v[x.platform] || 0) + (+x.views || 0); }); return { hook: g.hook, sub: g.campaign || '', score: null, v }; });
+    const tv = c => (c.v.instagram || 0) + (c.v.youtube || 0) + (c.v.tiktok || 0); tops.sort((a, b) => tv(b) - tv(a));
+    const hasScore = tops.some(c => c.score != null);
+    const table = tops.filter(tv).length ? '<table class="ktb"><thead><tr><th>' + esc(L('Clip', 'Klip')) + '</th>' + (hasScore ? '<th>' + esc(L('Score', 'Skóre')) + '</th>' : '') + '<th>IG</th><th>YT</th><th>TT</th><th>' + esc(L('Total', 'Celkem')) + '</th></tr></thead><tbody>'
+      + tops.filter(tv).slice(0, 5).map(c => '<tr><td><b>' + esc(c.hook || '') + '</b><small class="muted">' + esc(c.sub) + '</small></td>' + (hasScore ? '<td>' + (c.score != null ? '★ ' + esc(String(c.score)) : '–') + '</td>' : '') + '<td>' + kfmt(c.v.instagram) + '</td><td>' + kfmt(c.v.youtube) + '</td><td>' + kfmt(c.v.tiktok) + '</td><td><b>' + kfmt(tv(c)) + '</b></td></tr>').join('') + '</tbody></table>'
+      : '<div class="kwait sm"><b>' + esc(L('No views yet', 'Zatím žádná zhlédnutí')) + '</b><span>' + esc(L('Posted clips with views show up here.', 'Postnuté klipy se zhlédnutími se objeví tady.')) + '</span></div>';
+    /* now */
+    const q = (n, t, s2, a, k, urg) => '<button class="kq press' + (urg ? ' urg' : '') + '" data-a="' + a + '"' + (k ? ' data-k="' + k + '"' : '') + '><b>' + n + '</b><span>' + esc(t) + '<small>' + esc(s2) + '</small></span>' + ico('chev', 14, 2.4) + '</button>';
+    const mins = p.left != null ? Math.max(1, Math.ceil(p.left / 60000)) : 0; const oldest = (f.review || []).map(x => x.created_at).filter(Boolean).sort()[0];
+    const now = q(p.todo.length, L('Send to campaign', 'Odeslat do kampaně'), p.todo.length ? (p.first.due ? (p.urg ? L('urgent · ', 'hoří · ') : '') + L(mins + ' min left', 'zbývá ' + mins + ' min') : L('links waiting', 'odkazy čekají')) : L('nothing to send', 'nic k odeslání'), 'krGoto', 'send', p.hot)
+      + q(o.n, L('To review', 'Ke schválení'), oldest ? L('oldest ', 'nejstarší ') + ago(oldest) : L('nothing waiting', 'nic nečeká'), o.n ? 'krReview' : 'krGoto', o.n ? '' : 'rel')
+      + q(p.rl.length, L('Releases', 'Vydání'), p.rl[0] ? L('next ', 'další ') + hm(p.rl[0].when) : L('nothing scheduled', 'nic naplánovaného'), 'krGoto', 'rel');
+    const stat = offline() ? '<span class="kdst off"><i></i>' + esc(o.big + ' ' + o.p) + '</span>' : '<span class="kdst' + (((f.automat || {}).recording || []).length ? ' rec' : '') + '"><i></i>' + pill().replace(/<[^>]+>/g, '') + '</span>';
+    const holdRow = p.hold.length ? '<div class="kday">' + esc(L('To post · no campaign yet', 'K postnutí · zatím bez kampaně')) + '</div>' + p.hold.map(h => '<div class="kxr"><span class="tx"><b>' + esc(h.hook || '') + '</b><small>' + esc(h.streamer || '') + '</small></span><button class="pbtn ghost press" style="height:36px;padding:0 14px" data-a="krSchedule" data-id="' + h.id + '">' + esc(L('Schedule', 'Naplánovat')) + '</button></div>').join('') : '';
+    return '<div class="dph"><div class="dgrp"><button class="cb frost press" data-a="krClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><h1>Keiro</h1><div class="seg frost">' + [[1, L('Today', 'Dnes')], [7, L('7 days', '7 dní')], [30, L('30 days', '30 dní')]].map(([k, l]) => '<button class="' + (d === k ? 'on' : '') + '" data-a="krRange" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div>' + stat + (D && D.demo ? '<span class="kdst">' + esc(L('demo numbers', 'ukázková čísla')) + '</span>' : '') + '</div>'
+      + '<div class="dgrp"><button class="cb frost press" data-a="krRefresh" aria-label="' + esc(L('Refresh', 'Obnovit')) + '">' + ico('sync', 18, 2.2) + '</button><button class="cb frost press" data-a="krSettings" aria-label="' + esc(L('Keiro settings', 'Nastavení Keira')) + '">' + ico('gear', 19, 2) + '</button><button class="dadd cr press" data-a="krReview"' + (o.n ? '' : ' disabled') + '>' + ico('play', 15, 2.4) + esc(L('Review', 'Schvalovat') + ' · ' + o.n) + '</button></div></div>'
+      + '<div class="kd4">' + k1 + k2 + k3 + k4 + '</div>'
+      + '<div class="kd2"><section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Views by day', 'Zhlédnutí po dnech')) + '</span>' + leg + '</div>' + vb + '</section>'
+      + '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Why you discard', 'Proč zahazuješ')) + '</span><span class="muted">' + (rsum ? rsum + ' ' + klip(rsum) : '') + '</span></div>' + why + '</section></div>'
+      + '<div class="kd2"><section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Best clips', 'Nejlepší klipy')) + '</span><span class="muted">' + esc(L('by views', 'podle zhlédnutí')) + '</span></div>' + table + '</section>'
+      + '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Now', 'Teď')) + '</span><span class="muted">' + esc(L('same as on the phone', 'stejné jako v mobilu')) + '</span></div><div class="kqs">' + now + '</div></section></div>'
+      + '<div class="kd2 even"><section class="pn frost solid kdl" data-kb="rel"><div class="ph2"><span class="cap">' + esc(L('Releases · Czech time', 'Vydání · český čas')) + '</span><span class="muted">' + p.rl.length + '</span></div>' + (p.rl.length ? capRows('drel', relRows()) : '<div class="kxr"><span class="tx"><small>' + esc(L('Nothing scheduled', 'Nic naplánovaného')) + '</small></span></div>') + holdRow + '</section>'
+      + '<section class="pn frost solid kdl" data-kb="send"><div class="ph2"><span class="cap">' + esc(L('Send to campaign', 'Odeslat do kampaně')) + '</span>' + campLink() + '</div>' + (p.todo.length ? capRows('dsend', p.todo.map(clipRow)) : '<div class="kxr"><span class="tx"><small>' + esc(L('Nothing to send', 'Nic k odeslání')) + '</small></span></div>') + (p.done.length ? '<div class="kday">' + esc(L('Done', 'Hotovo')) + '</div>' + capRows('ddone', p.done.map(clipRow)) : '') + '</section></div>';
+  }
+  /* called after every desktop render (lab.js) */
+  function deskHook(el) {
+    if (!C.on || !el || V.card) return;
+    if (V.tab !== 'spaces') { V.kd = false; if (V.tab === 'home') { const r = el.querySelector('.krow'); if (r && C.feed) { const o = nowState(), st = F().stats_today || {}, tot = (st.approved || 0) + o.n; r.insertAdjacentHTML('beforebegin', '<button class="krow press" data-a="krOpen"><span class="kr">' + ringSVG(40, tot ? (st.approved || 0) / tot : 0, KC(), 3.5) + '</span><span class="kt"><span>Keiro</span><small' + (o.red ? ' style="color:#ff8a8a"' : '') + '>' + esc(o.urgent ? o.t + ' · ' + o.s : L('tool · ', 'nástroj · ') + o.status) + '</small></span><span class="num" style="font-size:22px">' + o.n + '<small> ' + esc(L('wait', 'čeká')) + '</small></span></button>'); } } return; }
+    const m = el.querySelector('main.dmain'); if (!m) return;
+    if (V.kd) { const ent = m.classList.contains('enter'), y = m.scrollTop; m.className = 'dmain g12 rows scrolly kdp' + (ent ? ' enter' : ''); m.innerHTML = C.feed ? deskPage() : '<div class="dph"><div class="dgrp"><button class="cb frost press" data-a="krClose">' + ico('back', 20, 2.2) + '</button><h1>Keiro</h1></div></div>'; m.scrollTop = ent ? 0 : y; return; }
+    if (!C.feed || (V.deckFilter && V.deckFilter !== 'all' && V.deckFilter !== 'project')) return;
+    const g = m.querySelector('.dcards'); if (!g) return; g.insertAdjacentHTML('afterbegin', deskCardHTML());
+    const nw = g.querySelector('.dnew'); if (nw && g.children.length % 4 === 1) nw.remove();
+    if (g.children.length === 5 && innerWidth >= 1280) g.style.gridTemplateColumns = 'repeat(5,minmax(0,1fr))';
+  }
   ACT.krOpen = () => open();
   ACT.krClose = () => close();
   ACT.krRefresh = () => { toast(esc(L('Refreshing…', 'Obnovuju…'))); refresh(false); };
@@ -564,6 +746,7 @@ window.KR = (function () {
   function paint() {
     if (typeof S === 'undefined' || !S || !S.onboarded) return;   /* app still starting */
     if ($('#kv') && !curClip()) paintKV();
+    if (desk()) { deskRender(); if (V.settingsOpen && V.settingsPage === 'main') renderSettings(); return; }
     if (V.keiro) space();
     if (V.tab === 'home' || V.tab === 'spaces' || V.tab === 'plan') RENDER[V.tab]();
     if (V.settingsOpen && V.settingsPage === 'main') renderSettings();
@@ -573,9 +756,9 @@ window.KR = (function () {
     if ($('#kv')) { if (e.key === 'Escape') { const m = $('#kv .kmenu'); if (m && !m.hidden) menu(false); else closeKV(); } else if (e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'Enter') decide('approve', { when: 'auto' }); else if (e.key === 'Backspace' || e.key === 'Delete') rejectSheet(); else if (e.key === 'ArrowUp') redo(); else if (e.key === ' ') toggleSound(); else if (e.key === 'i') ACT.krPan(); else return; e.preventDefault(); return; }
     if (V.keiro && e.key === 'Escape') close();
   });
-  setInterval(() => { if (!C.on || document.hidden) return; const n = Date.now(); if (rels().some(r => { const a = +new Date(r.when); return n >= a - 60000 && n < a + WIN + 60000; })) paint(); }, 30000);
+  setInterval(() => { if (!C.on || document.hidden) return; const n = Date.now(); if (rels().some(r => { const a = +new Date(r.when); return n >= a - 60000 && n < a + WIN + 60000; }) || clips().some(g => g.rank === 0 && g.due)) paint(); }, 30000);
   /* while the Keiro screen or review is open: fresh data every 60 s (also ticks the recording time) */
-  setInterval(() => { if (C.on && !document.hidden && (V.keiro || $('#kv'))) refresh(true); }, 60000);
+  setInterval(() => { if (C.on && !document.hidden && (V.keiro || V.kd || $('#kv'))) refresh(true); }, 60000);
   if (C.on) { loop(); if (!C.feed || Date.now() - C.at > 30000) refresh(true); }
-  return { pushList, note, planHook, spacesHook, settingsPage, statusLine, refresh, _C: () => C };
+  return { pushList, note, widget, deskHook, planHook, spacesHook, settingsPage, statusLine, refresh, _C: () => C };
 })();
