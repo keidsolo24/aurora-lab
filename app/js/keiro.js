@@ -620,12 +620,26 @@ window.KR = (function () {
       reject_reasons: [{ note: L('Boring', 'Nudné'), count: 9 }, { note: L('Weak start', 'Slabý začátek'), count: 6 }, { note: L('Too long', 'Moc dlouhé'), count: 3 }, { note: L('Makes no sense', 'Nedává smysl'), count: 1 }],
       top_clips: [{ hook: 'HE FOUND THIS IN GTA 6', streamer: 'xQc', format: 'klasik', score: 9, views: { instagram: 21000, youtube: 8000, tiktok: 34000 } }, { hook: 'CHAT WENT CRAZY', streamer: 'Marlon', format: 'meme', score: 8, views: { instagram: 14000, youtube: 6000, tiktok: 19000 } }, { hook: 'COPS EVERYWHERE', streamer: 'xQc', format: 'klasik', score: 8, views: { instagram: 11000, youtube: 5000, tiktok: 12000 } }] };
   }
+  /* the automat's own shape (ig/yt/tt, best_clips, discard_reasons, clips{}) → what the page reads */
+  function normStats(j) {
+    if (!j || typeof j !== 'object') return null; const o = Object.assign({}, j), num = v => +v || 0;
+    const pv = x => ({ instagram: num(x.instagram ?? x.ig), youtube: num(x.youtube ?? x.yt), tiktok: num(x.tiktok ?? x.tt) });
+    if (Array.isArray(j.views_by_day)) o.views_by_day = j.views_by_day.map(x => Object.assign({ date: x.date }, pv(x)));
+    if (j.views_by_platform) o.by_platform = pv(j.views_by_platform);
+    if (o.views_total == null && o.views_by_day) o.views_total = o.views_by_day.reduce((a, x) => a + x.instagram + x.youtube + x.tiktok, 0);
+    if (!j.reject_reasons && Array.isArray(j.discard_reasons)) o.reject_reasons = j.discard_reasons.map(x => ({ note: x.reason ?? x.note, count: num(x.count) }));
+    if (j.clips) { if (o.approved == null) o.approved = num(j.clips.approved); if (o.reviewed == null) o.reviewed = num(j.clips.approved) + num(j.clips.rejected); o.posted = num(j.clips.posted); o.rejected = num(j.clips.rejected); }
+    if (o.avg_score_approved == null && j.avg_score != null) o.avg_score_approved = j.avg_score;
+    if (!j.top_clips && Array.isArray(j.best_clips)) o.top_clips = j.best_clips.map(c => { const p = c.platforms || {}, g = (a, b) => p[a] || p[b] || {}; const v = { instagram: num(g('ig', 'instagram').views), youtube: num(g('yt', 'youtube').views), tiktok: num(g('tt', 'tiktok').views) };
+      return { clip_id: c.clip_id, hook: c.hook, streamer: c.streamer, format: c.format, score: c.score, total: num(c.views), views: v, urls: { instagram: g('ig', 'instagram').url, youtube: g('yt', 'youtube').url, tiktok: g('tt', 'tiktok').url } }; });
+    return o;
+  }
   async function loadStats(force) {
     const d = C.range || 7;
     if (!live()) { if (ST.key !== 'demo' + d) { ST = { key: 'demo' + d, data: mockStats(d), miss: false, at: Date.now(), busy: false }; if (V.kd && desk()) { deskRender(); fxPage(); } } return; }
     if (ST.busy || (!force && ST.key === 'l' + d && Date.now() - ST.at < 120000)) return;
     ST.busy = true; let data = null, miss = false;
-    try { data = JSON.parse(await api('/api/stats?days=' + d)); } catch (e) { miss = true; }
+    try { data = normStats(JSON.parse(await api('/api/stats?days=' + d))); if (!data) miss = true; } catch (e) { miss = true; }
     const fresh = ST.key !== 'l' + d || !!ST.data !== !!data;
     ST = { key: 'l' + d, data, miss, at: Date.now(), busy: false };
     if (V.kd && desk()) { deskRender(); if (fresh) fxPage(); }
@@ -668,10 +682,12 @@ window.KR = (function () {
     let k1, k2, k3, k4;
     if (D) {
       const dl = D.views_prev_total ? Math.round((D.views_total - D.views_prev_total) / D.views_prev_total * 100) : null;
-      k1 = kpi(L('Views · ', 'Zhlédnutí · ') + rng, kfmt(D.views_total), dl == null ? L('all networks', 'všechny sítě') : (dl >= 0 ? '+' : '') + dl + ' % ' + L('vs the period before', 'proti minulému období'), dl == null ? '' : dl >= 0 ? '#8be0b0' : '#ff8a8a');
-      k2 = kpi(L('Approved', 'Schváleno'), pct(D.approved, D.reviewed), (D.approved ?? 0) + L(' of ', ' z ') + (D.reviewed ?? 0) + ' ' + L('clips', 'klipů'));
-      k3 = kpi(L('Sent on time', 'Odesláno včas'), pct(D.sent_on_time, (D.sent_on_time || 0) + (D.expired || 0)), D.expired ? D.expired + ' ' + L('expired', D.expired > 1 && D.expired < 5 ? 'klipy propadly' : D.expired === 1 ? 'klip propadl' : 'klipů propadlo') : L('nothing expired', 'nic nepropadlo'), D.expired ? '#ff8a8a' : '');
-      k4 = kpi(L('Average score', 'Průměrné skóre'), dec(D.avg_score_approved), L('approved', 'schválené') + (D.avg_score_rejected != null ? ' · ' + L('discarded ', 'zahozené ') + dec(D.avg_score_rejected) : ''));
+      const bp = D.by_platform, noV = D.views_updated === null;
+      k1 = kpi(L('Views · ', 'Zhlédnutí · ') + rng, noV && !D.views_total ? '–' : kfmt(D.views_total), dl == null ? (noV ? L('views not fetched yet', 'zhlédnutí se ještě nestáhla') : bp ? 'IG ' + kfmt(bp.instagram) + ' · YT ' + kfmt(bp.youtube) + ' · TT ' + kfmt(bp.tiktok) : L('all networks', 'všechny sítě')) : (dl >= 0 ? '+' : '') + dl + ' % ' + L('vs the period before', 'proti minulému období'), dl == null ? '' : dl >= 0 ? '#8be0b0' : '#ff8a8a');
+      k2 = kpi(L('Approved', 'Schváleno'), pct(D.approved, D.reviewed), D.reviewed ? (D.approved ?? 0) + L(' of ', ' z ') + D.reviewed + ' ' + L('decided', 'rozhodnutých') + (D.posted ? ' · ' + L('posted ', 'postnuto ') + D.posted : '') : L('nothing decided yet', 'zatím nic rozhodnuto'));
+      if (D.sent_on_time == null && D.expired == null) k3 = kpi(L('Sent on time', 'Odesláno včas'), pct(sentN, sentN + goneN), goneN ? goneN + ' ' + L('expired', 'propadlo') : sentN ? L('nothing expired', 'nic nepropadlo') : L('nothing sent yet', 'zatím nic neodesláno'), goneN ? '#ff8a8a' : '');
+      else k3 = kpi(L('Sent on time', 'Odesláno včas'), pct(D.sent_on_time, (D.sent_on_time || 0) + (D.expired || 0)), D.expired ? D.expired + ' ' + L('expired', D.expired > 1 && D.expired < 5 ? 'klipy propadly' : D.expired === 1 ? 'klip propadl' : 'klipů propadlo') : L('nothing expired', 'nic nepropadlo'), D.expired ? '#ff8a8a' : '');
+      k4 = D.avg_score_approved == null ? kpi(L('Average score', 'Průměrné skóre'), '–', L('no data yet', 'zatím bez dat')) : kpi(L('Average score', 'Průměrné skóre'), dec(D.avg_score_approved), (D.avg_score_rejected != null ? L('approved', 'schválené') : L('clips in the period', 'klipy v období')) + (D.avg_score_rejected != null ? ' · ' + L('discarded ', 'zahozené ') + dec(D.avg_score_rejected) : ''));
     } else {
       k1 = kpi(L('Views', 'Zhlédnutí'), feedViews ? kfmt(feedViews) : '–', L('posted clips in the feed', 'postnuté klipy ve feedu'));
       k2 = kpi(L('Approved today', 'Schváleno dnes'), String(st.approved ?? 0), o.n + ' ' + L('waiting for you', 'čeká na tebe'));
@@ -679,19 +695,21 @@ window.KR = (function () {
       k4 = kpi(L('Average score', 'Průměrné skóre'), '–', wait);
     }
     /* chart */
-    const leg = '<span class="muted kleg">' + ['instagram', 'youtube', 'tiktok'].map(k => '<span><i style="background:' + PC[k] + '"></i>' + PF[k] + '</span>').join('') + '</span>';
-    const vb = D && (D.views_by_day || []).length ? chart(D.views_by_day) : '<div class="kwait"><b>' + esc(ST.busy ? L('Loading…', 'Načítám…') : wait) + '</b><span>' + esc(L('The chart needs views by day: GET /api/stats?days=' + d, 'Graf potřebuje zhlédnutí po dnech: GET /api/stats?days=' + d)) + '</span></div>';
+    const upd = D && D.views_updated ? L('views as of ', 'zhlédnutí k ') + hm(new Date(D.views_updated * 1000)) : '';
+    const leg = '<span class="muted kleg">' + (upd ? '<span>' + esc(upd) + '</span>' : '') + ['instagram', 'youtube', 'tiktok'].map(k => '<span><i style="background:' + PC[k] + '"></i>' + PF[k] + '</span>').join('') + '</span>';
+    const anyV = D && (D.views_by_day || []).some(x => x.instagram + x.youtube + x.tiktok > 0);
+    const vb = D && (D.views_by_day || []).length && !anyV ? '<div class="kwait"><b>' + esc(L('No views yet', 'Zatím žádná zhlédnutí')) + '</b><span>' + esc(L('The automat fetches views every 30 minutes.', 'Automat stahuje zhlédnutí každých 30 minut.')) + '</span></div>' : D && (D.views_by_day || []).length ? chart(D.views_by_day) : '<div class="kwait"><b>' + esc(ST.busy ? L('Loading…', 'Načítám…') : wait) + '</b><span>' + esc(L('The chart needs views by day: GET /api/stats?days=' + d, 'Graf potřebuje zhlédnutí po dnech: GET /api/stats?days=' + d)) + '</span></div>';
     /* why you discard */
     const rr = D && D.reject_reasons ? D.reject_reasons.map(x => [x.note, x.count]) : Object.entries(C.rj || {}); rr.sort((a, b) => b[1] - a[1]); const rmx = Math.max(1, ...rr.map(x => x[1])), rsum = rr.reduce((a, x) => a + x[1], 0);
     const why = rr.length ? rr.slice(0, 6).map((x, i) => '<div class="krb" style="--i:' + i + '"><span>' + esc(x[0]) + '</span><span class="khl"><i style="width:' + (x[1] / rmx * 100).toFixed(0) + '%;background:' + KC() + '"></i></span><b>' + x[1] + '</b></div>').join('') + '<p class="muted knote">' + esc(D && D.reject_reasons ? L('The automat learns from these reasons.', 'Automat se z těch důvodů učí.') : L('Counted on this device from your Discard taps.', 'Počítáno v tomhle zařízení z tvých Zahodit.')) + '</p>'
       : '<div class="kwait sm"><b>' + esc(L('Nothing discarded yet', 'Zatím nic nezahozeno')) + '</b><span>' + esc(L('Reasons from Discard add up here.', 'Důvody ze Zahodit se sečtou tady.')) + '</span></div>';
     /* best clips */
-    const tops = D && D.top_clips ? D.top_clips.map(c => ({ hook: c.hook, sub: [c.streamer, c.format].filter(Boolean).join(' · '), score: c.score, v: c.views || {} }))
+    const tops = D && D.top_clips ? D.top_clips.map(c => ({ hook: c.hook, sub: [c.streamer, c.format].filter(Boolean).join(' · '), score: c.score, v: c.views || {}, u: c.urls || {}, tot: c.total }))
       : all.map(g => { const v = {}; g.posts.forEach(x => { v[x.platform] = (v[x.platform] || 0) + (+x.views || 0); }); return { hook: g.hook, sub: g.campaign || '', score: null, v }; });
-    const tv = c => (c.v.instagram || 0) + (c.v.youtube || 0) + (c.v.tiktok || 0); tops.sort((a, b) => tv(b) - tv(a));
+    const tv = c => c.tot || (c.v.instagram || 0) + (c.v.youtube || 0) + (c.v.tiktok || 0); const cell = (c, k) => c.u && c.u[k] ? '<a class="kla" href="' + esc(c.u[k]) + '" target="_blank" rel="noopener">' + kfmt(c.v[k]) + '</a>' : c.v[k] ? kfmt(c.v[k]) : '–'; tops.sort((a, b) => tv(b) - tv(a));
     const hasScore = tops.some(c => c.score != null);
     const table = tops.filter(tv).length ? '<table class="ktb"><thead><tr><th>' + esc(L('Clip', 'Klip')) + '</th>' + (hasScore ? '<th>' + esc(L('Score', 'Skóre')) + '</th>' : '') + '<th>IG</th><th>YT</th><th>TT</th><th>' + esc(L('Total', 'Celkem')) + '</th></tr></thead><tbody>'
-      + tops.filter(tv).slice(0, 5).map(c => '<tr><td><b>' + esc(c.hook || '') + '</b><small class="muted">' + esc(c.sub) + '</small></td>' + (hasScore ? '<td>' + (c.score != null ? '★ ' + esc(String(c.score)) : '–') + '</td>' : '') + '<td>' + kfmt(c.v.instagram) + '</td><td>' + kfmt(c.v.youtube) + '</td><td>' + kfmt(c.v.tiktok) + '</td><td><b>' + kfmt(tv(c)) + '</b></td></tr>').join('') + '</tbody></table>'
+      + tops.filter(tv).slice(0, 5).map(c => '<tr><td><b>' + esc(c.hook || '') + '</b><small class="muted">' + esc(c.sub || '') + '</small></td>' + (hasScore ? '<td>' + (c.score != null ? '★ ' + esc(String(c.score)) : '–') + '</td>' : '') + '<td>' + cell(c, 'instagram') + '</td><td>' + cell(c, 'youtube') + '</td><td>' + cell(c, 'tiktok') + '</td><td><b>' + kfmt(tv(c)) + '</b></td></tr>').join('') + '</tbody></table>'
       : '<div class="kwait sm"><b>' + esc(L('No views yet', 'Zatím žádná zhlédnutí')) + '</b><span>' + esc(L('Posted clips with views show up here.', 'Postnuté klipy se zhlédnutími se objeví tady.')) + '</span></div>';
     /* now */
     const q = (n, t, s2, a, k, urg) => '<button class="kq press' + (urg ? ' urg' : '') + '" data-a="' + a + '"' + (k ? ' data-k="' + k + '"' : '') + '><b>' + n + '</b><span>' + esc(t) + '<small>' + esc(s2) + '</small></span>' + ico('chev', 14, 2.4) + '</button>';

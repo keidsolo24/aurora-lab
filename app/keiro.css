@@ -308,3 +308,5 @@ body.kvon #toast{top:calc(var(--st) + 122px);bottom:auto}
 .kdp.enter .kd4>*,.kdp.enter .kd2>*{animation:dIn .55s var(--out,cubic-bezier(.2,.8,.2,1)) both}
 .kdp.enter .kd4>*:nth-child(2),.kdp.enter .kd2>*:nth-child(2){animation-delay:.06s}.kdp.enter .kd4>*:nth-child(3){animation-delay:.12s}.kdp.enter .kd4>*:nth-child(4){animation-delay:.18s}
 @media (prefers-reduced-motion:reduce){.fx-in,.fx-go .kcb,.fx-go .kct,.kbb,.kdp.enter .kd4>*,.kdp.enter .kd2>*{animation:none}}
+.kla{color:inherit;text-decoration:underline;text-decoration-color:rgba(243,234,216,.3);text-underline-offset:3px} .kla:hover{text-decoration-color:currentColor}
+.kleg>span:first-child:not(:has(i)){font-weight:500;color:var(--ink3)}
