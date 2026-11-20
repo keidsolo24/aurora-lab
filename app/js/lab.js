@@ -38,7 +38,7 @@
   window.keiroLoad = function () {
     if (window.KR) return Promise.resolve(window.KR);
     if (kLoading) return kLoading;
-    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2012'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
+    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2014'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
     return kLoading;
   };
   if (KCFG().on) keiroLoad().then(() => { if (S) render(); }).catch(() => {});
@@ -93,13 +93,118 @@
   document.addEventListener('DOMContentLoaded', () => {
     const isDesk = () => typeof DESK !== 'undefined' && DESK.on;
     if (typeof stackCards === 'function') { const _sc = stackCards; stackCards = function (M) { return withWidget(_sc(M)); }; }
-    if (typeof deskRender === 'function') { const _dr = deskRender; deskRender = function (a) { _dr(a); const d = $('#desk'); if (window.KR && KR.deskHook && isDesk()) KR.deskHook(d); if (a === true && isDesk()) FX.enter(d.querySelector('main.dmain'), { noStagger: true }); }; }
-    const _g = go; go = function (tab) { const was = V.tab, card = V.card, kd = V.kd; V.kd = false; _g(tab); if (!isDesk() && (was !== tab || card)) FX.enter($('#s-' + tab)); };
+    if (typeof deskRender === 'function') { const _dr = deskRender; deskRender = function (a) { if (V.spEdit && isDesk()) return; _dr(a); const d = $('#desk'); if (window.KR && KR.deskHook && isDesk()) KR.deskHook(d); if (isDesk() && V.tab === 'spaces' && !V.card && !V.kd) spApply(d.querySelector('.dcards'), '.dcard'); if (a === true && isDesk()) FX.enter(d.querySelector('main.dmain'), { noStagger: true }); }; }
+    const _g = go; go = function (tab) { const was = V.tab, card = V.card, kd = V.kd; V.kd = false; V.spEdit = false; V.spDragging = false; _g(tab); if (!isDesk() && (was !== tab || card)) FX.enter($('#s-' + tab)); };
     const _oc = openCard; openCard = function (id) { _oc(id); if (isDesk()) FX.enter($('#desk main.dmain'), { noStagger: true }); else FX.enter($('#s-card')); };
     setTimeout(() => { if (S && S.onboarded) { if (isDesk()) FX.enter($('#desk main.dmain'), { noStagger: true }); else FX.enter($('#s-' + V.tab)); } }, 900);
   });
   const _spaces = renderSpaces;
-  renderSpaces = function () { _spaces(); if (window.KR) KR.spacesHook($('#s-spaces')); };
+  /* ---------- Spaces: your own order of cards (this device). Keys: c:<card id>, k:<Keiro project>. ---------- */
+  const spGet = () => { try { return JSON.parse(localStorage.getItem('spOrder') || '[]') || []; } catch (e) { return []; } };
+  const spKey = n => n.dataset.id ? 'c:' + n.dataset.id : n.matches('.kspc,.kspace,.kdc') ? 'k:' + (n.dataset.k || '') : '';
+  function spApply(box, sel) {
+    const ord = spGet(); if (!box || !ord.length) return;
+    const items = [...box.querySelectorAll(':scope > ' + sel)].filter(n => spKey(n)); if (items.length < 2) return;
+    const anchor = items[items.length - 1].nextSibling, pos = n => { const i = ord.indexOf(spKey(n)); return i < 0 ? 1e6 : i; };
+    items.map((n, i) => [n, pos(n), i]).sort((x, y) => x[1] - y[1] || x[2] - y[2]).forEach(x => box.insertBefore(x[0], anchor));
+  }
+  function spList() {
+    const all = S.cards.map(c => ({ k: 'c:' + c.id, name: c.name, sub: c.type === 'habit' ? t('habit') : c.type === 'month' ? (lang() === 'cs' ? 'Měsíčně' : 'Monthly') : t('project'), color: c.color })).concat(window.KR && KR.cardList ? KR.cardList() : []);
+    const ord = spGet(), pos = x => { const i = ord.indexOf(x.k); return i < 0 ? 1e6 : i; };
+    return all.map((x, i) => [x, pos(x), x.k[0] === 'k' ? 1e5 : i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(x => x[0]);
+  }
+  /* ---------- Edit mode, like the iPhone home screen: hold a card → cards shrink into a grid and wiggle → drag → Hotovo ---------- */
+  const isDeskV = () => typeof DESK !== 'undefined' && DESK.on;
+  const cs2 = () => lang() === 'cs';
+  function spSave(keys) {
+    const full = spList().map(x => x.k), set = new Set(keys), slots = full.map((k, i) => set.has(k) ? i : -1).filter(i => i >= 0);
+    const out = full.slice(); slots.forEach((i, j) => { out[i] = keys[j]; });
+    keys.filter(k => !full.includes(k)).forEach(k => out.push(k));
+    try { localStorage.setItem('spOrder', JSON.stringify(out)); } catch (e) {}
+  }
+  const scrollParent = el => { for (let n = el.parentElement; n; n = n.parentElement) { const o = getComputedStyle(n).overflowY; if (o === 'auto' || o === 'scroll') return n; } return document.scrollingElement; };
+  /* drag inside a grid: the item follows the finger, the others slide out of the way (FLIP) */
+  function spDrag(grid, sel) {
+    if (grid._spd) return; grid._spd = 1;
+    let it = null, gx = 0, gy = 0, lock = 0, sc = null, pid = null;
+    const items = () => [...grid.querySelectorAll(':scope > ' + sel)];
+    const follow = e => { const g = grid.getBoundingClientRect(); it.style.transform = 'translate(' + (e.clientX - g.left - gx - it.offsetLeft) + 'px,' + (e.clientY - g.top - gy - it.offsetTop) + 'px)'; };
+    grid.addEventListener('pointerdown', e => {
+      if (!V.spEdit || it) return; const n = e.target.closest(sel); if (!n || n.parentElement !== grid) return;
+      it = n; pid = e.pointerId; const g = grid.getBoundingClientRect(); gx = e.clientX - g.left - n.offsetLeft; gy = e.clientY - g.top - n.offsetTop; sc = scrollParent(grid);
+      n.classList.add('spdrag'); V.spDragging = true; try { n.setPointerCapture(pid); } catch (x) {} haptic(); e.preventDefault();
+    });
+    grid.addEventListener('pointermove', e => {
+      if (!it || e.pointerId !== pid) return; follow(e);
+      const sr = sc.getBoundingClientRect ? sc.getBoundingClientRect() : { top: 0, bottom: innerHeight };
+      if (e.clientY < Math.max(sr.top, 0) + 70) sc.scrollTop -= 10; else if (e.clientY > Math.min(sr.bottom, innerHeight) - 70) sc.scrollTop += 10;
+      if (Date.now() < lock) return;
+      const all = items(), others = all.filter(x => x !== it);
+      const tg = others.find(x => { const r = x.getBoundingClientRect(); return e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom; });
+      if (!tg) return;
+      const first = new Map(others.map(x => [x, x.getBoundingClientRect()]));
+      grid.insertBefore(it, all.indexOf(it) < all.indexOf(tg) ? tg.nextSibling : tg);
+      others.forEach(x => { const a = first.get(x), b = x.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top; if ((dx || dy) && !RM) try { x.animate([{ translate: dx + 'px ' + dy + 'px' }, { translate: '0 0' }], { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' }); } catch (z) {} });
+      follow(e); lock = Date.now() + 200; haptic();
+    });
+    const end = e => {
+      if (!it || (e && e.pointerId !== pid)) return; const n = it; it = null; V.spDragging = false;
+      const t0 = n.style.transform; n.style.transform = ''; n.classList.remove('spdrag');
+      if (t0 && !RM) try { n.animate([{ transform: t0 }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' }); } catch (z) {}
+    };
+    grid.addEventListener('pointerup', end); grid.addEventListener('pointercancel', end);
+  }
+  function spEditView() {
+    const el = $('#s-spaces'), rows = spList(), list = V.spacesMode === 'list';
+    el.innerHTML = '<div class="hdr"><h1 class="t1">' + esc(t('spaces')) + '</h1><button class="pbtn cr press spdone" data-a="spDone">' + esc(cs2() ? 'Hotovo' : 'Done') + '</button></div>'
+      + '<p class="sphint">' + esc(cs2() ? 'Chyť kartu a přetáhni ji na nové místo.' : 'Grab a card and drag it to a new spot.') + '</p>'
+      + '<div class="spgrid' + (list ? ' list' : '') + '" id="spgrid">' + rows.map((r, i) => '<div class="spt frost solid" data-k="' + esc(r.k) + '" style="--c:' + r.color + ';--j:' + i + '"><span class="led" style="--c:' + r.color + '"></span><b>' + esc(r.name) + '</b><small>' + esc(r.sub) + '</small></div>').join('') + '</div>';
+    spDrag($('#spgrid'), '.spt');
+  }
+  function spEnter() {
+    if (V.spEdit) return; V.spEdit = true; V.spJust = Date.now(); haptic();
+    if (isDeskV()) {
+      const g = $('#desk .dcards'); if (!g) { V.spEdit = false; return; }
+      g.classList.add('spedit'); [...g.children].forEach((n, i) => n.style.setProperty('--j', i));
+      const h = $('#desk .dph'); if (h) [...h.children].forEach(c => { if (c.tagName === 'BUTTON') c.hidden = true; }); if (h && !h.querySelector('.spdone')) h.insertAdjacentHTML('beforeend', '<button class="pbtn cr press spdone" data-a="spDone">' + esc(cs2() ? 'Hotovo' : 'Done') + '</button>');
+      spDrag(g, '.dcard[data-id],.dcard.kdc');
+    } else spEditView();
+  }
+  function spDone() {
+    if (!V.spEdit) return;
+    const g = isDeskV() ? $('#desk .dcards') : $('#spgrid');
+    if (g) spSave([...g.children].map(n => n.dataset.k && n.classList.contains('spt') ? n.dataset.k : spKey(n)).filter(Boolean));
+    V.spEdit = false; V.spDragging = false; V.spJust = Date.now();
+    if (isDeskV()) { deskRender(); FX.enter($('#desk main.dmain'), { noStagger: true }); } else { V.deckIdx = 0; renderSpaces(); FX.enter($('#s-spaces')); }
+  }
+  ACT.spDone = () => spDone();
+  ACT.spOrder = () => spEnter();
+  /* hold to enter edit mode (phone: deck and list; computer: the card grid) */
+  document.addEventListener('DOMContentLoaded', () => {
+    const CARD = '#s-spaces #deck > .spc, #s-spaces .stack > .lrow, #desk .dcards > .dcard';
+    let lp = null, x0 = 0, y0 = 0;
+    const cancel = () => { clearTimeout(lp); lp = null; };
+    document.addEventListener('pointerdown', e => {
+      if (V.spEdit || V.tab !== 'spaces' || V.card || V.kd || V.keiro) return; const n = e.target.closest(CARD); if (!n || !spKey(n)) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      x0 = e.clientX; y0 = e.clientY; cancel(); lp = setTimeout(() => { lp = null; spEnter(); }, 480);
+    }, true);
+    document.addEventListener('pointermove', e => { if (lp && Math.hypot(e.clientX - x0, e.clientY - y0) > 9) cancel(); }, true);
+    document.addEventListener('pointerup', cancel, true); document.addEventListener('pointercancel', cancel, true);
+    document.addEventListener('scroll', cancel, true);
+    /* no click after the hold, no card opening while editing */
+    document.addEventListener('click', e => {
+      if (V.spJust && Date.now() - V.spJust < 650) { e.preventDefault(); e.stopPropagation(); return; }
+      if (V.spEdit && !e.target.closest('.spdone')) { const inG = e.target.closest('#spgrid,.spedit'); e.preventDefault(); e.stopPropagation(); if (!inG && !e.target.closest('#desk .dph,#s-spaces .hdr')) spDone(); }
+    }, true);
+    document.addEventListener('contextmenu', e => { if (e.target.closest(CARD + ',.spt')) e.preventDefault(); }, true);
+    document.addEventListener('keydown', e => { if (V.spEdit && (e.key === 'Escape' || e.key === 'Enter')) spDone(); });
+  });
+  renderSpaces = function () {
+    if (V.spEdit && !isDeskV()) { if (!V.spDragging) spEditView(); return; }
+    _spaces(); const el = $('#s-spaces'); if (window.KR) KR.spacesHook(el);
+    spApply(el.querySelector('#deck'), '.spc'); spApply(el.querySelector('.stack'), '.lrow');
+  };
   function labBadge() { const h = $('#s-home .hdr .logo'); if (h && !h.nextElementSibling?.classList.contains('labtag')) h.insertAdjacentHTML('afterend', '<span class="labtag">LAB</span>'); }
 
   /* 2.0 week (checklist 03 · Týden): one row per day with the day's things as chips, today highlighted.
