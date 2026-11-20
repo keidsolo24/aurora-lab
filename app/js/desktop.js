@@ -210,7 +210,7 @@ function deskSpaces() {
   const cards = list.map(card).join('') + (list.length % 4 === 0 && list.length ? '' : '<button class="pn dcard dnew press" data-a="newCard"><span class="ci" style="width:56px;height:56px;border-radius:28px">' + ico('plus', 24, 1.8) + '</span><b>' + esc(t('newCard')) + '</b><span class="muted">' + esc(t('newCardSub')) + '</span></button>');
   // projects in time
   const start = addD(weekStart(d), -7), span = 35; const pos = x => clamp(daysBetween(start, x) / span * 100, 0, 100);
-  const projs = S.cards.filter(c => c.type === 'project');
+  const projs = S.cards.filter(c => c.type === 'project' && !(c.src && !c.deadline)); /* an ongoing project fed by a link has no end, so it is not a bar in time */
   const bars = projs.map(c => { const its = cardItems(c.id).filter(i => i.date); const a = [c.created || d, ...its.map(i => i.date)].sort()[0]; const b = c.deadline || its.map(i => i.date).sort().pop() || addD(d, 7);
     const dots = its.map(i => '<i class="pd' + (i.done ? ' dn' : '') + '" style="left:' + pos(i.date) + '%" title="' + esc(i.t) + '"></i>').join('');
     return '<div class="pr"><button class="pl" data-a="openCard" data-id="' + c.id + '"><span class="dot" style="--c:' + c.color + '"></span>' + esc(c.name) + '</button><span class="pt2" style="--c:' + c.color + '"><i class="pb" style="left:' + pos(a) + '%;width:' + Math.max(2, pos(b) - pos(a)) + '%"></i>' + dots + (c.deadline ? '<i class="pdl" style="left:' + pos(c.deadline) + '%"></i>' : '') + '</span></div>'; }).join('');

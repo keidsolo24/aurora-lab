@@ -491,7 +491,90 @@ body.kvon #toast{top:calc(var(--st) + 122px);bottom:auto}
 .sdash.mob .bthumb{border-radius:14px}
 .fx-go .say{animation:kFade .45s ease both;animation-delay:calc(var(--i,0)*70ms + .2s)}
 @media (prefers-reduced-motion:reduce){.fx-go .say,.askbtn.busy svg{animation:none}}
-.sdash .kd2>.pn:first-child .kch{margin:auto 0;height:250px}
+.sdash.desk .kch{height:auto;aspect-ratio:1400/215;margin:auto 0}
 .sdash.mob .kd2>.pn:first-child .kch,.sdash.mob .kch{min-height:0}
 .sdash .kd2:last-child{align-items:start} .srctb td.vnum{font:700 14px/1 Inter;font-variant-numeric:tabular-nums}
 .sdash.mob .pn:not(.saypn) .ph2 .muted{display:none}
+
+/* v2023: the card page scrolls when a dashboard is on it; interactive rows, bars and video sheet */
+.dcardv:has(>.sdash){overflow-y:auto;grid-template-rows:none;grid-auto-rows:auto;align-content:start}
+.kclk{cursor:pointer} .kclk:hover rect:last-child{opacity:1!important;filter:brightness(1.15)}
+.srctr[data-a]{cursor:pointer;transition:background .15s} .srctr[data-a]:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.srctr[data-a]:active{background:color-mix(in srgb,var(--ink) 9%,transparent)}
+.srcsort{height:34px} .srcsort button{height:28px;padding:0 12px;font:600 12px/1 Inter}
+.srcmore{display:block;margin:12px auto 0;font:600 13px/1 Inter;color:var(--ink2);background:none;padding:8px 12px}
+.srcmore:hover{color:var(--ink)}
+.kavgl{fill:rgba(243,234,216,.55)}
+.rnlk{gap:10px;padding-left:14px} .rnlk>svg{flex:none;opacity:.55}
+.rnsrc{display:flex;flex-wrap:wrap;gap:6px;margin:10px 2px 0} .rnsrc span{font:500 11.5px/1 Inter;padding:6px 9px;border-radius:12px;background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink2)}
+.rnfound{display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;margin-top:4px}
+.rnfound img{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none}
+.rnfound .tx{display:flex;flex-direction:column;gap:2px;min-width:0} .rnfound b{font:700 16px/1.2 Inter} .rnfound small{font:500 12px/1.2 Inter;color:var(--ink2)}
+.rnkp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.rnkp span{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--ink) 7%,transparent);font:500 11px/1.2 Inter;color:var(--ink2);min-width:0}
+.rnkp b{font:700 20px/1 'Bricolage Grotesque',Inter,sans-serif;color:var(--ink)} .rnkp b.up{color:#8be0b0} .rnkp b.down{color:#ffb27a}
+#sheet.srcv .sb{display:flex;flex-direction:column;gap:6px}
+.svth{position:relative;display:block;width:100%;aspect-ratio:16/9;border-radius:18px;overflow:hidden;background:#000;margin-bottom:8px}
+.svth img{width:100%;height:100%;object-fit:cover;display:block}
+.svplay{position:absolute;inset:0;margin:auto;width:56px;height:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff}
+.svt{font:700 18px/1.3 Inter;overflow-wrap:anywhere} .svd{font:500 13px/1.3 Inter;color:var(--ink2)}
+.sv3{margin-top:8px}
+.svact{display:flex;gap:10px;margin-top:14px} .svact .pbtn{height:46px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none} .svact a.pbtn{flex:1}
+@media (min-width:900px){#sheet.srcv{max-width:520px}}
+.sdash .kd2{align-items:start}
+/* ===== v2024: recipe views (sheets Aurora learned with Claude) ===== */
+.reccta{align-items:flex-start;gap:10px;padding:26px 28px}
+.reccta .ricon{width:52px;height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--c,#b18cff) 22%,transparent);color:var(--ink);margin-bottom:4px}
+.reccta>b{font:700 20px/1.25 'Bricolage Grotesque',Inter,sans-serif}
+.reccta>span{font:500 14px/1.45 Inter;color:var(--ink2);max-width:60ch}
+.reccta .pbtn{margin-top:8px;height:46px;padding:0 20px;display:inline-flex;align-items:center;gap:8px}
+.reccta small{font:500 12px/1.3 Inter;margin-top:2px}
+.rec2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px}
+.recday>.cap{display:block;font:600 10.5px/1 Inter;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
+.recp{display:flex;align-items:center;gap:12px;min-height:46px;padding:6px 0;border-top:1px solid rgba(243,234,216,.08)}
+.recday .recp:nth-child(2),.pn>.recp:first-of-type,.ph2+.recp{border-top:0}
+.recp b{font:600 14.5px/1.2 Inter;white-space:nowrap} .recp small{flex:1;min-width:0;font:500 12.5px/1.2 Inter;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recp.me b{color:var(--c)} .recp.dim{opacity:.45}
+.recc{flex:none;min-width:30px;height:30px;padding:0 6px;border-radius:10px;display:flex;align-items:center;justify-content:center;font:800 13px/1 Inter;color:#14110c;background:var(--k)}
+.recwho{display:flex;flex-wrap:wrap;gap:8px} .recwho .chip{height:38px;padding:0 16px;border-radius:19px;font:600 14px/1 Inter}
+.cb.sm{width:32px;height:32px;border-radius:16px}
+.recmonth .ph2 .cap{font-size:12px}
+.recgw{overflow-x:auto;margin:0 -6px;padding:0 6px 4px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.recg{border-collapse:separate;border-spacing:3px;width:100%;font:600 11.5px/1 Inter;font-variant-numeric:tabular-nums}
+.recg th{color:var(--ink3);font-weight:600;padding:4px 0;text-align:center;min-width:24px;cursor:pointer}
+.recg th.we{color:color-mix(in srgb,var(--ink3) 60%,transparent)} .recg th.td{color:var(--ink);background:color-mix(in srgb,var(--c) 35%,transparent);border-radius:8px}
+.recg tbody th{position:sticky;left:0;z-index:1;text-align:left;padding:0 12px 0 2px;color:var(--ink);font:600 13px/1 Inter;white-space:nowrap;cursor:default;background:linear-gradient(90deg,rgba(28,24,22,.92) 75%,transparent)}
+.recg tr.me th{color:var(--c)}
+.recg td{height:28px;min-width:24px;padding:0;text-align:center;border-radius:7px;background:rgba(243,234,216,.05);cursor:pointer}
+.recg td.td{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--c) 70%,transparent)}
+.recg td i,.recleg i{display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-height:28px;border-radius:7px;font:800 11px/1 Inter;font-style:normal;color:#14110c;background:var(--k)}
+.recg td i.off,.recleg i.off{background:transparent;color:var(--ink3)}
+.recg tr.me td{background:color-mix(in srgb,var(--c) 10%,transparent)}
+.recg td:hover{filter:brightness(1.15)}
+.recleg{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:14px;font:500 12px/1 Inter;color:var(--ink2)}
+.recleg span{display:flex;align-items:center;gap:8px} .recleg i{width:22px;height:22px;min-height:22px;border-radius:6px}
+.sdash .kd2.even{align-items:start}
+.sdash.mob .rec2{grid-template-columns:1fr;gap:14px}
+.sdash.mob .reccta{padding:20px}
+@media (max-width:1180px){.rec2{grid-template-columns:1fr}}
+/* Czech accents on uppercase panel captions were cut by overflow:hidden with line-height 1 */
+.pn .ph2 .cap,.ph2 .cap{line-height:1.45}
+.recg tbody th{background:none}
+.sdash.mob .recg tbody th{background:color-mix(in srgb,#1c1816 70%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:8px;padding-left:8px}
+.kkn.long{font-size:30px;letter-spacing:-.02em}
+.kd4.m .kkn.long{font-size:21px;line-height:1.15}
+.rnhint{display:flex;align-items:center;gap:8px;margin:10px 4px 0;font:500 13px/1.4 Inter;color:var(--ink2)}
+.recq{margin:0 0 10px}.recq input{height:40px;font:500 14px/1 Inter}
+.askrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+/* ===== v2026: strict symmetric layout for every dashboard ===== */
+.sdash .lr{display:grid;gap:24px;align-items:stretch}
+.sdash .lr31{grid-template-columns:minmax(0,3fr) minmax(0,1fr)}
+.sdash .lr11{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.sdash .lr1{grid-template-columns:minmax(0,1fr)}
+.sdash .lr>.pn{display:flex;flex-direction:column;min-width:0}
+.sdash .lr>.pn .kch{margin:auto 0}
+.sdash .kd4:has(>:nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
+.sdash .kd4:has(>:nth-child(2):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
+.sdash .kd4:has(>:only-child){grid-template-columns:minmax(0,1fr)}
+.sdash.mob .kd4.m:has(>:nth-child(3):last-child)>:last-child{grid-column:1/-1}
+@media (max-width:1180px){.sdash .lr31,.sdash .lr11{grid-template-columns:minmax(0,1fr)}}
