@@ -96,7 +96,7 @@
   window.keiroLoad = function () {
     if (window.KR) return Promise.resolve(window.KR);
     if (kLoading) return kLoading;
-    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2019'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
+    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2022'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
     return kLoading;
   };
   if (KCFG().on) keiroLoad().then(() => { if (S) render(); }).catch(() => {});
@@ -317,7 +317,8 @@
     cap(you, L('You', 'Ty')); cap(look, L('Look', 'Vzhled')); cap(notif, L('Notifications', 'Notifikace')); cap(src, L('Sources', 'Zdroje'));
     if (home) { const g = notif.querySelector('.grp'), hg = home.querySelector('.grp'); if (g && hg) { while (hg.firstChild) g.appendChild(hg.firstChild); home.remove(); } }
     const sr = you.querySelector('[data-a="syncPage"] .tx'); if (sr) sr.innerHTML = esc(L('Phone and computer', 'Telefon a počítač')) + '<small>' + esc(S.labSync ? (S.labSync.state === 'err' ? L('Problem · tap to see', 'Problém · ťukni pro detail') : L('Linked · last sync ', 'Propojeno · naposledy ') + (labAgo() || '–')) : L('Not linked yet · same data on both', 'Zatím nepropojeno · stejná data na obou')) + '</small>';
-    const sg = src.querySelector('.grp'); if (sg) sg.insertAdjacentHTML('beforeend', '<button class="srow" data-a="srcLink"><span class="ci" style="width:30px;height:30px;border-radius:15px">' + ico('plus', 15, 2.2) + '</span><span class="tx">' + esc(L('Connect a source', 'Připojit zdroj')) + '<small>' + esc(L('Paste a link to what you run', 'Vlož odkaz na to, co provozuješ')) + '</small></span><span class="r">' + ico('chev', 14, 2.4) + '</span></button>');
+    const sg = src.querySelector('.grp'); if (sg) sg.insertAdjacentHTML('beforeend', '<button class="srow" data-a="srcSetup"><span class="ci" style="width:30px;height:30px;border-radius:15px">' + ico('sync', 15, 2.2) + '</span><span class="tx">' + esc(L('Link reader', 'Čtečka odkazů')) + '<small>' + esc(L('Reads public links for project cards', 'Čte veřejné odkazy pro projekty')) + '</small></span><span class="r">' + ico('chev', 14, 2.4) + '</span></button>');
+    if (sg) sg.insertAdjacentHTML('beforeend', '<button class="srow" data-a="srcLink"><span class="ci" style="width:30px;height:30px;border-radius:15px">' + ico('plus', 15, 2.2) + '</span><span class="tx">' + esc(L('Connect a source', 'Připojit zdroj')) + '<small>' + esc(L('Paste a link to what you run', 'Vlož odkaz na to, co provozuješ')) + '</small></span><span class="r">' + ico('chev', 14, 2.4) + '</span></button>');
     const fold = (key, capHTML, icon, title, sub, secs) => {
       const open = !!(V.setOpen && V.setOpen[key]), w = document.createElement('div'); w.className = 'sec';
       w.innerHTML = (capHTML ? '<span class="cap">' + capHTML + '</span>' : '') + '<section class="grp frost solid"><button class="srow" data-a="setFold" data-k="' + key + '" aria-expanded="' + open + '"><span class="ci" style="width:30px;height:30px;border-radius:15px">' + ico(icon, 15, 2) + '</span><span class="tx">' + esc(title) + '<small>' + esc(sub) + '</small></span><span class="r setchev' + (open ? ' on' : '') + '">' + ico('chev', 14, 2.4) + '</span></button></section><div class="setfold"' + (open ? '' : ' hidden') + '></div>';
@@ -340,7 +341,45 @@
   const blankCard = type => ({ id: null, name: '', type, color: COLORS[S.cards.length % COLORS.length], deadline: null, goal: 7, step: '', who: 'me', with: [], tile: null, win: null, items: [], tpl: null });
   const after = fn => { closeSheet(true); setTimeout(fn, 320); };
   ACT.ncDo = () => after(() => openCardSheet(null));
-  ACT.ncRun = () => after(() => openCardSheet(null, blankCard('project')));
+  /* Something I run: name, deadline, and optionally a link to what it is. Nothing else. */
+  function runSheet(pre) {
+    const R = { name: (pre && pre.name) || '', dl: null, link: (pre && pre.link) || '', k: null, data: null }; let ln0 = () => R.link;
+    const dls = [[null, L('None', 'Bez termínu')], [7, L('1 week', 'Týden')], [30, L('1 month', 'Měsíc')], ['pick', L('Pick', 'Vybrat')]];
+    openSheet({ title: L('Something I run', 'Něco, co řídím'), right: L('Create', 'Vytvořit'), rightDisabled: !R.name, cls: 'runsheet',
+      body: '<div class="fld in big kname rn"><input id="rnName" maxlength="60" autocomplete="off" enterkeyhint="done" placeholder="' + esc(L('e.g. KEID channel, Studio Lumen', 'např. KEID kanál, Studio Lumen')) + '" value="' + esc(R.name) + '" aria-label="' + esc(L('Name', 'Název')) + '"></div>'
+        + '<span class="cap rncap">' + esc(L('Deadline', 'Termín')) + '</span><div class="seg frost rnseg" role="group">' + dls.map(([k, l], i) => '<button data-i="' + i + '" class="' + (i === 0 ? 'on' : '') + '">' + esc(l) + '</button>').join('') + '</div><input id="rnDate" type="date" class="rndate" hidden aria-label="' + esc(L('Deadline date', 'Datum termínu')) + '">'
+        + '<span class="cap rncap">' + esc(L('Numbers from somewhere? · optional', 'Čísla odněkud? · nepovinné')) + '</span><div class="fld in lkf"><input id="rnLink" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + esc(L('Paste a link to your channel, sheet…', 'Vlož odkaz na kanál, tabulku…')) + '" value="' + esc(R.link) + '" aria-label="' + esc(L('Link', 'Odkaz')) + '"></div><div id="rnOut" class="rnout" aria-live="polite"></div>'
+        + '<p class="rnfoot">' + esc(L('Tasks you add later in the card. A name is enough to start.', 'Úkoly přidáš potom v kartě. Na začátek stačí název.')) + '</p>',
+      dirty: () => R.name.trim(),
+      onSave: () => {
+        if (!R.name.trim()) return;
+        if (R.k && !R.k.own && !R.data) { try { const w = JSON.parse(localStorage.getItem('srcWant') || '[]'); w.push({ k: R.k.k, host: R.k.host || R.k.k, at: Date.now() }); localStorage.setItem('srcWant', JSON.stringify(w.slice(-50))); } catch (e) {} }
+        K = blankCard('project'); K.name = R.name.trim(); K.deadline = R.dl; const lk = R.k && !R.k.own ? ln0() : '';
+        const before = new Set(S.cards.map(c => c.id)); saveCardSheet();
+        const nc = S.cards.find(c => !before.has(c.id)); if (nc && lk) { nc.src = { url: lk, kind: R.k.k }; if (R.data) srcPut(nc.id, { at: Date.now(), data: R.data }); save(); if (V.card === nc.id) { if (isDeskV()) deskRender(); else renderCard(); } }
+      },
+      mount: el => {
+        const nm = el.querySelector('#rnName'), save = $('#sheetSave'), seg = [...el.querySelectorAll('.rnseg button')], dt = el.querySelector('#rnDate'), ln = el.querySelector('#rnLink'), out = el.querySelector('#rnOut');
+        const upd = () => { if (save) save.disabled = !R.name.trim(); };
+        nm.addEventListener('input', () => { R.name = nm.value; upd(); });
+        seg.forEach(b => b.onclick = () => { const v = dls[+b.dataset.i][0]; seg.forEach(x => x.classList.toggle('on', x === b)); dt.hidden = v !== 'pick'; if (v === 'pick') { dt.min = T(); dt.focus(); try { dt.showPicker && dt.showPicker(); } catch (e) {} R.dl = dt.value || null; } else R.dl = v ? addD(T(), v) : null; });
+        dt.addEventListener('change', () => { R.dl = dt.value || null; });
+        ln0 = () => ln.value.trim(); let tm = null, seq = 0;
+        const line = (dot, b, rest) => '<span class="rnl"><i style="background:' + dot + '"></i><b>' + esc(b) + '</b>' + (rest ? ' · ' + esc(rest) : '') + '</span>';
+        const show = () => { const v = ln.value.trim(); R.k = v ? linkKind(v) : null; R.data = null; const k = R.k; clearTimeout(tm);
+          if (!v) { out.innerHTML = ''; return; }
+          if (!k) { out.innerHTML = '<span class="rnl">' + esc(L('That does not look like a link yet', 'Tohle ještě nevypadá jako odkaz')) + '</span>'; return; }
+          if (k.own) { out.innerHTML = line('#8be0b0', L('Own automation', 'Vlastní automatizace'), L('set it up in Settings → Sources', 'nastavíš v Settings → Sources')); return; }
+          if (!R.name.trim() && k.name) { R.name = k.name; nm.value = k.name; upd(); }
+          out.innerHTML = line('#f0c46b', L('Reading…', 'Čtu…'), k.label);
+          const my = ++seq; tm = setTimeout(async () => { const r = await srcRead(v); if (my !== seq) return;
+            if (r.data) { R.data = r.data; const d = r.data; out.innerHTML = line('#8be0b0', L('Found: ', 'Nalezeno: ') + d.title, srcSummary(d)); if (!R.name.trim() || R.name === k.name) { R.name = d.title; nm.value = d.title; upd(); } }
+            else out.innerHTML = line(r.setup ? '#f0c46b' : '#ff8a8a', r.setup ? L('The link reader is not set up yet', 'Čtečka odkazů ještě není nastavená') : L('Could not read it', 'Nepodařilo se přečíst'), r.setup ? L('the card is created now and fills in once it is', 'karta se založí hned a naplní se, až bude') : r.msg); }, 450); };
+        ln.addEventListener('input', show); if (R.link) show();
+        if (!('ontouchstart' in window)) setTimeout(() => nm.focus(), 350);
+      } });
+  }
+  ACT.ncRun = () => after(() => runSheet());
 
   /* ---------- Paste a link: Aurora says what it is. Reading the sources themselves comes next; nothing is faked. ---------- */
   function linkKind(raw) {
@@ -351,7 +390,8 @@
     if (h === 'docs.google.com' && /^\/spreadsheets\//.test(p)) return { k: 'sheet', label: 'Google Sheet', name: '', soon: true, will: L('your numbers as a chart and rows with a date in Plan', 'tvoje čísla jako graf a řádky s datem v Plan') };
     if (h === 'calendar.google.com' || /\.ics$/i.test(p) || u.protocol === 'webcal:') return { k: 'calendar', label: L('Calendar', 'Kalendář'), name: '', soon: true, will: L('its events in Plan', 'jeho události v Plan') };
     if (/\.ts\.net$/.test(h) || /^\/api(\/|$)/.test(p)) return { k: 'own', label: L('Own automation', 'Vlastní automatizace'), name: h.split('.')[0], own: true };
-    const nm = h.split('.').slice(-2, -1)[0] || h; return { k: 'other', host: h, label: nm.charAt(0).toUpperCase() + nm.slice(1), name: first, soon: false };
+    if (h === 'github.com') return { k: 'github', label: 'GitHub', name: p.split('/').filter(Boolean).slice(0, 2).join('/'), soon: true };
+    const nm = h.split('.').slice(-2, -1)[0] || h; return { k: 'other', host: h, label: nm.charAt(0).toUpperCase() + nm.slice(1), name: /instagram|tiktok|notion|facebook|twitter|^x$/.test(nm) ? first : '', soon: true };
   }
   function linkSheet() {
     openSheet({ title: L('Connect a source', 'Připojit zdroj'), body: '<p class="lkp">' + esc(L('Paste a link to what you run. Your channel, your sheet, your calendar.', 'Vlož odkaz na to, co provozuješ. Kanál, tabulku, kalendář.')) + '</p>'
@@ -363,8 +403,8 @@
           if (!k) { out.innerHTML = '<div class="lkr"><b>' + esc(L('That does not look like a link yet', 'Tohle ještě nevypadá jako odkaz')) + '</b></div>'; return; }
           out.innerHTML = '<div class="lkr frost solid"><span class="cap" style="color:' + (k.own ? '#8be0b0' : k.soon ? '#f0c46b' : 'var(--ink3)') + '">' + esc(k.own ? L('Works today', 'Funguje už dnes') : k.soon ? L('Recognised · coming next', 'Poznáno · přijde v dalším updatu') : L('Not readable yet', 'Zatím neumím přečíst')) + '</span><b>' + esc(k.label + (k.name ? ' · ' + k.name : '')) + '</b><span>'
             + esc(k.own ? L('A script or bot of yours. Aurora connects to it with this address and a PIN.', 'Tvůj skript nebo bot. Aurora se k němu připojí touhle adresou a PINem.') : k.soon ? L('Aurora will show ', 'Aurora ukáže ') + k.will + L('. Reading it is not built yet.', '. Čtení ještě není postavené.') : L('Aurora cannot read ', 'Aurora zatím neumí číst ') + k.label + L(' yet. Your interest is noted on this device.', '. Tvůj zájem si poznamenám v tomhle zařízení.')) + '</span>'
-            + (k.own ? '<button class="pbtn cr press" data-a="srcAdv">' + esc(L('Set up the connection', 'Nastavit připojení')) + '</button>' : '<button class="pbtn cr press" id="lkGo">' + esc(L('Create the project for now', 'Zatím založit projekt')) + '</button>') + '</div>';
-          const go = out.querySelector('#lkGo'); if (go) go.onclick = () => { try { const w = JSON.parse(localStorage.getItem('srcWant') || '[]'); w.push({ k: k.k, host: k.host || k.k, at: Date.now() }); localStorage.setItem('srcWant', JSON.stringify(w.slice(-50))); } catch (e) {} const c = blankCard('project'); c.name = k.name || k.label; after(() => openCardSheet(null, c)); };
+            + (k.own ? '<button class="pbtn cr press" data-a="srcAdv">' + esc(L('Set up the connection', 'Nastavit připojení')) + '</button>' : '<button class="pbtn cr press" id="lkGo">' + esc(L('Create the project', 'Založit projekt')) + '</button>') + '</div>';
+          const go = out.querySelector('#lkGo'); if (go) go.onclick = () => { try { const w = JSON.parse(localStorage.getItem('srcWant') || '[]'); w.push({ k: k.k, host: k.host || k.k, at: Date.now() }); localStorage.setItem('srcWant', JSON.stringify(w.slice(-50))); } catch (e) {} after(() => runSheet({ name: k.name || '', link: inp.value.trim() })); };
         };
         inp.addEventListener('input', show); inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const go = out.querySelector('#lkGo'); if (go) go.click(); } });
         el.querySelector('#lkPaste').onclick = async () => { try { const tx = await navigator.clipboard.readText(); if (tx) { inp.value = tx.trim(); show(); } } catch (e) { inp.focus(); toast(esc(L('Hold the field and choose Paste', 'Podrž pole a zvol Vložit'))); } };
@@ -385,4 +425,195 @@
   };
   { const q = new URLSearchParams(location.search); if (q.get('keiro')) setTimeout(() => { if (S && S.onboarded) openDeepLink(location.href); }, 600); }
   ACT.keiroSettings = () => { V.settingsPage = 'keiro'; renderSettings(); $('#s-settings').scrollTop = 0; };
+
+  /* ================= Sources: a project reads numbers from a public link =================
+     The link reader is a small Worker (aurora-reader.js). Its address defaults to the same Cloudflare account as the push server. */
+  const SRC_DEFAULT = 'https://aurora-reader.keidaurora.workers.dev';
+  const srcBase = () => { try { return (localStorage.getItem('srcServer') || SRC_DEFAULT).replace(/\/+$/, ''); } catch (e) { return SRC_DEFAULT; } };
+  const srcGet = id => { try { return JSON.parse(localStorage.getItem('src:' + id) || 'null'); } catch (e) { return null; } };
+  function srcPut(id, o) { try { localStorage.setItem('src:' + id, JSON.stringify(o)); } catch (e) {} if (o.data && o.data.kpis && o.data.kpis[0]) { try { const h = JSON.parse(localStorage.getItem('srch:' + id) || '{}'); h[T()] = o.data.kpis[0].value; const ks = Object.keys(h).sort().slice(-90); const n = {}; ks.forEach(k => n[k] = h[k]); localStorage.setItem('srch:' + id, JSON.stringify(n)); } catch (e) {} } }
+  async function srcRead(url, fresh) {
+    try {
+      const r = await fetch(srcBase() + '/read?url=' + encodeURIComponent(url) + (fresh ? '&fresh=1' : ''), { cache: 'no-store' });
+      let j = null; try { j = await r.json(); } catch (e) {}
+      if (r.ok && j && !j.error) return { data: j };
+      return { msg: (j && j.message) || L('The reader answered ', 'Čtečka odpověděla ') + r.status, code: j && j.error };
+    } catch (e) { return { setup: true, msg: L('The link reader is not reachable', 'Čtečka odkazů není dostupná') }; }
+  }
+  const kf = n => { n = +n || 0; const a = Math.abs(n); return a >= 1e9 ? (Math.round(n / 1e8) / 10) + 'B' : a >= 1e6 ? (Math.round(n / 1e5) / 10) + 'M' : a >= 1e4 ? Math.round(n / 1e3) + 'k' : a >= 1e3 ? (Math.round(n / 100) / 10) + 'k' : String(Math.round(n * 100) / 100); };
+  function srcSummary(d) { const k = (d.kpis || [])[0]; return [d.sub, k ? kf(k.value) + ' ' + k.label.toLowerCase() + (k.text ? ' · ' + k.text : '') : ''].filter(Boolean).join(' · '); }
+  const ago2 = iso => { if (!iso) return ''; const t = +new Date(iso); if (!t) return ''; const m = Math.round((Date.now() - t) / 60000); if (m < 0) { const d = Math.round(-m / 1440); return d < 1 ? L('today', 'dnes') : L('in ', 'za ') + d + L(' d', ' d'); } return m < 60 ? m + ' min' : m < 1440 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' d'; };
+  const KIND = { youtube: 'YouTube', sheet: 'Google Sheet', calendar: L('Calendar', 'Kalendář'), github: 'GitHub', feed: 'RSS', podcast: 'Podcast' };
+  const busy = new Set();
+  async function srcRefresh(c, fresh) {
+    if (!c || !c.src || busy.has(c.id)) return; busy.add(c.id); const st = srcGet(c.id) || {}; srcPut(c.id, Object.assign({}, st, { loading: true }));
+    paintSrc(c.id);
+    const r = await srcRead(c.src.url, fresh); busy.delete(c.id);
+    if (r.data) srcPut(c.id, { at: Date.now(), data: r.data }); else srcPut(c.id, Object.assign({}, st, { loading: false, err: r.msg, setup: !!r.setup, errAt: Date.now() }));
+    paintSrc(c.id);
+  }
+  const stale = c => { const st = srcGet(c.id); return !st || !st.at || Date.now() - st.at > 15 * 60000; };
+  function paintSrc(id) {
+    if (V.card === id) { if (isDeskV()) { const m = $('#dCardMain'); if (m) mountSrc(m, true); } else { const el = $('#s-card'); if (el) mountSrc(el, false); } }
+    if (V.tab === 'spaces' && !V.card) spacesSrc();
+  }
+  function series(c, d) {
+    if (d.series && d.series.points && d.series.points.length > 1) return { label: d.series.label, pts: d.series.points };
+    try { const h = JSON.parse(localStorage.getItem('srch:' + c.id) || '{}'), ks = Object.keys(h).sort(); if (ks.length > 1) return { label: (d.kpis[0] || {}).label || '', pts: ks.map(k => ({ date: k, value: h[k] })) }; } catch (e) {}
+    return null;
+  }
+  /* ---- what the numbers say: plain sentences computed on the device, each can become a task ---- */
+  const short = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 1).trim() + '…' : t; };
+  const days = iso => (Date.now() - +new Date(iso)) / 864e5;
+  function insights(c, d) {
+    const out = [], it = (d.items || []).filter(x => x.value != null && x.date);
+    const add = (t, tone, task) => out.push({ t, tone: tone || '', task: task || '' });
+    if (d.kind === 'youtube' && it.length) {
+      const tot = it.reduce((a, x) => a + x.value, 0), avg = tot / it.length;
+      const best = it.reduce((a, x) => x.value > a.value ? x : a, it[0]), r = best.value / (avg || 1);
+      if (r >= 1.3) add(L('“' + short(best.title, 42) + '” has ' + (Math.round(r * 10) / 10) + '× the recent average.', '„' + short(best.title, 42) + '“ má ' + String(Math.round(r * 10) / 10).replace('.', ',') + '× víc než průměr.'), 'up', L('Make another video like “' + short(best.title, 30) + '”', 'Natočit další video jako „' + short(best.title, 30) + '“'));
+      const last = days(it[0].date), n30 = it.filter(x => days(x.date) <= 30).length;
+      if (last > 7) add(L('No new video for ' + Math.floor(last) + ' days.', Math.floor(last) + ' dní nic nového.'), 'down', L('Plan the next video', 'Naplánovat další video'));
+      else add(L('Last video ' + ago2(it[0].date) + ' ago · ' + n30 + ' in 30 days, about ' + (Math.round(n30 / 30 * 7 * 10) / 10) + ' a week.', 'Poslední video před ' + ago2(it[0].date) + ' · ' + n30 + ' za 30 dní, zhruba ' + String(Math.round(n30 / 30 * 7 * 10) / 10).replace('.', ',') + ' týdně.'), '');
+      const settled = it.filter(x => days(x.date) >= 2), rec = settled.slice(0, 5), old = settled.slice(5);
+      if (rec.length >= 3 && old.length >= 3) { const ar = rec.reduce((a, x) => a + x.value, 0) / rec.length, ao = old.reduce((a, x) => a + x.value, 0) / old.length, p = Math.round((ar / (ao || 1) - 1) * 100);
+        if (p <= -15) add(L('The latest videos get ' + (-p) + ' % fewer views than the earlier ones.', 'Poslední videa mají o ' + (-p) + ' % méně zhlédnutí než ta dřívější.'), 'down', L('Look at what changed in the latest videos', 'Projít, co se v posledních videích změnilo'));
+        else if (p >= 15) add(L('The latest videos get ' + p + ' % more views than the earlier ones.', 'Poslední videa mají o ' + p + ' % víc zhlédnutí než ta dřívější.'), 'up'); }
+      return out.slice(0, 3);
+    }
+    const sr = d.series && d.series.points && d.series.points.length > 2 ? d.series : null;
+    if (sr) { const p = sr.points, a2 = p[Math.max(0, p.length - 8)].value, b2 = p[p.length - 1].value, ch = a2 ? Math.round((b2 / a2 - 1) * 100) : 0;
+      if (ch) add(sr.label + ' ' + (ch > 0 ? '+' : '') + ch + ' % ' + L('over the last ' + Math.min(7, p.length - 1) + ' rows.', 'za posledních ' + Math.min(7, p.length - 1) + ' řádků.'), ch > 0 ? 'up' : 'down'); }
+    const ev = (d.events || [])[0];
+    if (ev) add(L('Next: ' + short(ev.title, 40) + ' · ' + ago2(ev.when) + '.', 'Další: ' + short(ev.title, 40) + ' · ' + ago2(ev.when) + '.'), '', L('Prepare: ', 'Připravit: ') + short(ev.title, 40));
+    else if (d.kind === 'calendar') add(L('Nothing planned in the calendar.', 'V kalendáři nic naplánovaného.'), 'down', L('Plan something for this week', 'Naplánovat něco na tento týden'));
+    const li = (d.items || []).find(x => x.date);
+    if (li && (d.kind === 'feed' || d.kind === 'podcast' || d.kind === 'github')) { const g = days(li.date);
+      if (g > 14) add(L('Nothing new for ' + Math.floor(g) + ' days.', Math.floor(g) + ' dní nic nového.'), 'down', d.kind === 'podcast' ? L('Record the next episode', 'Natočit další díl') : L('Write the next post', 'Napsat další příspěvek'));
+      else add(L('Latest: ' + short(li.title, 40) + ' · ' + ago2(li.date) + ' ago.', 'Nejnovější: ' + short(li.title, 40) + ' · před ' + ago2(li.date) + '.'), ''); }
+    return out.slice(0, 3);
+  }
+  const askGet = id => { try { return JSON.parse(localStorage.getItem('srca:' + id) || 'null'); } catch (e) { return null; } };
+  const askCfg = () => { try { return { pin: localStorage.getItem('srcAskPin') || '', model: localStorage.getItem('srcAskModel') || 'sonnet', effort: localStorage.getItem('srcAskEffort') || 'low' }; } catch (e) { return { pin: '', model: 'sonnet', effort: 'low' }; } };
+  const MNAME = { sonnet: 'Claude Sonnet', opus: 'Claude Opus', haiku: 'Claude Haiku' };
+  const asking = new Set();
+  function sayHTML(c, d) {
+    const ins = insights(c, d), A = askGet(c.id), cfg = askCfg(), busyA = asking.has(c.id);
+    const row = (x, i) => '<div class="say' + (x.tone ? ' ' + x.tone : '') + '" style="--i:' + i + '"><i></i><span>' + esc(x.t) + '</span>' + (x.task ? '<button class="saytask press" data-a="srcTask" data-id="' + c.id + '" data-t="' + esc(x.task) + '" aria-label="' + esc(L('Add as a task: ', 'Přidat jako úkol: ') + x.task) + '">' + ico('plus', 13, 2.4) + '</button>' : '') + '</div>';
+    const ai = A && A.lines && A.lines.length ? '<div class="sayai"><span class="cap">' + esc((MNAME[A.mk] || 'Claude') + ' · ' + new Date(A.at).toLocaleTimeString(lang() === 'cs' ? 'cs-CZ' : 'en-GB', { hour: '2-digit', minute: '2-digit' })) + '</span>' + A.lines.map((t, i) => row({ t, tone: '' }, i)).join('') + (A.task ? row({ t: '→ ' + A.task, tone: 'ai', task: A.task }, A.lines.length) : '') + '</div>' : A && A.err ? '<p class="sayerr">' + esc(A.err) + '</p>' : '';
+    const btn = cfg.pin ? '<button class="pbtn ghost press askbtn' + (busyA ? ' busy' : '') + '" data-a="srcAsk" data-id="' + c.id + '"' + (busyA ? ' disabled' : '') + '>' + ico('spark', 15, 2.2) + esc(busyA ? L('Aurora is thinking…', 'Aurora přemýšlí…') : A && A.lines ? L('Ask again', 'Zeptat se znovu') : L('Ask Aurora', 'Zeptej se Aurory')) + '</button>'
+      : '<button class="lnk asksetup" data-a="srcSetup">' + esc(L('Ask Aurora · set up Claude', 'Zeptej se Aurory · nastavit Claude')) + '</button>';
+    return (ins.length ? ins.map(row).join('') : '<p class="muted saynone">' + esc(L('Nothing stands out yet.', 'Zatím nic nevyčnívá.')) + '</p>') + ai + '<div class="askrow">' + btn + '</div>';
+  }
+  /* bars in the same style as the clipping page; best bar full colour, average as a dashed line */
+  function bars(pts, col, avg) {
+    const n = pts.length, W = 760, H = 170, step = (W - 40) / n, bw = Math.min(40, step * .62), mx = Math.max(1, ...pts.map(p => p.value));
+    const every = n > 16 ? 5 : n > 9 ? 2 : 1, hiV = Math.max(...pts.map(p => p.value));
+    const ay = avg ? H + 12 - avg / mx * (H - 14) : 0;
+    return '<svg class="kch" viewBox="0 0 ' + W + ' 215" role="img">' + (avg ? '<line x1="16" x2="' + (W - 16) + '" y1="' + ay.toFixed(1) + '" y2="' + ay.toFixed(1) + '" class="kavg"/><text x="' + (W - 18) + '" y="' + (ay - 7).toFixed(1) + '" text-anchor="end" class="kcl">' + esc(L('avg ', 'průměr ') + kf(avg)) + '</text>' : '') + pts.map((p, i) => {
+      const x = 20 + i * step + (step - bw) / 2, h = Math.max(2, p.value / mx * (H - 14)), y = H + 12 - h;
+      return '<g class="kcb" style="--i:' + i + '"><rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="' + Math.min(6, bw / 4).toFixed(1) + '" fill="' + col + '" opacity="' + (p.value === hiV ? 1 : .55) + '"><title>' + esc((p.title ? p.title + ' · ' : '') + kf(p.value)) + '</title></rect></g>'
+        + (i % every === 0 || i === n - 1 ? '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H + 34) + '" text-anchor="middle" class="kcl">' + esc(p.label) + '</text>' : '')
+        + (n <= 16 ? '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 8).toFixed(1) + '" text-anchor="middle" class="kct" style="--i:' + i + '">' + kf(p.value) + '</text>' : '');
+    }).join('') + '</svg>';
+  }
+  const dm = iso => { const t = new Date(iso.length === 10 ? iso + 'T12:00:00' : iso); return t.getDate() + '.' + (t.getMonth() + 1) + '.'; };
+  function chartOf(c, d) {
+    const sr = series(c, d);
+    if (sr && d.kind !== 'youtube') return { cap: sr.label + ' · ' + L('by day', 'po dnech'), svg: bars(sr.pts.slice(-30).map(p => ({ label: dm(p.date), value: p.value })), c.color) };
+    const it = (d.items || []).filter(x => x.value != null);
+    if (it.length > 1) { const pts = it.slice().reverse().map(x => ({ label: dm(x.date), value: x.value, title: x.title })); return { cap: L('Views per video · latest ', 'Zhlédnutí na video · posledních ') + it.length, svg: bars(pts, c.color, it.reduce((a, x) => a + x.value, 0) / it.length) }; }
+    return null;
+  }
+  function tiles(d) {
+    const k = (d.kpis || []).slice();
+    if (d.kind === 'youtube' && d.sub) { const m = d.sub.match(/^([\d.,]+\s?[KMB]?)/i); if (m) k.unshift({ label: L('Subscribers', 'Odběratelé'), raw: m[1].replace(/\s/g, ''), text: L('public count', 'veřejný počet') }); }
+    return k.slice(0, 4);
+  }
+  const updated = st => st.at ? new Date(st.at).toLocaleTimeString(lang() === 'cs' ? 'cs-CZ' : 'en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
+  function srcPanel(c, desk) {
+    const st = srcGet(c.id) || {}, d = st.data, col = c.color, kn = KIND[(d && d.kind) || c.src.kind] || L('Link', 'Odkaz');
+    const ref = '<button class="cb frost press srcr' + (st.loading ? ' spin' : '') + '" data-a="srcRefresh" data-id="' + c.id + '" aria-label="' + esc(L('Refresh', 'Obnovit')) + '">' + ico('sync', desk ? 18 : 16, 2.2) + '</button>';
+    if (!d) {
+      const msg = st.loading || !st.errAt ? L('Reading ', 'Čtu ') + c.src.url.replace(/^https?:\/\//, '').slice(0, 48) + '…' : st.err || L('Could not read it', 'Nepodařilo se přečíst');
+      return '<section class="srcp frost solid' + (desk ? ' desk' : '') + '" data-src="' + c.id + '"><div class="srch"><span class="srck"><i style="background:' + col + '"></i>' + esc(kn) + '</span>' + ref + '</div><div class="srce"><b>' + esc(st.setup ? L('The link reader is not set up yet', 'Čtečka odkazů ještě není nastavená') : st.errAt && !st.loading ? L('Could not read the link', 'Odkaz se nepodařilo přečíst') : L('Getting the numbers…', 'Načítám čísla…')) + '</b><span>' + esc(st.setup ? L('One-time setup, about 5 minutes.', 'Jednorázové nastavení, asi 5 minut.') : msg) + '</span>' + (st.setup ? '<button class="pbtn cr press" data-a="srcSetup">' + esc(L('Set it up', 'Nastavit')) + '</button>' : st.errAt && !st.loading ? '<button class="pbtn ghost press" data-a="srcRefresh" data-id="' + c.id + '">' + esc(L('Try again', 'Zkusit znovu')) + '</button>' : '') + '</div></section>';
+    }
+    const img = (u, cls) => u ? '<img class="' + cls + '" src="' + esc(u) + '" onerror="this.style.visibility=\'hidden\'" alt="" loading="lazy" referrerpolicy="no-referrer">' : '<span class="' + cls + '"></span>';
+    const T4 = tiles(d), ch = chartOf(c, d), it = d.items || [], avg = it.filter(x => x.value != null).reduce((a, x, _, A) => a + x.value / A.length, 0);
+    const tile = (k, i) => '<section class="pn frost solid kkpi" style="--i:' + i + '"><span class="cap">' + esc(k.label) + '</span><div class="kkn">' + esc(k.raw || kf(k.value)) + '</div><span class="muted ksubl">' + esc(k.text || '') + '</span></section>';
+    const say = '<section class="pn frost solid saypn" style="--c:' + col + '"><div class="ph2"><span class="cap">' + esc(L('Aurora says', 'Aurora říká')) + '</span><span class="muted">' + esc(L('tap + to make it a task', '+ udělá z toho úkol')) + '</span></div><div class="saybox" data-say="' + c.id + '">' + sayHTML(c, d) + '</div></section>';
+    const best = d.best ? '<a class="pn frost solid bestpn" href="' + esc(d.best.url) + '" target="_blank" rel="noopener">' + img(d.best.thumb, 'bthumb') + '<span class="cap">' + esc(L('Best of the latest', 'Nejlepší z posledních')) + '</span><b>' + esc(d.best.title) + '</b><span class="bnum"><em style="color:' + col + '">' + kf(d.best.value) + '</em> ' + esc(L('views', 'zhlédnutí')) + (avg ? ' · ' + String(Math.round(d.best.value / avg * 10) / 10).replace('.', lang() === 'cs' ? ',' : '.') + '× ' + esc(L('average', 'průměr')) : '') + '</span></a>' : '';
+    const evs = (d.events || []).length ? '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Coming up', 'Chystá se')) + '</span><span class="muted">' + d.events.length + '</span></div>' + d.events.slice(0, 6).map(x => { const dt = new Date(x.when.length === 10 ? x.when + 'T12:00:00' : x.when); return '<div class="srcit"><span class="srcd"><b>' + dt.getDate() + '.' + (dt.getMonth() + 1) + '.</b>' + (x.when.length > 10 ? '<small>' + dt.toLocaleTimeString(lang() === 'cs' ? 'cs-CZ' : 'en-GB', { hour: '2-digit', minute: '2-digit' }) + '</small>' : '') + '</span><span class="tx"><b>' + esc(x.title) + '</b><small>' + esc(ago2(x.when)) + '</small></span></div>'; }).join('') + '</section>' : '';
+    const vsA = v => { if (v == null || !avg) return ''; const r = v / avg; return '<span class="vsa"><span class="khl"><i style="width:' + Math.min(100, r / 2 * 100).toFixed(0) + '%;background:' + (r >= 1 ? col : 'rgba(243,234,216,.35)') + '"></i></span><b class="' + (r >= 1.15 ? 'up' : r <= .85 ? 'down' : '') + '">' + (r >= 1 ? '+' : '') + Math.round((r - 1) * 100) + ' %</b></span>'; };
+    const hasV = it.some(x => x.value != null);
+    const table = it.length ? '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(d.itemsLabel || L('Latest', 'Poslední')) + '</span><span class="muted">' + esc(hasV ? L('vs average', 'proti průměru') : it.length + '') + '</span></div><table class="ktb srctb"><tbody>' + it.slice(0, desk ? 8 : 5).map(x => '<tr><td><a class="srcrow" href="' + esc(x.url || d.url || '#') + '" target="_blank" rel="noopener">' + (x.thumb ? img(x.thumb, 'sth') : '') + '<span><b>' + esc(x.title) + '</b><small class="muted">' + esc(x.date ? ago2(x.date) : '') + '</small></span></a></td>' + (hasV ? '<td class="vnum">' + kf(x.value) + '</td>' + (desk ? '<td class="vs">' + vsA(x.value) + '</td>' : '') : '') + '</tr>').join('') + '</tbody></table></section>' : '';
+    const chart = ch ? '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(ch.cap) + '</span><span class="muted">' + esc(d.kind === 'youtube' ? L('history grows from today', 'historie roste od dneška') : '') + '</span></div>' + ch.svg + '</section>' : '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Over time', 'V čase')) + '</span></div><div class="kwait"><b>' + esc(L('The chart grows from today', 'Graf poroste od dneška')) + '</b><span>' + esc(L('Aurora keeps one number a day.', 'Aurora si každý den uloží jedno číslo.')) + '</span></div></section>';
+    const head = '<div class="sdh"><div class="dgrp">' + (d.image ? '<img class="sav" src="' + esc(d.image) + '" onerror="this.remove()" alt="" referrerpolicy="no-referrer">' : '') + '<span class="kdst"><i style="background:' + col + ';box-shadow:none"></i>' + esc(kn) + '</span><span class="kdst"><i></i>' + esc(L('Live · ', 'Živě · ') + updated(st)) + '</span><a class="kdst press" href="' + esc(d.url || c.src.url) + '" target="_blank" rel="noopener">' + esc(L('Open', 'Otevřít')) + ' ' + ico('arrow', 12, 2.4) + '</a></div>' + ref + '</div>';
+    if (desk) return '<div class="srcp sdash desk fx-go" data-src="' + c.id + '" style="--c:' + col + '">' + head
+      + '<div class="kd4">' + T4.map(tile).join('') + '</div>'
+      + '<div class="kd2">' + chart + say + '</div>'
+      + (table || best || evs ? '<div class="kd2">' + (table || '<span></span>') + (best || evs || '<span></span>') + '</div>' : '') + '</div>';
+    return '<section class="srcp sdash mob fx-go" data-src="' + c.id + '" style="--c:' + col + '">' + head
+      + '<div class="kd4 m">' + T4.map(tile).join('') + '</div>' + say + (ch ? chart : '') + best + table + evs + '</section>';
+  }
+  ACT.srcTask = el => { const c = cardById(el.dataset.id); if (!c) return; const t3 = el.dataset.t; S.items.push({ id: uid(), t: t3, card: c.id, date: T(), created: T() }); save(); haptic && haptic(); toast(esc(L('Added for today', 'Přidáno na dnes')) + ' · ' + esc(short(t3, 34))); if (V.card === c.id) { if (isDeskV()) { const m = $('#desk'), y = m ? m.scrollTop : 0; deskRender(); if (m) m.scrollTop = y; } else { const e3 = $('#s-card'), y = e3.scrollTop; renderCard(); e3.scrollTop = y; } } };
+  ACT.srcAsk = async el => {
+    const c = cardById(el.dataset.id); if (!c || asking.has(c.id)) return; const st = srcGet(c.id), d = st && st.data; if (!d) return; const cfg = askCfg();
+    asking.add(c.id); repaintSay(c);
+    const data = { kind: d.kind, title: d.title, sub: d.sub, kpis: d.kpis, items: (d.items || []).slice(0, 15).map(x => ({ title: x.title, date: x.date, value: x.value })), events: (d.events || []).slice(0, 8), series: d.series ? d.series.points.slice(-30) : null, computed: insights(c, d).map(x => x.t), today: T() };
+    let o;
+    try { const r = await fetch(srcBase() + '/ask', { method: 'POST', headers: { 'content-type': 'text/plain', 'x-aurora-pin': cfg.pin }, body: JSON.stringify({ name: c.name, lang: lang(), model: cfg.model, effort: cfg.effort, data }) }); const j = await r.json().catch(() => null);
+      o = r.ok && j && j.lines ? { at: Date.now(), lines: j.lines, task: j.task, mk: cfg.model } : { at: Date.now(), err: j && j.error === 'pin' ? L('Wrong PIN, check it in Settings → Sources → Link reader.', 'Špatný PIN, zkontroluj ho v Settings → Sources → Čtečka odkazů.') : j && j.error === 'noai' ? L('Claude is not set up on the reader yet.', 'Na čtečce ještě není nastavený Claude.') : (j && j.message) || L('Aurora could not answer.', 'Aurora neodpověděla.') }; }
+    catch (e) { o = { at: Date.now(), err: L('The link reader is not reachable.', 'Čtečka odkazů není dostupná.') }; }
+    try { localStorage.setItem('srca:' + c.id, JSON.stringify(o)); } catch (e) {}
+    asking.delete(c.id); repaintSay(c);
+  };
+  function repaintSay(c) { const st = srcGet(c.id); document.querySelectorAll('.saybox[data-say="' + c.id + '"]').forEach(b => { b.innerHTML = sayHTML(c, st.data); }); }
+  function addPanel(c, desk) {
+    return '<section class="srcp srcadd frost solid' + (desk ? ' desk' : '') + '" data-src="' + c.id + '"><span class="cap">' + esc(L('Numbers from somewhere?', 'Čísla odněkud?')) + '</span><div class="fld in lkf"><input class="srcin" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + esc(L('Paste a link to your channel, sheet, calendar…', 'Vlož odkaz na kanál, tabulku, kalendář…')) + '" aria-label="' + esc(L('Link', 'Odkaz')) + '"><button class="pbtn cr press srcgo" data-id="' + c.id + '">' + esc(L('Connect', 'Připojit')) + '</button></div></section>';
+  }
+  function mountSrc(root, desk) {
+    const c = cardById(V.card); if (!c || c.type !== 'project' || !root) return;
+    const old = root.querySelector('.srcp'); const html = c.src ? srcPanel(c, desk) : addPanel(c, desk);
+    if (old) { if (old.classList.contains('srcadd') && !c.src && document.activeElement && old.contains(document.activeElement)) return; old.outerHTML = html; }
+    else if (desk) { const t2 = root.querySelector('#dCardTitle'); if (!t2) return; t2.insertAdjacentHTML('afterend', html); }
+    else { const after = root.querySelector('.cnote') || root.querySelector('.cname'); if (!after) return; after.insertAdjacentHTML('afterend', html); }
+    const p = root.querySelector('.srcp'); const go = p && p.querySelector('.srcgo');
+    if (go) { const inp = p.querySelector('.srcin'); const run = () => { const v = inp.value.trim(), k = v && linkKind(v); if (!k) { inp.focus(); return; } if (k.own) { ACT.srcAdv(); return; } c.src = { url: v, kind: k.k }; save(); mountSrc(root, desk); srcRefresh(c, true); };
+      go.onclick = run; inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); run(); } }); }
+    if (c.src && stale(c) && !busy.has(c.id)) { const st = srcGet(c.id); if (!st || !st.errAt || Date.now() - st.errAt > 60000) srcRefresh(c); }
+  }
+  ACT.srcRefresh = el => { const c = cardById(el.dataset.id); if (c) srcRefresh(c, true); };
+  /* Spaces: the card's subtitle becomes the source's numbers */
+  function spacesSrc() {
+    S.cards.filter(c => c.src).forEach(c => { const st = srcGet(c.id); if (stale(c) && !busy.has(c.id) && (!st || !st.errAt || Date.now() - st.errAt > 300000)) setTimeout(() => srcRefresh(c), 400);
+      if (!st || !st.data) return; const t3 = srcSummary(st.data);
+      document.querySelectorAll('#deck > .spc[data-id="' + c.id + '"] .sub, #desk .dcard[data-id="' + c.id + '"] .dsub').forEach(n => { n.textContent = t3; n.classList.add('srcsub'); });
+      document.querySelectorAll('#s-spaces .stack > .lrow[data-id="' + c.id + '"] .tx small').forEach(n => { n.textContent = (KIND[st.data.kind] || '') + ' · ' + t3; }); });
+  }
+  /* hook the card page and Spaces on phone and computer */
+  const _rc = renderCard; renderCard = function () { _rc(); if (!isDeskV()) mountSrc($('#s-card'), false); };
+  document.addEventListener('DOMContentLoaded', () => {
+    const _rs = renderSpaces; renderSpaces = function () { _rs(); if (!V.spEdit) spacesSrc(); }; if (typeof RENDER !== 'undefined') RENDER.spaces = renderSpaces;
+    if (typeof deskRender === 'function') { const _d = deskRender; deskRender = function (a) { _d(a); if (!isDeskV()) return; if (V.card) mountSrc($('#dCardMain'), true); else if (V.tab === 'spaces') spacesSrc(); }; }
+  });
+  setInterval(() => { if (!document.hidden && S && S.cards) S.cards.filter(c => c.src && stale(c)).slice(0, 3).forEach(c => srcRefresh(c)); }, 10 * 60000);
+
+  /* one-time setup of the link reader */
+  function srcSetupSheet() {
+    openSheet({ title: L('Link reader', 'Čtečka odkazů'), body: '<p class="lkp">' + esc(L('A small program on your Cloudflare account that reads public links for Aurora. Set it up once, it then works for every card and device.', 'Malý program na tvém Cloudflare účtu, který čte veřejné odkazy pro Auroru. Nastavíš ho jednou a pak funguje pro všechny karty a zařízení.')) + '</p>'
+      + '<span class="cap">' + esc(L('Address', 'Adresa')) + '</span><div class="fld in lkf" style="margin-top:8px"><input id="srcUrl" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(srcBase()) + '"><button class="pbtn ghost press" id="srcTest">' + esc(L('Test', 'Otestovat')) + '</button></div><div id="srcSt" class="rnout"></div>'
+      + '<p class="rnfoot" style="text-align:left">' + esc(L('If you named the Worker “aurora-reader”, the address is already right.', 'Když jsi Worker pojmenoval „aurora-reader“, adresa už sedí.')) + '</p>'
+      + '<span class="cap" style="display:block;margin-top:22px">' + esc(L('Ask Aurora · Claude', 'Zeptej se Aurory · Claude')) + '</span><p class="lkp" style="margin-top:6px">' + esc(L('Optional. Needs your Anthropic API key saved on the reader in Cloudflare, plus a PIN you choose. Type the same PIN here.', 'Nepovinné. Na čtečce v Cloudflare musí být tvůj Anthropic API klíč a PIN, který si zvolíš. Sem napiš stejný PIN.')) + '</p>'
+      + '<div class="fld in lkf"><input id="srcPin" type="password" inputmode="numeric" autocomplete="off" placeholder="' + esc(L('PIN', 'PIN')) + '" value="' + esc(askCfg().pin) + '"></div>'
+      + '<div class="seg frost rnseg" id="srcModel" style="margin-top:12px">' + [['sonnet', 'Sonnet'], ['opus', 'Opus']].map(([k, l]) => '<button data-k="' + k + '" class="' + (askCfg().model === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>'
+      + '<div class="seg frost rnseg" id="srcEffort" style="margin-top:8px">' + [['low', L('Quick', 'Rychle')], ['medium', L('Deeper', 'Důkladněji')]].map(([k, l]) => '<button data-k="' + k + '" class="' + (askCfg().effort === k ? 'on' : '') + '">' + esc(l) + '</button>').join('') + '</div>'
+      + '<p class="rnfoot" style="text-align:left">' + esc(L('Sonnet + Quick costs the least. Opus thinks harder and costs more.', 'Sonnet + Rychle stojí nejméně. Opus přemýšlí víc a stojí víc.')) + '</p>',
+      right: L('Save', 'Uložit'), onSave: () => { const v = $('#srcUrl').value.trim(); try { if (!v || v === SRC_DEFAULT) localStorage.removeItem('srcServer'); else localStorage.setItem('srcServer', v); localStorage.setItem('srcAskPin', $('#srcPin').value.trim()); const m = $('#srcModel .on'), e2 = $('#srcEffort .on'); if (m) localStorage.setItem('srcAskModel', m.dataset.k); if (e2) localStorage.setItem('srcAskEffort', e2.dataset.k); } catch (e) {} closeSheet(true); S.cards.filter(c => c.src).forEach(c => srcRefresh(c, true)); if (V.settingsOpen) renderSettings(); },
+      mount: el => { el.querySelectorAll('#srcModel button,#srcEffort button').forEach(b => b.onclick = () => { b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+        el.querySelector('#srcTest').onclick = async () => { const st = el.querySelector('#srcSt'), base = el.querySelector('#srcUrl').value.trim().replace(/\/+$/, ''); st.innerHTML = '<span class="rnl">' + esc(L('Testing…', 'Testuju…')) + '</span>';
+        try { const j = await (await fetch(base + '/ping', { cache: 'no-store' })).json(); st.innerHTML = j && j.ok ? '<span class="rnl"><i style="background:#8be0b0"></i><b>' + esc(L('Works', 'Funguje')) + '</b> · v' + j.v + ' · ' + esc(j.ask ? L('Claude ready', 'Claude připravený') : L('Claude not set up', 'Claude nenastavený')) + '</span>' : '<span class="rnl"><i style="background:#ff8a8a"></i><b>' + esc(L('Not a reader', 'Tohle není čtečka')) + '</b></span>'; }
+        catch (e) { st.innerHTML = '<span class="rnl"><i style="background:#ff8a8a"></i><b>' + esc(L('Not reachable', 'Nedostupné')) + '</b> · ' + esc(L('check the address and that you pressed Deploy', 'zkontroluj adresu a že jsi dal Deploy')) + '</span>'; } }; } });
+  }
+  ACT.srcSetup = () => { if (SH.open) after(srcSetupSheet); else srcSetupSheet(); };
 })();
