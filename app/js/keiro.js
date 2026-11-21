@@ -73,12 +73,14 @@ window.KR = (function () {
       return txt;
     } finally { clearTimeout(to); }
   }
+  /* review comes in pages of 8: GET /api/feed?page=N; projects[] carry review_total, page, has_more. Not persisted: a fresh start shows page 0. */
+  let PG = 0;
   async function refresh(quiet) {
     if (busy) return; busy = true;
     try {
       if (!live()) { if (!C.feed || !C.feed.demo) C.feed = mock(); C.at = Date.now(); C.err = ''; C.offSince = 0; }
       else {
-        const j = JSON.parse(await api('/api/feed'));
+        const j = JSON.parse(await api('/api/feed?page=' + PG));
         C.feed = j; C.at = Date.now(); C.err = ''; C.offSince = 0;
         if (typeof pushSchedule === 'function') pushSchedule();
         if (V.kd) loadStats();
@@ -138,6 +140,18 @@ window.KR = (function () {
   };
   const inP = (name, fn) => { const o = SC; SC = name; try { return fn(); } finally { SC = o; } };
   const page = fn => { const p = cur(); return p ? inP(p.name, fn) : fn(); };
+  /* "8 z 23" and "Další 8 ↻" / "Od začátku"; only when the automat sends review_total (older automats: nothing shows) */
+  function pgInfo(name) {
+    const ps = name ? [proj(name)].filter(Boolean) : projs(); if (!ps.length || !ps.some(p => p.review_total != null)) return null;
+    const total = ps.reduce((a, p) => a + (+p.review_total || 0), 0), more = ps.some(p => p.has_more);
+    const shown = (name ? inP(name, () => F().review || []) : RAW().review || []).length;
+    return { total, more, shown };
+  }
+  function pager(name, cls) {
+    const o = pgInfo(name); if (!o || (!o.more && !PG && o.total <= o.shown)) return '';
+    const btn = o.more ? '<button class="kpgb press" data-a="krPage" data-k="next">' + esc(L('Next 8', 'Další 8')) + ' ↻</button>' : PG ? '<button class="kpgb press" data-a="krPage" data-k="start">' + esc(L('From the start', 'Od začátku')) + '</button>' : '';
+    return '<span class="kpg' + (cls ? ' ' + cls : '') + '"><span class="kpgn">' + o.shown + L(' of ', ' z ') + o.total + '</span>' + btn + '</span>';
+  }
   const campUrl = n => { const p = proj(n) || (SC ? proj(SC) : null) || cur(); return (p && p.campaign_url) || CAMP; };
   function ptabs(cls) {
     const ps = projs(); if (!ps.length) return ''; const c = cur();
@@ -240,7 +254,7 @@ window.KR = (function () {
     const unsent = (f.posted || []).filter(p => !p.submitted).length;
     el.innerHTML = '<div class="hdr"><button class="cb frost press" data-a="krClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span style="display:flex;gap:8px"><button class="cb frost press" data-a="krRefresh" aria-label="' + esc(L('Refresh', 'Obnovit')) + '">' + ico('sync', 18, 2.2) + '</button><button class="cb frost press" data-a="krSettings" aria-label="' + esc(L('Keiro settings', 'Nastavení Keira')) + '">' + ico('gear', 19, 2) + '</button></span></div>'
       + '<span class="kick cap" style="color:var(--ink)"><span class="led" style="--c:' + KC() + '"></span>' + esc(pr ? L('Project', 'Projekt') : L('Project · tool', 'Projekt · nástroj')) + '</span><h1 class="cname">' + esc(pr ? pr.name : 'Keiro') + '</h1>' + statCard() + pinfo()
-      + '<div class="stack" style="margin-top:18px"><section class="hero frost" style="--c:' + KC() + '"><span class="cap">' + esc(L('To review', 'Ke schválení') + (oldest ? ' · ' + L('oldest ', 'nejstarší ') + ago(oldest) : '')) + '</span><div class="num" style="font-size:60px;margin-top:14px">' + rv.length + '<small style="font-size:16px">' + esc(L(rv.length === 1 ? 'clip' : 'clips', rv.length === 1 ? 'klip' : rv.length > 1 && rv.length < 5 ? 'klipy' : 'klipů')) + '</small></div>'
+      + '<div class="stack" style="margin-top:18px"><section class="hero frost" style="--c:' + KC() + '"><span class="cap">' + esc(L('To review', 'Ke schválení') + (oldest ? ' · ' + L('oldest ', 'nejstarší ') + ago(oldest) : '')) + '</span>' + pager(pr ? pr.name : null) + '<div class="num" style="font-size:60px;margin-top:14px">' + rv.length + '<small style="font-size:16px">' + esc(L(rv.length === 1 ? 'clip' : 'clips', rv.length === 1 ? 'klip' : rv.length > 1 && rv.length < 5 ? 'klipy' : 'klipů')) + '</small></div>'
       + (rv.length ? '<div class="kfan">' + rv.slice(0, 5).map(x => thumb(x)).join('') + (camp ? '<span class="kmore">' + esc(L(camp + ' with a campaign', camp + ' s kampaní')) + '<br>' + esc(L('go out right away', 'jdou rovnou ven')) + '</span>' : '') + '</div>'
         + '<button class="pbtn cr press kgo" data-a="krReview">' + ico('play', 16, 2.4) + esc(L('Review', 'Schvalovat')) + '</button>' : '<p class="muted" style="margin:10px 0 2px;font:400 14px/1.4 Inter">' + esc(L('Nothing waiting. New clips show up here.', 'Nic nečeká. Nové klipy se objeví tady.')) + '</p>') + '</section>'
       + (pr ? '<div class="stat3"><div class="frost"><span class="cap">' + esc(L('Out today', 'Dnes vydáno')) + '</span><span class="num">' + (+pr.today || 0) + (pr.max_per_day != null ? '<small>/' + pr.max_per_day + '</small>' : '') + '</span></div><div class="frost"><span class="cap">' + esc(L('Scheduled', 'Naplánováno')) + '</span><span class="num">' + (f.scheduled || []).filter(z => +new Date(z.when) > Date.now()).length + '</span></div><div class="frost"><span class="cap">' + esc(L('To send', 'K odeslání')) + '</span><span class="num">' + clips().filter(g => g.rank === 0).length + '</span></div></div></div>'
@@ -305,7 +319,7 @@ window.KR = (function () {
   /* Home: one widget in the stack; it goes first while something is urgent */
   function widget() {
     if (!C.on || !C.home || !C.feed) return null; const o = nowState();
-    return { urgent: !!o.urgent, kind: o.kind, html: '<div class="lh"><span class="cap"' + (o.red ? ' style="color:#ff8a8a"' : '') + '><span class="led" style="--c:' + KC() + ';margin-right:7px"></span>' + esc(o.cap) + '</span><span class="muted">' + esc(o.side || '') + '</span></div><button class="kwb" data-a="krOpen" data-k="' + esc(o.proj || '') + '"><span class="hbig">' + esc(o.big) + '</span><span class="hp">' + esc(o.p || '') + '</span></button><button class="hbtn press" data-a="' + o.act + '" data-k="' + esc(o.act === 'krOpen' ? o.proj || '' : '') + '">' + esc(o.btn) + '</button>' };
+    return { urgent: !!o.urgent, kind: o.kind, html: '<div class="lh"><span class="cap"' + (o.red ? ' style="color:#ff8a8a"' : '') + '><span class="led" style="--c:' + KC() + ';margin-right:7px"></span>' + esc(o.cap) + '</span><span class="muted">' + esc(o.side || '') + '</span></div><button class="kwb" data-a="krOpen" data-k="' + esc(o.proj || '') + '"><span class="hbig">' + esc(o.big) + '</span><span class="hp">' + esc(o.p || '') + '</span>' + (function () { try { const p = parts(); const rs = [[p.todo.length, L('to send', 'k odeslání')], [o.n || 0, L('to review', 'ke schválení')], [p.rl.length, p.rl[0] ? L('next ', 'další ') + hm(p.rl[0].when) : L('releases', 'vydání')]]; return '<span class="kwn">' + rs.map(r => '<span' + (r[0] ? '' : ' class="z"') + '><b>' + r[0] + '</b><small>' + esc(r[1]) + '</small></span>').join('') + '</span>'; } catch (e) { return ''; } })() + '</button><button class="hbtn press" data-a="' + o.act + '" data-k="' + esc(o.act === 'krOpen' ? o.proj || '' : '') + '">' + esc(o.btn) + '</button>' };
   }
 
   /* ---------- Posted: one row per clip, platform chips, one "sent" switch ---------- */
@@ -374,7 +388,7 @@ window.KR = (function () {
     v.innerHTML = '<div class="stage">' + bg + frame + '<div class="shade"></div><span class="stamp re">' + esc(L('Redo', 'Předělat')) + '</span>'
       + (x.video ? '<span class="ksnd" aria-hidden="true"></span>' : '') + '</div>'
       + '<div class="kbars">' + KV.list.map((_, k) => '<i class="' + (k === KV.idx ? 'on' : k < KV.idx ? 'pa' : '') + '"></i>').join('') + '</div>'
-      + '<div class="top"><button class="cb frost press" data-a="krKVClose" aria-label="' + esc(L('Close', 'Zavřít')) + '">' + ico('x', 18, 2.4) + '</button><span class="who"><b>' + esc((x.streamer || '') + ' · ' + (KV.idx + 1) + L(' of ', ' z ') + n) + '</b><span class="ktags">' + tags(x) + '</span></span></div>'
+      + '<div class="top"><button class="cb frost press" data-a="krKVClose" aria-label="' + esc(L('Close', 'Zavřít')) + '">' + ico('x', 18, 2.4) + '</button>' + pager(KV.proj, 'kv') + '<span class="who"><b>' + esc((x.streamer || '') + ' · ' + (KV.idx + 1) + L(' of ', ' z ') + n) + '</b><span class="ktags">' + tags(x) + '</span></span></div>'
       + '<section class="pan frost' + (KV.open ? ' open' : '') + '"><button class="phd" data-a="krPan" aria-expanded="' + !!KV.open + '"><span class="hk">' + esc((x.format === 'meme' && x.meme_text) || x.hook || '') + '</span><span class="pch">' + ico('chev', 14, 2.4) + '</span></button>'
       + '<div class="pmore"><div>' + (x.format === 'meme' && x.meme_text && x.hook ? '<p class="kh2"><b>Hook</b> ' + esc(x.hook) + '</p>' : '') + (x.reason ? '<p>' + esc(x.reason) + '</p>' : '')
       + '<div class="camp' + (x.campaign_active ? '' : ' hold') + '"><i></i>' + esc(x.campaign_active ? L('Campaign on → scheduled right after approval', 'Kampaň běží → po schválení se rovnou naplánuje') : L('No campaign → waits in To post', 'Bez kampaně → počká v K postnutí')) + '</div></div></div>'
@@ -773,7 +787,7 @@ window.KR = (function () {
     const stat = offline() ? '<span class="kdst off"><i></i>' + esc(o.big + ' ' + o.p) + '</span>' : '<span class="kdst' + (((f.automat || {}).recording || []).length ? ' rec' : '') + '"><i></i>' + pill().replace(/<[^>]+>/g, '') + '</span>';
     const holdRow = p.hold.length ? '<div class="kday">' + esc('Pool' + (slotText() ? ' · ' + slotText() : '')) + '</div>' + p.hold.map(h => '<div class="kxr">' + (h.score != null ? '<span class="ktm">★ ' + esc(String(h.score)) + '</span>' : '') + '<span class="tx"><b>' + esc(h.hook || '') + '</b><small>' + esc(h.streamer || '') + '</small></span><button class="pbtn ghost press" style="height:36px;padding:0 14px" data-a="krSchedule" data-id="' + h.id + '">' + esc(L('Schedule', 'Naplánovat')) + '</button></div>').join('') : '';
     return '<div class="dph"><div class="dgrp"><button class="cb frost press" data-a="krClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><h1>' + esc(SC && proj(SC) ? proj(SC).name : 'Keiro') + '</h1>' + (SC && proj(SC) ? '<span class="kdst"><i style="background:' + KC() + ';box-shadow:none"></i>' + esc(L('Project', 'Projekt')) + '</span>' : '') + stat + (SC && poolText(proj(SC)) ? '<span class="kdst">' + esc(poolText(proj(SC))) + '</span>' : '') + (D && D.demo ? '<span class="kdst">' + esc(L('demo numbers', 'ukázková čísla')) + '</span>' : '') + '</div>'
-      + '<div class="dgrp"><div class="seg frost">' + [[1, L('Today', 'Dnes')], [7, L('7 days', '7 dní')], [30, L('30 days', '30 dní')]].map(([k, l]) => '<button class="' + (d === k ? 'on' : '') + '" data-a="krRange" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div><button class="cb frost press" data-a="krRefresh" aria-label="' + esc(L('Refresh', 'Obnovit')) + '">' + ico('sync', 18, 2.2) + '</button><button class="cb frost press" data-a="krSettings" aria-label="' + esc(L('Keiro settings', 'Nastavení Keira')) + '">' + ico('gear', 19, 2) + '</button><button class="dadd cr press" data-a="krReview"' + (o.n ? '' : ' disabled') + '>' + ico('play', 15, 2.4) + esc(L('Review', 'Schvalovat') + ' · ' + o.n) + '</button></div></div>'
+      + '<div class="dgrp"><div class="seg frost">' + [[1, L('Today', 'Dnes')], [7, L('7 days', '7 dní')], [30, L('30 days', '30 dní')]].map(([k, l]) => '<button class="' + (d === k ? 'on' : '') + '" data-a="krRange" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div><button class="cb frost press" data-a="krRefresh" aria-label="' + esc(L('Refresh', 'Obnovit')) + '">' + ico('sync', 18, 2.2) + '</button><button class="cb frost press" data-a="krSettings" aria-label="' + esc(L('Keiro settings', 'Nastavení Keira')) + '">' + ico('gear', 19, 2) + '</button>' + pager(cur() ? cur().name : null, 'dk') + '<button class="dadd cr press" data-a="krReview"' + (o.n ? '' : ' disabled') + '>' + ico('play', 15, 2.4) + esc(L('Review', 'Schvalovat') + ' · ' + o.n) + '</button></div></div>'
       + '<div class="kd4">' + k1 + k2 + k3 + k4 + '</div>'
       + '<div class="kd2"><section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Views by day', 'Zhlédnutí po dnech')) + '</span>' + leg + '</div>' + vb + '</section>'
       + '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Why you discard', 'Proč zahazuješ')) + '</span><span class="muted">' + (rsum ? rsum + ' ' + klip(rsum) : '') + '</span></div>' + why + '</section></div>'
@@ -799,6 +813,12 @@ window.KR = (function () {
   ACT.krRefresh = () => { toast(esc(L('Refreshing…', 'Obnovuju…'))); refresh(false); };
   ACT.krSettings = () => { close(); openSettings(); ACT.keiroSettings(); };
   ACT.krReview = () => review(0);
+  ACT.krPage = async el => {
+    const back = el.dataset.k === 'start'; PG = back ? 0 : PG + 1; haptic();
+    await refresh(true);
+    if ($('#kv')) { KV.list = RV().map(z => z.id); KV.idx = 0; KV.open = false; if (KV.list.length) paintKV(1); else closeKV(); }
+    const o = pgInfo(KV.proj || (cur() ? cur().name : null)); toast(esc(back ? L('Back to the first 8', 'Zpět na prvních 8') : L('Next 8 loaded', 'Načteno dalších 8') + (o ? ' · ' + o.total + L(' waiting in total', ' čeká celkem') : '')));
+  };
   ACT.krHomeReview = el => { const k = el && el.dataset ? el.dataset.k : ''; if (k && proj(k)) { C.proj = proj(k).name; persist(); } open(); review(0, !k); };
   ACT.krKVClose = () => closeKV();
   ACT.krApprove = () => decide('approve', {});
