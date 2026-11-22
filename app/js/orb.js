@@ -12,13 +12,14 @@
   const O = { held: false, aim: false, tg: [], over: null, ghost: null, layer: null, btn: null, t: null, x0: 0, y0: 0, moved: false, busy: false, pid: null };
 
   /* ---------- the orb itself ---------- */
-  const orbFace = small => '<span class="orbv' + (small ? ' sm' : '') + '" aria-hidden="true"><span class="orbm"></span></span>';
+  const orbFace = small => '<span class="orbv' + (small ? ' sm' : '') + '" aria-hidden="true"></span>';
   function dress() {
-    const p = $('#plusBtn'); if (p && !p.querySelector('.orbv')) { const first = !p.classList.contains('aorb'); p.classList.add('aorb'); p.classList.remove('cr'); p.innerHTML = orbFace() + '<span class="orbp">' + ico('plus', 12, 3) + '</span>'; p.setAttribute('aria-label', L('Add · hold for Aurora AI', 'Přidat · podrž pro Aurora AI')); if (first) bind(p); }
+    const p = $('#plusBtn'); if (p && !p.querySelector('.orbv')) { const first = !p.classList.contains('aorb'); p.classList.add('aorb'); p.classList.remove('cr'); p.innerHTML = orbFace(); p.setAttribute('aria-label', L('Add · hold for Aurora AI', 'Přidat · podrž pro Aurora AI')); if (first) bind(p); }
     /* on the phone the card page has no nav, so the orb floats there on its own */
-    let f = $('#orbFab'); if (!f) { f = document.createElement('button'); f.id = 'orbFab'; f.className = 'aorb press'; f.innerHTML = orbFace() + '<span class="orbp">' + ico('plus', 12, 3) + '</span>'; f.setAttribute('aria-label', L('Add to this card · hold for Aurora AI', 'Přidat do karty · podrž pro Aurora AI')); f.addEventListener('click', () => { if (V.card) openAdd({ card: V.card }); }); document.body.appendChild(f); bind(f); }
+    let f = $('#orbFab'); if (!f) { f = document.createElement('button'); f.id = 'orbFab'; f.className = 'aorb press'; f.innerHTML = orbFace(); f.setAttribute('aria-label', L('Add to this card · hold for Aurora AI', 'Přidat do karty · podrž pro Aurora AI')); f.addEventListener('click', () => { if (V.card) openAdd({ card: V.card }); }); document.body.appendChild(f); bind(f); }
     f.classList.toggle('on', !!(V.card && !V.settingsOpen && !desk()));
-    document.querySelectorAll('.dadd[data-a="add"]').forEach(b => { if (b.classList.contains('aorb')) return; b.classList.add('aorb'); const s = b.querySelector('svg'); if (s) s.outerHTML = orbFace(true); bind(b); });
+    /* v2041 · on the computer the orb sits in the middle of the top bar, between Spaces and Board; Add stays a plain button */
+    const dn = document.querySelector('#desk .dnav'); if (dn && !dn.querySelector('.dorb')) { const sp = dn.querySelector('[data-k="spaces"]'); if (sp) { const b = document.createElement('button'); b.className = 'dorb aorb press'; b.innerHTML = orbFace(); b.setAttribute('aria-label', L('Add · hold for Aurora AI', 'Přidat · podrž pro Aurora AI')); b.addEventListener('click', () => { if (typeof openAdd === 'function') openAdd(V.card ? { card: V.card } : {}); }); sp.after(b); bind(b); } }
   }
   function bind(b) {
     b.style.touchAction = 'none';
@@ -240,7 +241,7 @@
   /* first run: one bubble, once */
   function tipOnce() {
     try { if (localStorage.getItem('orbTip')) return; } catch (e) { return; }
-    const p = desk() ? document.querySelector('.dadd.aorb') : $('#plusBtn'); if (!p || !p.offsetParent) return;
+    const p = desk() ? document.querySelector('.dorb') : $('#plusBtn'); if (!p || !p.offsetParent) return;
     const r = p.getBoundingClientRect(), b = document.createElement('div'); b.className = 'orbtip'; b.textContent = L('New: hold me and drop me on a card', 'Novinka: podrž mě a hoď na kartu');
     document.body.appendChild(b); const w = b.offsetWidth; b.style.left = Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width / 2 - w + 30)) + 'px'; b.style.top = (desk() ? r.bottom + 12 : r.top - b.offsetHeight - 12) + 'px'; if (desk()) b.classList.add('dn');
     requestAnimationFrame(() => b.classList.add('on'));

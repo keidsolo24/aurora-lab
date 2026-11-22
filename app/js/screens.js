@@ -17,8 +17,8 @@ function itemRow(i, d, opts = {}) {
 }
 function thumbHTML(m) {
   const c = cardColor(m.card);
-  if (m.kind === 'note') return '<button class="th note" style="--c:' + c + '" data-a="viewMoment" data-id="' + m.id + '">' + esc(m.note.slice(0, 60)) + '</button>';
-  if (m.kind === 'link') return '<button class="th note" style="--c:' + c + '" data-a="viewMoment" data-id="' + m.id + '">' + ico('link', 12, 2.2) + ' ' + esc((m.title || m.url).slice(0, 50)) + '</button>';
+  if (m.kind === 'note') return '<button class="th note" style="--c:' + c + '" data-a="viewMoment" data-id="' + m.id + '"><span class="tn">' + esc(m.note.slice(0, 60)) + '</span></button>';
+  if (m.kind === 'link') return '<button class="th note" style="--c:' + c + '" data-a="viewMoment" data-id="' + m.id + '"><span class="tn">' + ico('link', 12, 2.2) + ' ' + esc((m.title || m.url).slice(0, 50)) + '</span></button>';
   const u = mediaNow(m.img);
   const bd = typeof spaceOfMoment === 'function' && spaceOfMoment(m) ? momentBadge(m) : '';
   return '<button class="th" data-a="viewMoment" data-id="' + m.id + '">' + bd + (m.kind === 'video' ? (m.thumb ? '<img src="' + mediaNow(m.thumb) + '" alt="">' : '<video src="' + u + '#t=0.1" muted playsinline preload="auto"></video>') : '<img src="' + u + '" alt="' + esc(m.note || '') + '" loading="lazy">') + '</button>';
@@ -511,7 +511,7 @@ function renderSettings() {
     const r = $('#dimR'); r.addEventListener('input', () => { S.dim = +r.value; applyLook(); r.parentElement.querySelector('.r').textContent = S.dim + ' %'; }); r.addEventListener('change', save);
     return;
   }
-  const initials = (S.name || 'A').trim().charAt(0).toUpperCase();
+  const initials = ((S.name || '').trim() || (typeof accOn === 'function' && accOn() && S.acc && S.acc.login) || 'A').charAt(0).toUpperCase();
   el.innerHTML = '<div class="hdr"><button class="cb frost press" data-a="closeSettings" aria-label="Back">' + ico('back', 20, 2.2) + '</button><span></span></div><h1 class="t1" style="margin-bottom:18px">' + esc(t('settings')) + '</h1>'
     + '<button class="acct frost press" data-a="accPage"><span class="avatar">' + esc(initials) + '</span><span style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1"><span style="font:600 17px/1.1 Inter">' + esc(S.name || t('yourName')) + '</span><span class="muted" style="font:400 13px/1 Inter">' + esc(accOn() ? '@' + S.acc.login + (lang() === 'cs' ? ' · účet' : ' · account') : (lang() === 'cs' ? 'Bez účtu · vytvořit nebo přihlásit' : 'No account · create or log in')) + '</span></span>' + ico('chev', 16, 2.2) + '</button>'
     + '<div class="sec"><span class="cap">Beta</span><section class="grp frost solid"><button class="srow" data-a="feedback"><span class="ci" style="width:30px;height:30px;border-radius:15px;border:0;background:rgba(91,191,220,.16);color:#9fd6e8">' + ico('note', 15, 2) + '</span><span class="tx">' + esc(lang() === 'cs' ? 'Napsat feedback' : 'Send feedback') + '<small>' + esc(lang() === 'cs' ? 'Co tě potěšilo, co drhne, co chybí' : 'What you like, what is clunky, what is missing') + '</small></span><span class="r"><span class="betapill">v' + VERSION + (window.AUR_NS ? ' test' : '') + '</span>' + ico('chev', 15, 2.2) + '</span></button></section></div>'

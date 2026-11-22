@@ -96,7 +96,7 @@
   window.keiroLoad = function () {
     if (window.KR) return Promise.resolve(window.KR);
     if (kLoading) return kLoading;
-    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2033'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
+    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2042'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
     return kLoading;
   };
   if (KCFG().on) keiroLoad().then(() => { if (S) render(); }).catch(() => {});
@@ -155,7 +155,7 @@
     if (rem) g.insertAdjacentHTML('beforeend', '<button class="pn dcard dnew press" data-a="newCard" style="grid-column:span ' + (cols - rem) + '"><span class="ci" style="width:56px;height:56px;border-radius:28px">' + ico('plus', 24, 1.8) + '</span><b>' + esc(t('newCard')) + '</b><span class="muted">' + esc(t('newCardSub')) + '</span></button>');
     const all = d.querySelector('[data-a="dDeck"][data-k="all"]'); if (all && (V.deckFilter || 'all') === 'all') all.textContent = t('all') + ' · ' + items.length;
   }
-  function fixCount() { const n = document.querySelectorAll('#s-spaces .stack > .lrow, #s-spaces .stack > .kspc, #deck > .spc[data-id], #deck > .kspc').length; const all = document.querySelector('#s-spaces [data-a="deckFilter"][data-k="all"]'); if (all && n && (V.deckFilter || 'all') === 'all') all.textContent = t('all') + ' · ' + n; }
+  function fixCount() { const dk = [...document.querySelectorAll('#deck > .spc[data-id], #deck > .kspc')]; dk.forEach((el, i) => { const m = el.querySelector(':scope > .h > .muted'); if (m && /^\d+ \/ \d+$/.test(m.textContent.trim())) m.textContent = String(i + 1).padStart(2, '0') + ' / ' + String(dk.length).padStart(2, '0'); }); const n = document.querySelectorAll('#s-spaces .stack > .lrow:not([data-a="newCard"]), #s-spaces .stack > .kspc, #deck > .spc[data-id], #deck > .kspc').length; const all = document.querySelector('#s-spaces [data-a="deckFilter"][data-k="all"]'); if (all && n && (V.deckFilter || 'all') === 'all') all.textContent = t('all') + ' · ' + n; }
   /* everything is loaded by now: put the widget into the stack and hook the "entering a screen" moments */
   document.addEventListener('DOMContentLoaded', () => {
     const isDesk = () => typeof DESK !== 'undefined' && DESK.on;

@@ -1,0 +1,47 @@
+/* Aurora 2 Lab · v2040 · motion + the living AI orb. No blur, no new layout. */
+
+/* sheets come in and leave on the one spring; when a sheet turns into another one, it changes size instead of jumping */
+#sheet{transition:transform var(--sp-sheet-ms,.42s) var(--sp-sheet,var(--out))}
+#sheet.mtmorph{overflow:hidden}
+
+/* the tick: a ring that leaves the circle once */
+.mtring{position:fixed;z-index:60;width:26px;height:26px;border-radius:50%;pointer-events:none;box-shadow:0 0 0 2px var(--c,var(--green))}
+.c0{transition:background .18s,border-color .18s}
+
+/* press: everything you can tap sinks a little and comes back on the spring */
+.press{transition:transform var(--sp-soft-ms,.3s) var(--sp-soft,var(--out))}
+
+/* ---------- the AI orb: a living sphere like the one in ChatGPT voice, in the colours of the Aurora wallpaper ---------- */
+@keyframes obA{0%{transform:translate(-12%,4%) scale(1.1)}33%{transform:translate(10%,-6%) scale(.95)}66%{transform:translate(-4%,10%) scale(1.15)}100%{transform:translate(-12%,4%) scale(1.1)}}
+@keyframes obB{0%{transform:translate(14%,-8%)}50%{transform:translate(-14%,6%)}100%{transform:translate(14%,-8%)}}
+@keyframes obC{0%{transform:translate(0,6%) scale(1)}50%{transform:translate(6%,-8%) scale(.9)}100%{transform:translate(0,6%) scale(1)}}
+@keyframes obBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.orbv.alive{animation:obBreath 3.2s ease-in-out infinite;border-radius:50%}
+.orbv.alive .ob{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:linear-gradient(180deg,#2a4a72 0%,#2c73a1 26%,#5fb2d4 50%,#a9d3dd 66%,#c49a80 84%,#7a4a4a 100%);box-shadow:0 6px 22px rgba(40,110,150,.35);isolation:isolate}
+.orbv.alive .ob i{position:absolute;border-radius:50%}
+.orbv.alive .ob .b1{width:130%;height:70%;left:-15%;top:52%;background:radial-gradient(closest-side,rgba(232,246,248,.9),rgba(232,246,248,0));animation:obA 7s ease-in-out infinite}
+.orbv.alive .ob .b2{width:110%;height:50%;left:-5%;top:38%;background:radial-gradient(closest-side,rgba(230,170,130,.7),rgba(230,170,130,0));animation:obB 9s ease-in-out infinite}
+.orbv.alive .ob .b3{width:80%;height:55%;left:10%;top:-10%;background:radial-gradient(closest-side,rgba(40,80,130,.8),rgba(40,80,130,0));animation:obC 11s ease-in-out infinite}
+.orbv.alive .ob .gl{display:none}
+.orbv .orbm,.aorb .orbp{display:none!important}
+/* thinking: the clouds run faster; done: it turns green for a moment */
+.orbthink .orbv.alive .ob i,body.thinking .orbv.alive .ob i{animation-duration:2.2s}
+.aorb.orbdone .orbv.alive .ob{background:linear-gradient(180deg,#2f9c68 0%,#5fd39a 50%,#e4fbef 100%)}
+
+/* phone: the orb sits in the middle of the bar, between Spaces and Board */
+.nav .bar{grid-template-columns:1fr 1fr 64px 1fr 1fr}
+.nav .bar .tab:nth-child(3){grid-column:4}
+.nav .plus.aorb{position:absolute;left:calc(50% - 29px);top:calc(50% - 29px);width:58px;height:58px;border-radius:50%;background:none!important;box-shadow:none!important;-webkit-backdrop-filter:none;backdrop-filter:none;z-index:2;padding:0}
+.nav .plus.aorb .orbv{width:52px;height:52px}
+html body.lightui .nav .plus.aorb{background:none!important}
+/* the card page on the phone: the same sphere floats bottom right */
+#orbFab{background:none!important;box-shadow:none!important;-webkit-backdrop-filter:none;backdrop-filter:none}
+#orbFab .orbv{width:56px;height:56px}
+/* computer: in the top bar between Spaces and Board */
+.dnav .dorb{width:40px;height:40px;padding:0!important;margin:0 4px;border-radius:50%;background:none!important;display:flex;align-items:center;justify-content:center;flex:none}
+.dnav .dorb .orbv{width:34px;height:34px}
+
+@media (prefers-reduced-motion:reduce){
+  .orbv.alive,.orbv.alive .ob i{animation:none!important}
+  #sheet,.press{transition-duration:.01s!important}
+}
