@@ -853,5 +853,7 @@ window.KR = (function () {
   setInterval(() => { if (C.on && !document.hidden && (V.keiro || V.kd || $('#kv'))) refresh(true); }, 60000);
   if (C.on) { loop(); if (!C.feed || Date.now() - C.at > 30000) refresh(true); }
   const cardList = () => !C.on || !C.feed ? [] : projs().length ? projs().map(p => ({ k: 'k:' + p.name, name: p.name, sub: L('Project', 'Projekt'), color: pcol(p.name) })) : [{ k: 'k:', name: 'Keiro', sub: L('Project · tool', 'Projekt · nástroj'), color: C.color || '#ff4f7b' }];
-  return { pushList, note, widget, deskHook, planHook, cardList, spacesHook, settingsPage, statusLine, refresh, _C: () => C };
+  /* v2050: Home 2.0 reads the same now-state as one row */
+  const now = () => (C.on && C.home && C.feed) ? nowState() : null;
+  return { pushList, note, widget, now, deskHook, planHook, cardList, spacesHook, settingsPage, statusLine, refresh, _C: () => C };
 })();

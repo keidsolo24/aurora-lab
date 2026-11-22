@@ -16,7 +16,7 @@
   function dress() {
     const p = $('#plusBtn'); if (p && !p.querySelector('.orbv')) { const first = !p.classList.contains('aorb'); p.classList.add('aorb'); p.classList.remove('cr'); p.innerHTML = orbFace(); p.setAttribute('aria-label', L('Add · hold for Aurora AI', 'Přidat · podrž pro Aurora AI')); if (first) bind(p); }
     /* on the phone the card page has no nav, so the orb floats there on its own */
-    let f = $('#orbFab'); if (!f) { f = document.createElement('button'); f.id = 'orbFab'; f.className = 'aorb press'; f.innerHTML = orbFace(); f.setAttribute('aria-label', L('Add to this card · hold for Aurora AI', 'Přidat do karty · podrž pro Aurora AI')); f.addEventListener('click', () => { if (V.card) openAdd({ card: V.card }); }); document.body.appendChild(f); bind(f); }
+    let f = $('#orbFab'); if (!f) { f = document.createElement('button'); f.id = 'orbFab'; f.className = 'aorb press'; f.innerHTML = orbFace(); f.setAttribute('aria-label', L('Add to this card · hold for Aurora AI', 'Přidat do karty · podrž pro Aurora AI'));  document.body.appendChild(f); bind(f); }
     f.classList.toggle('on', !!(V.card && !V.settingsOpen && !desk()));
     /* v2041 · on the computer the orb sits in the middle of the top bar, between Spaces and Board; Add stays a plain button */
     const dn = document.querySelector('#desk .dnav'); if (dn && !dn.querySelector('.dorb')) { const sp = dn.querySelector('[data-k="spaces"]'); if (sp) { const b = document.createElement('button'); b.className = 'dorb aorb press'; b.innerHTML = orbFace(); b.setAttribute('aria-label', L('Add · hold for Aurora AI', 'Přidat · podrž pro Aurora AI')); b.addEventListener('click', () => { if (typeof openAdd === 'function') openAdd(V.card ? { card: V.card } : {}); }); sp.after(b); bind(b); } }
@@ -63,9 +63,8 @@
     document.body.classList.add('orbing');
     const lay = document.createElement('div'); lay.id = 'orbL'; O.layer = lay;
     const W = innerWidth, H = innerHeight, rr = r => 'M' + (r.left - 6) + ' ' + (r.top - 6) + 'h' + (r.width + 12) + 'v' + (r.height + 12) + 'h' + -(r.width + 12) + 'z';
-    lay.innerHTML = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><path fill-rule="evenodd" class="orbdim" d="M0 0H' + W + 'V' + H + 'H0z ' + O.tg.map(t => rr(t.r)).join(' ') + '"/></svg>'
-      + O.tg.map((t, i) => '<i class="orbt" data-i="' + i + '" style="left:' + (t.r.left - 6) + 'px;top:' + (t.r.top - 6) + 'px;width:' + (t.r.width + 12) + 'px;height:' + (t.r.height + 12) + 'px;--d:' + (i * 30) + 'ms"></i>').join('')
-      + '<div class="orbhint">' + esc(L('Drop me on something', 'Hoď mě na něco')) + '</div><button class="orbx">' + esc(L('Cancel', 'Zrušit')) + '</button>';
+    void W; void H; void rr; /* v2045 · nothing dims and nothing gets outlined; only the thing under the orb lights up */
+    lay.innerHTML = '<i class="orbhl"></i><div class="orbhint">' + esc(L('Drop me on something', 'Hoď mě na něco')) + '</div><button class="orbx">' + esc(L('Cancel', 'Zrušit')) + '</button>';
     document.body.appendChild(lay);
     const g = document.createElement('div'); g.id = 'orbGhost'; g.innerHTML = orbFace(); document.body.appendChild(g); O.ghost = g;
     const br = b.getBoundingClientRect(); place(br.left + br.width / 2, br.top + br.height / 2, true);
@@ -93,11 +92,12 @@
   const place = (x, y, now) => { if (!O.ghost) return; F.tx = x; F.ty = y; if (now || (typeof RM !== 'undefined' && RM)) { F.x = x; F.y = y; O.ghost.style.transform = 'translate(' + (x - 36) + 'px,' + (y - 36) + 'px)'; return; } if (!F.raf) F.raf = requestAnimationFrame(follow); };
   const hitAt = (x, y) => { let best = null; O.tg.forEach((t, i) => { const r = t.r; if (x >= r.left - 6 && x <= r.right + 6 && y >= r.top - 6 && y <= r.bottom + 6) { const a = r.width * r.height; if (!best || a < best.a) best = { i, a }; } }); return best ? best.i : null; };
   function setOver(i) {
-    if (O.over === i) return; O.over = i; O.layer && O.layer.querySelectorAll('.orbt').forEach(n => n.classList.toggle('over', +n.dataset.i === i));
+    if (O.over === i) return; O.over = i;
+    const hl = O.layer && O.layer.querySelector('.orbhl'); if (hl) { if (i == null) hl.classList.remove('on'); else { const r = O.tg[i].r; hl.style.cssText = 'left:' + (r.left - 4) + 'px;top:' + (r.top - 4) + 'px;width:' + (r.width + 8) + 'px;height:' + (r.height + 8) + 'px;border-radius:' + (parseFloat(getComputedStyle(O.tg[i].el).borderTopLeftRadius) + 4 || 18) + 'px'; hl.classList.add('on'); } }
     O.ghost && O.ghost.classList.toggle('snap', i != null); if (i != null) haptic();
   }
   function onMove(e) {
-    if (!O.held) return; if (Math.hypot(e.clientX - O.x0, e.clientY - O.y0) > MOVE) O.moved = true;
+    if (!O.held) return; O.lx = e.clientX; O.ly = e.clientY; if (Math.hypot(e.clientX - O.x0, e.clientY - O.y0) > MOVE) O.moved = true;
     const i = hitAt(e.clientX, e.clientY); setOver(i);
     if (i != null) { const r = O.tg[i].r; place(Math.min(innerWidth - 30, r.right - 10), Math.max(30, r.top + 10)); } else place(e.clientX, e.clientY - 36);
   }
@@ -178,16 +178,65 @@
 
   /* ---------- drop → choose a step ---------- */
   function drop(t) {
+    const r = t.r || { left: O.lx || innerWidth / 2, top: O.ly || innerHeight / 2, width: 0, height: 0, bottom: O.ly || innerHeight / 2 };
+    const x = O.lx || r.left + r.width / 2, y = O.ly || r.top + r.height / 2;
     cleanup(); haptic();
-    const steps = stepsOf(t).slice(0, 3), q = X().aiLeft && X().aiLeft(), cfg = X().askCfg ? X().askCfg() : {};
-    const left = q && q.left != null ? L(q.left + ' of ' + q.limit + ' AI left today', 'AI dnes zbývá ' + q.left + ' z ' + q.limit) : '';
-    openSheet({ title: titleOf(t), leftLabel: L('Back', 'Zpět'), cls: 'orbsh',
-      body: '<div class="orbst">' + steps.map((s, i) => '<button class="orbs press' + (s.ai ? ' ai' : '') + '" data-i="' + i + '"' + (s.ai && !cfg.pin ? ' data-nopin="1"' : '') + '>'
-        + '<span class="orbsi">' + (s.ai ? orbFace(true) : ico(i === 1 ? 'check' : 'arrow', 18, 2.2)) + '</span><span class="tx"><b>' + esc(s.label) + '</b><small>' + esc(s.sub || '') + '</small></span>'
-        + '<span class="orbsc">' + esc(s.ai ? (cfg.pin ? L('★ AI · 1 query', '★ AI · 1 dotaz') : L('set up AI', 'nastav AI')) : L('free', 'zdarma')) + '</span></button>').join('') + '</div>'
-        + '<p class="orbfoot">' + esc(L('Nothing changes until you tap Add.', 'Nic se nezmění, dokud nedáš Přidat.')) + (left ? ' · ' + esc(left) : '') + '</p>',
-      mount: e2 => e2.querySelectorAll('.orbs').forEach(b => b.onclick = () => { const s = steps[+b.dataset.i]; if (s.ai && b.dataset.nopin) { closeSheet(true); setTimeout(() => ACT.srcSetup && ACT.srcSetup(), 380); return; } closeSheet(true); setTimeout(() => s.ai ? think(t, s) : s.run(), 320); }) });
+    bubble({ x, y, title: titleOf(t), steps: stepsOf(t).slice(0, 3), t });
   }
+
+  /* ---------- the bubble: the orb opens into a small bubble right where it was dropped (or where it sits) ---------- */
+  let BUB = null;
+  function closeBubble(now) {
+    const b = BUB; if (!b) return; BUB = null; document.removeEventListener('keydown', b._esc, true);
+    b.classList.remove('on'); b.classList.add('out'); setTimeout(() => b.remove(), now ? 0 : 260);
+  }
+  function bubble(o) {
+    closeBubble(true);
+    const cfg = X().askCfg ? X().askCfg() : {}, q = X().aiLeft && X().aiLeft();
+    const w = Math.min(desk() ? 360 : innerWidth - 32, 380);
+    const el = document.createElement('div'); el.id = 'orbBub'; el.setAttribute('role', 'dialog');
+    el.innerHTML = '<div class="obsc"></div><div class="obb" style="width:' + w + 'px">'
+      + '<div class="obh"><span class="obo">' + orbFace() + '</span><b>' + esc(o.title || L('What do you need?', 'Co potřebuješ?')) + '</b><button class="obx" aria-label="' + esc(L('Close', 'Zavřít')) + '">' + ico('x', 14, 2.4) + '</button></div>'
+      + (o.steps && o.steps.length ? '<div class="obs">' + o.steps.map((s2, i) => '<button class="obr press' + (s2.ai ? ' ai' : '') + '" data-i="' + i + '"><span>' + esc(s2.label) + '</span>' + (s2.ai ? '<i>★ AI</i>' : '') + '</button>').join('') + '</div>' : '')
+      + '<form class="obf"><input class="obi" enterkeyhint="send" autocomplete="off" placeholder="' + esc(o.ph || L('Or type what you want…', 'Nebo napiš, co chceš…')) + '"><button class="obgo cr press" aria-label="' + esc(L('Send', 'Poslat')) + '">' + ico('arrow', 16, 2.4) + '</button></form>'
+      + (cfg.pin && q && q.left != null ? '<p class="obq">' + esc(L('AI left today: ' + q.left + ' of ' + q.limit, 'AI dnes zbývá ' + q.left + ' z ' + q.limit)) + '</p>' : '')
+      + '</div>';
+    document.body.appendChild(el); BUB = el;
+    const box = el.querySelector('.obb'), bh = box.offsetHeight;
+    let left = Math.max(16, Math.min(innerWidth - w - 16, o.x - w / 2)), top = o.y - bh - 28;
+    if (top < 16 + (desk() ? 0 : 40)) top = Math.min(innerHeight - bh - 16, o.y + 28);
+    box.style.left = left + 'px'; box.style.top = Math.max(16, top) + 'px';
+    box.style.transformOrigin = (o.x - left) + 'px ' + (o.y - Math.max(16, top)) + 'px';
+    requestAnimationFrame(() => el.classList.add('on'));
+    const inp = el.querySelector('.obi');
+    el.querySelector('.obsc').addEventListener('pointerdown', e => { e.preventDefault(); closeBubble(); });
+    el.querySelector('.obx').onclick = () => closeBubble();
+    el._esc = e => { if (e.key === 'Escape') { e.stopPropagation(); closeBubble(); } }; document.addEventListener('keydown', el._esc, true);
+    el.querySelectorAll('.obr').forEach(b => b.onclick = () => { const s2 = o.steps[+b.dataset.i]; closeBubble();
+      if (s2.ai && !cfg.pin) { setTimeout(() => ACT.srcSetup && ACT.srcSetup(), 200); return; }
+      setTimeout(() => s2.ai ? think(o.t, s2) : s2.run(), 180); });
+    el.querySelector('.obf').onsubmit = e => { e.preventDefault(); const v = inp.value.trim(); if (!v) { inp.focus(); return; } closeBubble(); setTimeout(() => ask(o.t, v), 180); };
+    if (!o.steps || !o.steps.length || o.focus) setTimeout(() => inp.focus(), 280);
+  }
+  /* typed text: with AI it goes to Claude; without AI the app reads it itself (dates, times, repeats) */
+  function ask(t, text) {
+    const cfg = X().askCfg ? X().askCfg() : {};
+    if (cfg.pin) return think(t || { type: 'now' }, { ai: true, goal: 'ask', label: text, text });
+    if (/^(nov[áa] karta|karta|new card|card)\b/i.test(text) && window.QUICK) return window.QUICK.card(text.replace(/^(nov[áa] karta|karta|new card|card)\s*:?\s*/i, ''));
+    const o = { text };
+    if (t) { if (t.card) o.card = t.card; if (t.type === 'task') { const i = S.items.find(x => x.id === t.id); if (i && i.card) o.card = i.card; } if (t.type === 'day') o.date = t.d; }
+    openAdd(o);
+  }
+  /* a plain tap on the orb: the bubble opens right where it sits */
+  function tapOrb(b) {
+    const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = desk() ? r.bottom : r.top;
+    const c = V.card && cardById(V.card);
+    const steps = c ? [fx(L('Add a task', 'Přidat úkol'), '', () => openAdd({ card: c.id })), fx(L('Photo or idea', 'Fotka nebo nápad'), '', () => openAdd({ card: c.id, mode: 'note' })), stepsOf({ type: 'card', card: c.id })[0]]
+      : [fx(L('New card', 'Nová karta'), '', () => window.QUICK ? window.QUICK.card('') : ACT.newCard()), fx(L('Add a task', 'Přidat úkol'), '', () => { const ctx = {}; if (V.tab === 'plan' && V.planMode === 'list') ctx.date = V.planDay; openAdd(ctx); }), fx(L('Photo or idea', 'Fotka nebo nápad'), '', () => openAdd({ mode: 'note' }))];
+    const t = c ? { type: 'card', card: c.id } : V.tab === 'plan' ? { type: 'day', d: V.planDay || T() } : { type: 'now' };
+    bubble({ x, y: desk() ? y + 10 : y, title: c ? c.name : L('What do you need?', 'Co potřebuješ?'), steps, t, ph: L('e.g. run Tue Thu 6pm · card Running 3× a week', 'např. běh út čt v 18 · karta Běhání 3× týdně') });
+  }
+  window.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.aorb'); if (!b || O.held || O.busy) return; if (b._orbEat && Date.now() - b._orbEat < 1500) return; e.stopImmediatePropagation(); e.preventDefault(); tapOrb(b); }, true);
 
   /* ---------- AI step: thinking mood → preview ---------- */
   function ctxOf(t) {
@@ -204,7 +253,7 @@
     if (O.busy) return; O.busy = true; mood(true, s.label);
     const cfg = X().askCfg(), now = new Date(); let j = null, err = '';
     try { const r = await fetch(X().srcBase() + '/orb', { method: 'POST', headers: { 'content-type': 'text/plain', 'x-aurora-pin': cfg.pin, 'x-aurora-user': X().aiUser() },
-        body: JSON.stringify({ goal: s.goal, type: t.type, title: titleOf(t), ctx: ctxOf(t), lang: lang(), today: T(), now: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'), model: cfg.model, effort: cfg.effort }) });
+        body: JSON.stringify({ goal: s.goal, text: s.text || undefined, type: t.type, title: titleOf(t), ctx: ctxOf(t), lang: lang(), today: T(), now: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'), model: cfg.model, effort: cfg.effort }) });
       j = await r.json().catch(() => null); X().aiSeen(j);
       if (!r.ok || !j || j.error) err = j && j.error === 'limit' ? L('Today’s AI limit is used up (' + j.limit + '). Fixed steps keep working, it resets tomorrow.', 'Dnešní AI limit je vyčerpaný (' + j.limit + '). Pevné kroky fungují dál, zítra se obnoví.') : j && j.error === 'pin' ? L('Wrong PIN, check Settings → Link reader.', 'Špatný PIN, zkontroluj Nastavení → Čtečka odkazů.') : j && j.error === 'noai' ? L('Claude is not set up on the reader yet.', 'Na čtečce ještě není nastavený Claude.') : (j && j.message) || L('Aurora could not answer.', 'Aurora neodpověděla.'); }
     catch (e) { err = L('The link reader is not reachable.', 'Čtečka odkazů není dostupná.'); }
@@ -214,7 +263,7 @@
     const items = (j.items || []).map(x => Object.assign({ on: true }, x));
     if (s.goal === 'explain' && j.task) items.push({ t: j.task, date: T(), on: true });
     if (s.goal === 'dayplan') items.forEach(x => { const i = S.items.find(y => y.id === x.id); x.t = i ? i.t : ''; });
-    preview(t, { goal: s.goal, lines: j.lines || [], items: items.filter(x => x.t), left: j.left, limit: j.limit });
+    preview(t, { goal: s.goal, lines: j.lines || [], items: items.filter(x => x.t), card: j.card, left: j.left, limit: j.limit });
   }
 
   /* ---------- preview: Add / Back, then Undo ---------- */
@@ -222,14 +271,14 @@
   function preview(t, p) {
     const items = p.items || [], card = t.card || (t.type === 'task' ? (S.items.find(x => x.id === t.id) || {}).card : t.type === 'photo' ? (S.moments.find(x => x.id === t.id) || {}).card : null);
     const when = x => x.time ? x.time : x.date ? dayLbl(x.date) : '';
-    const paint = box => { box.innerHTML = (p.lines && p.lines.length ? '<div class="orbln' + (p.err ? ' err' : '') + '">' + p.lines.map(l => '<p>' + esc(l) + '</p>').join('') + '</div>' : '')
+    const paint = box => { box.innerHTML = (p.card ? '<section class="grp frost solid orbit"><div class="srow on"><span class="ck">' + ico('plus', 13, 3) + '</span><span class="tx">' + esc(L('New card: ', 'Nová karta: ') + p.card.name + (p.card.type === 'habit' ? ' · ' + p.card.goal + L('× a week', '× týdně') : '')) + '</span></div></section>' : '') + (p.lines && p.lines.length ? '<div class="orbln' + (p.err ? ' err' : '') + '">' + p.lines.map(l => '<p>' + esc(l) + '</p>').join('') + '</div>' : '')
       + (items.length ? '<section class="grp frost solid orbit">' + items.map((x, i) => '<button class="srow orbi' + (x.on ? ' on' : '') + '" data-i="' + i + '"><span class="ck">' + (x.on ? ico('check', 13, 3) : '') + '</span><span class="tx">' + esc(x.t) + '</span><span class="r">' + esc(when(x)) + '</span></button>').join('') + '</section>' : '')
       + (p.left != null ? '<p class="orbfoot">' + esc(L(p.left + ' of ' + p.limit + ' AI left today', 'AI dnes zbývá ' + p.left + ' z ' + p.limit)) + '</p>' : ''); };
-    const can = items.length && !p.err;
+    const can = (items.length || p.card) && !p.err;
     openSheet({ title: titleOf(t), leftLabel: L('Back', 'Zpět'), right: can ? L('Add', 'Přidat') : L('Done', 'Hotovo'), cls: 'orbsh',
       body: '<div id="orbPv"></div>',
       mount: e2 => { const box = e2.querySelector('#orbPv'); paint(box); box.onclick = ev => { const b = ev.target.closest('.orbi'); if (!b) return; const x = items[+b.dataset.i]; x.on = !x.on; haptic(); paint(box); }; },
-      onSave: () => { closeSheet(true); if (!can) return; apply(t, p.goal, items.filter(x => x.on), card); } });
+      onSave: () => { closeSheet(true); if (!can) return; let cc = card; if (p.card) { const nc = { id: uid(), name: p.card.name, type: p.card.type, color: COLORS[S.cards.length % COLORS.length], deadline: null, note: '', created: T(), goal: p.card.type === 'habit' ? p.card.goal : undefined }; S.cards.push(nc); cc = nc.id; save(); } if (items.filter(x => x.on).length) apply(t, p.goal, items.filter(x => x.on), cc); else { rerender(); done(); } if (p.card) setTimeout(() => openCard(cc), 300); } });
   }
   function apply(t, goal, items, card) {
     if (!items.length) return; const undo = [];
@@ -249,7 +298,8 @@
     let m = $('#orbMood');
     if (on) {
       if (!m) { m = document.createElement('div'); m.id = 'orbMood'; document.body.appendChild(m); }
-      m.innerHTML = '<div class="omw"></div><div class="omc">' + goo() + '<span class="omk"></span><b>' + esc(L('Aurora is thinking', 'Aurora přemýšlí')) + '</b><small>' + esc(label || '') + '</small></div>';
+      void goo; /* v2045 · thinking = the living orb in a small pill, nothing gets blurred */
+      m.innerHTML = '<div class="omp"><span class="omb">' + orbFace() + '</span><span class="omt"><b>' + esc(L('Aurora is thinking…', 'Aurora přemýšlí…')) + '</b><small>' + esc(label || '') + '</small></span></div>';
       document.body.classList.add('thinking'); requestAnimationFrame(() => m.classList.add('on'));
     } else if (m) { m.classList.add('out'); m.classList.remove('on'); document.body.classList.remove('thinking'); setTimeout(() => m && m.remove(), 700); }
   }

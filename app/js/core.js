@@ -38,7 +38,7 @@ const L = {
   weekReview: ['Your week', 'Tvůj týden'], weekReviewSub: ['Sunday look back · tap', 'Nedělní ohlédnutí · klepni'],
   deck: ['Deck', 'Karty'], list: ['List', 'Seznam'], all: ['All', 'Vše'], habits: ['Habits', 'Návyky'], projects: ['Projects', 'Projekty'],
   habit: ['Habit', 'Návyk'], project: ['Project', 'Projekt'], everyDay: ['every day', 'každý den'], weekdays: ['weekdays', 'všední dny'], everyWeek: ['every week', 'každý týden'],
-  nextStep: ['Next step', 'Další krok'], noTasksYet: ['No tasks yet. What is the first small step?', 'Zatím žádné úkoly. Jaký je první malý krok?'],
+  nextStep: ['Next step', 'Další krok'], noTasksYet: ['Add the first step', 'Přidat první krok'],
   firstT: ['First thing', 'První věc'], firstQ: ['What are you working on?', 'Na čem teď děláš?'], firstEx: ['Type it like this', 'Napiš to třeba takhle'],
   remQ: ['Should I remind you?', 'Mám ti to připomenout?'], remInst: ['On iPhone this works once Aurora is on your Home Screen.', 'Na iPhonu to jde, až bude Aurora na ploše.'], remPush: ['A notification comes before it starts.', 'Před začátkem ti přijde upozornění.'],
   lastWeek: ['Last week {0} of {1}', 'Minulý týden {0} z {1}'], planIt: ['+ Plan', '+ Naplánovat'],

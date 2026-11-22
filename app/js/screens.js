@@ -159,8 +159,9 @@ function deckCardHTML(c, idx, total) {
     cardItems(c.id).filter(i => i !== nx && (i.repeat || !i.done)).slice(0, 2).forEach(i => rows += itemRow(i, occurs(i, d) ? d : (i.date || d), { withCard: false }));
   } else {
     const ps = projectStats(c.id);
-    ring = ringSVG(66, ps.total ? ps.done / ps.total : 0, c.color); ringTx = ps.done + '/' + ps.total;
-    sub = c.deadline ? esc(t('deadline')) + ' ' + esc(dayShort(c.deadline)) + ' · <b>' + esc(deadlineText(c.deadline)) + '</b>' : esc(t('noDeadline'));
+    /* v2045 · an empty project shows no 0/0 ring and no 'no deadline' line */
+    ring = ps.total ? ringSVG(66, ps.done / ps.total, c.color) : ''; ringTx = ps.total ? ps.done + '/' + ps.total : '';
+    sub = c.deadline ? esc(t('deadline')) + ' ' + esc(dayShort(c.deadline)) + ' · <b>' + esc(deadlineText(c.deadline)) + '</b>' : '';
     nextHTML = ps.next ? nextPill(ps.next, ps.next.date || d, c, t('nextStep')) : emptyNext(c);
     cardItems(c.id).filter(i => !i.repeat && !i.done && i !== ps.next).sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999')).slice(0, 2).forEach(i => rows += itemRow(i, i.date || d, { withCard: false }));
   }
@@ -169,7 +170,7 @@ function deckCardHTML(c, idx, total) {
   const sch = c.sh && typeof chOfCard === 'function' ? chOfCard(c) : null;
   if (sch && members(sch).length > 1) sub = '<span class="spsub">' + avStack(members(sch), 22) + esc(withNames(others(sch))) + '</span>';
   return '<section class="spc frost" data-card="' + c.id + '" data-a="openCard" data-id="' + c.id + '" role="button"><div class="h">' + (sch ? kickOf(c).replace(/<\/span>$/, ' · ' + (lang() === 'cs' ? 'Spolu' : 'Together') + '</span>') : kickOf(c)) + '<span class="muted" style="font:400 12.5px/1 Inter">' + pad(idx + 1) + ' / ' + pad(total) + '</span></div>'
-    + '<div class="ringw">' + ring + '<span>' + ringTx + '</span></div><div class="nm">' + esc(c.name) + '</div><div class="sub">' + sub + '</div>'
+    + (ring ? '<div class="ringw">' + ring + '<span>' + ringTx + '</span></div>' : '') + '<div class="nm' + (ring ? '' : ' wide') + (c.name.length > 13 ? ' long' : '') + '">' + esc(c.name) + '</div><div class="sub">' + sub + '</div>'
     + nextHTML + '<div style="margin-top:6px">' + rows + '</div>' + mom
     + '<div style="flex:1;min-height:14px"></div><button class="pbtn cr press" style="width:100%" data-a="openCard" data-id="' + c.id + '">' + esc(t('openCard')) + ' ' + ico('arrow', 18, 2.2) + '</button></section>';
 }
@@ -177,7 +178,7 @@ function nextPill(i, d, c, label) {
   const on = isDone(i, d);
   return '<div class="nextp in" role="button" data-a="openItem" data-id="' + i.id + '"><button class="ic" data-a="toggle" data-id="' + i.id + '" data-d="' + d + '" aria-label="' + esc(t('done')) + '">' + (on ? '<span style="width:24px;height:24px;border-radius:12px;background:' + c.color + ';display:flex;align-items:center;justify-content:center;color:#161616">' + ico('check', 14, 3) + '</span>' : '<i style="--c:' + c.color + '"></i>') + '</button><span class="tx"><span class="cap" style="color:' + c.color + ';filter:brightness(1.35)">' + esc(label) + '</span><span' + (on ? ' style="text-decoration:line-through;opacity:.6"' : '') + '>' + esc(i.t) + '</span></span><span class="muted" style="font:400 13px/1 Inter;flex:none">' + esc(whenLabel(i, d) || '') + '</span></div>';
 }
-function emptyNext(c) { return '<button class="nextp in press" data-a="add" data-card="' + c.id + '"><span class="ic">' + ico('plus', 18, 2.4) + '</span><span class="tx"><span style="white-space:normal;font:400 14px/1.35 Inter;color:var(--ink2)">' + esc(t('noTasksYet')) + '</span></span></button>'; }
+function emptyNext(c) { return '<button class="enext press" data-a="add" data-card="' + c.id + '">' + ico('plus', 15, 2.4) + esc(t('noTasksYet')) + '</button>'; }
 function renderSpaces() {
   const el = $('#s-spaces'); const cs = filteredCards();
   const chips = [['all', t('all') + ' · ' + S.cards.length], ['habit', t('habits')], ['project', t('projects')], ...(S.cards.some(c => c.sh) ? [['shared', lang() === 'cs' ? 'Spolu' : 'Together']] : [])].map(([k, l]) => '<button class="chip ' + (V.deckFilter === k ? 'cr' : 'frost') + ' press" data-a="deckFilter" data-k="' + k + '">' + (k === 'habit' ? '<span class="dot" style="--c:var(--green)"></span>' : k === 'project' ? '<span class="dot" style="--c:var(--orange)"></span>' : k === 'shared' ? ico('users', 14, 2) : '') + esc(l) + '</button>').join('');

@@ -85,7 +85,7 @@
   function panel(c) {
     const jobs = ST.jobs.filter(j => j.card === c.id), ups = Object.values(ST.ups).filter(u => u.card === c.id);
     const head = '<div class="ph2"><span class="cap">' + esc(L('Studio · cut', 'Studio · střih')) + '</span><span class="muted">' + esc(signed() && ST.at ? L(ST.used + ' of ' + ST.daily + ' today', ST.used + ' z ' + ST.daily + ' dnes') : '') + '</span></div>';
-    if (!signed()) return '<section class="pn frost solid stud" data-st="' + c.id + '">' + head + '<p class="stp">' + esc(L('Sign in to your Aurora account and Studio cuts your videos for you.', 'Přihlas se k účtu Aurory a Studio ti bude stříhat videa.')) + '</p></section>';
+    if (!signed()) return ''; /* v2045 · not signed in: Studio stays out of the way */
     if (!jobs.length && !ups.length) return '<section class="pn frost solid stud empty1" data-st="' + c.id + '"><span class="stic">' + ico('play', 18, 2.2) + '</span><span class="tx"><b>' + esc(L('Cut a video', 'Nech si sestříhat video')) + '</b><small>' + esc(L('Upload it and write what you want. Aurora does the rest.', 'Nahraj ho a napiš, co z něj chceš. Zbytek udělá Aurora.')) + '</small></span><button class="pbtn cr press stnew" data-a="stNew" data-id="' + c.id + '">' + esc(L('Upload', 'Nahrát')) + '</button></section>';
     return '<section class="pn frost solid stud" data-st="' + c.id + '">' + head + '<div class="stl">' + ups.map(rowUp).join('') + jobs.slice(0, 6).map(rowJob).join('') + '</div>'
       + (ST.err ? '<p class="sayerr">' + esc(ST.err) + '</p>' : '') + '<button class="chip frost press stadd" data-a="stNew" data-id="' + c.id + '">' + ico('plus', 14, 2.4) + ' ' + esc(L('Another video', 'Další video')) + '</button></section>';

@@ -96,7 +96,7 @@
   window.keiroLoad = function () {
     if (window.KR) return Promise.resolve(window.KR);
     if (kLoading) return kLoading;
-    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2044'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
+    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2045'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
     return kLoading;
   };
   if (KCFG().on) keiroLoad().then(() => { if (S) render(); }).catch(() => {});
@@ -1042,6 +1042,11 @@
     S.cards.filter(c => c.src).forEach(c => { const st = srcGet(c.id); if (stale(c) && !busy.has(c.id) && (!st || !st.errAt || Date.now() - st.errAt > 300000)) setTimeout(() => srcRefresh(c), 400);
       if (!st || !st.data) return; const t3 = (c.src.recipe && recSummary(c)) || srcSummary(st.data);
       document.querySelectorAll('#deck > .spc[data-id="' + c.id + '"] .sub, #desk .dcard[data-id="' + c.id + '"] .dsub').forEach(n => { n.textContent = t3; n.classList.add('srcsub'); });
+      /* v2045 · in the deck a card with a source shows its 3 numbers instead of a long sentence and an empty step */
+      document.querySelectorAll('#deck > .spc[data-id="' + c.id + '"]').forEach(sp => { const k3 = (st.data.kpis || []).filter(k => k && k.value != null).slice(0, 3); if (!k3.length) return;
+        const sb = sp.querySelector('.sub'); if (sb) sb.textContent = KIND[st.data.kind] || ''; if (sp.querySelector('.dkpi')) return;
+        const en = sp.querySelector('.enext'); if (en && !cardItems(c.id).length) en.remove();
+        (sb || sp.querySelector('.nm')).insertAdjacentHTML('afterend', '<div class="dkpi">' + k3.map(k => '<span><b>' + esc(kf(k.value)) + '</b><small>' + esc(tr(k.label)) + '</small></span>').join('') + '</div>'); });
       document.querySelectorAll('#s-spaces .stack > .lrow[data-id="' + c.id + '"] .tx small').forEach(n => { n.textContent = (KIND[st.data.kind] || '') + ' · ' + t3; }); });
   }
   /* hook the card page and Spaces on phone and computer */
