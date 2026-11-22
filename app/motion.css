@@ -45,3 +45,39 @@ html body.lightui .nav .plus.aorb{background:none!important}
   .orbv.alive,.orbv.alive .ob i{animation:none!important}
   #sheet,.press{transition-duration:.01s!important}
 }
+
+/* ---------- v2043 · how the orb feels in the hand ---------- */
+/* hover (mouse): it leans towards you */
+.aorb .orbv.alive .ob{transition:transform .45s var(--sp-soft,var(--out)),box-shadow .45s}
+@media (hover:hover){.aorb:hover .orbv.alive .ob{transform:scale(1.1);box-shadow:0 8px 28px rgba(40,110,150,.5)}}
+/* holding: it swells for as long as you hold, so you feel it is about to lift */
+.aorb.orbpress{transform:none!important}
+.aorb.orbpress .orbv.alive .ob{transform:scale(1.22);transition:transform .36s cubic-bezier(.3,.7,.4,1),box-shadow .36s;box-shadow:0 10px 34px rgba(40,110,150,.6)}
+/* lifted: the sphere is in your hand, its place stays marked */
+.aorb.orbaway{opacity:1!important;transform:none!important}
+.aorb.orbaway .orbv{opacity:0;transform:scale(.5);transition:opacity .2s,transform .25s}
+.aorb.orbaway::after{content:'';position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;border:1.5px dashed rgba(243,234,216,.45);pointer-events:none}
+.dnav .dorb{position:relative}
+.dnav .dorb.orbaway::after{width:28px;height:28px;margin:-14px 0 0 -14px}
+/* the sphere you carry: the same living ball, bigger, no box around it */
+#orbGhost{width:72px;height:72px;border-radius:50%;background:none!important;box-shadow:none!important;transition:opacity .2s,scale .35s var(--sp-sheet,var(--out))!important;scale:.72}
+#orbGhost.on{scale:1}
+#orbGhost.snap{scale:.8}
+#orbGhost .orbv{width:72px;height:72px}
+#orbGhost .orbv.alive .ob{box-shadow:0 14px 40px rgba(20,60,90,.55),0 0 30px rgba(120,200,230,.35)}
+#orbGhost.snap .orbv.alive .ob{box-shadow:0 0 0 3px rgba(243,234,216,.9),0 10px 30px rgba(20,60,90,.5)}
+
+/* ---------- v2043 · the orb is liquid ---------- */
+/* idle: the horizon inside sways slowly, the colours pour over each other */
+@keyframes obSway{0%,100%{rotate:-9deg}50%{rotate:9deg}}
+@keyframes obPour{0%{background-position:50% 0%}50%{background-position:50% 100%}100%{background-position:50% 0%}}
+.orbv.alive .ob{background-size:100% 160%;animation:obSway 6s ease-in-out infinite,obPour 9s ease-in-out infinite}
+/* carried: it stretches in the direction you move and the inside lags behind, then sloshes back */
+#orbGhost .orbv.alive{rotate:var(--ang,0deg)}
+#orbGhost .orbv.alive .ob{scale:var(--sq,1) var(--sr,1)}
+#orbGhost .orbv.alive .ob{rotate:calc(var(--tilt,0deg) - var(--ang,0deg));animation:obPour 4s ease-in-out infinite}
+#orbGhost .orbv.alive .ob i{translate:var(--lx,0) var(--ly,0);transition:translate .12s linear}
+/* a clear way out while you carry it */
+#orbL .orbx{position:fixed;left:50%;bottom:calc(max(14px,var(--sb,0px) - 10px) + 76px);transform:translateX(-50%);height:46px;padding:0 22px;border-radius:23px;background:rgba(20,21,25,.88);color:#f3ead8;font:600 15px/1 Inter,sans-serif;box-shadow:inset 0 0 0 1px rgba(243,234,216,.2),0 10px 30px rgba(0,0,0,.35);z-index:2}
+body:has(#desk .dnav) #orbL .orbx{bottom:28px}
+@media (prefers-reduced-motion:reduce){.orbv.alive .ob{animation:none!important}}

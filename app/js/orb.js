@@ -58,23 +58,39 @@
   /* ---------- pick up, drag, drop ---------- */
   function pickUp(e) {
     O.t = null; const b = O.btn; if (!b) return; b._orbEat = Date.now(); b.classList.remove('orbpress');
-    O.tg = collect(); if (!O.tg.length) { toast(esc(L('Nothing here the orb can help with yet', 'Tady zatím orb nemá s čím pomoct'))); return; }
+    O.tg = collect(); if (!O.tg.length) { const ob = b.querySelector('.orbv'); if (ob && ob.animate) ob.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' }, { transform: 'translateX(-3px)' }, { transform: 'translateX(0)' }], { duration: 360 }); toast(esc(L('Nothing here the orb can help with yet', 'Tady zatím orb nemá s čím pomoct'))); return; }
     O.held = true; O.aim = false; haptic(); try { b.setPointerCapture(O.pid); } catch (er) {}
     document.body.classList.add('orbing');
     const lay = document.createElement('div'); lay.id = 'orbL'; O.layer = lay;
     const W = innerWidth, H = innerHeight, rr = r => 'M' + (r.left - 6) + ' ' + (r.top - 6) + 'h' + (r.width + 12) + 'v' + (r.height + 12) + 'h' + -(r.width + 12) + 'z';
     lay.innerHTML = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><path fill-rule="evenodd" class="orbdim" d="M0 0H' + W + 'V' + H + 'H0z ' + O.tg.map(t => rr(t.r)).join(' ') + '"/></svg>'
       + O.tg.map((t, i) => '<i class="orbt" data-i="' + i + '" style="left:' + (t.r.left - 6) + 'px;top:' + (t.r.top - 6) + 'px;width:' + (t.r.width + 12) + 'px;height:' + (t.r.height + 12) + 'px;--d:' + (i * 30) + 'ms"></i>').join('')
-      + '<div class="orbhint">' + esc(L('Drop me on something', 'Hoď mě na něco')) + '</div>';
+      + '<div class="orbhint">' + esc(L('Drop me on something', 'Hoď mě na něco')) + '</div><button class="orbx">' + esc(L('Cancel', 'Zrušit')) + '</button>';
     document.body.appendChild(lay);
     const g = document.createElement('div'); g.id = 'orbGhost'; g.innerHTML = orbFace(); document.body.appendChild(g); O.ghost = g;
-    const br = b.getBoundingClientRect(); place(br.left + br.width / 2, br.top + br.height / 2);
-    requestAnimationFrame(() => g.classList.add('on'));
+    const br = b.getBoundingClientRect(); place(br.left + br.width / 2, br.top + br.height / 2, true);
+    requestAnimationFrame(() => { g.classList.add('on'); place(O.x0, O.y0 - (desk() ? 0 : 44)); });
     b.classList.add('orbaway');
     b.addEventListener('pointermove', onMove); b.addEventListener('pointerup', onUp); b.addEventListener('pointercancel', cancel);
     lay.addEventListener('pointerdown', onAimTap);
+    lay.querySelector('.orbx').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); cancel(); });
   }
-  const place = (x, y) => { O.ghost.style.transform = 'translate(' + (x - 34) + 'px,' + (y - 34) + 'px)'; };
+  /* v2043 · the sphere follows the finger or mouse with a little weight, like a real thing you carry */
+  const F = { x: 0, y: 0, tx: 0, ty: 0, raf: 0 };
+  function follow() {
+    const g = O.ghost; if (!g) { F.raf = 0; F.vx = F.vy = 0; return; }
+    const dx = (F.tx - F.x) * 0.3, dy = (F.ty - F.y) * 0.3; F.x += dx; F.y += dy;
+    /* the liquid inside lags behind the movement and then sloshes back, like water in a glass */
+    F.vx = (F.vx || 0) + (dx - (F.vx || 0)) * 0.18; F.vy = (F.vy || 0) + (dy - (F.vy || 0)) * 0.18;
+    const cl = (v, m) => Math.max(-m, Math.min(m, v)), sp = Math.min(1, Math.hypot(F.vx, F.vy) / 18);
+    g.style.transform = 'translate(' + (F.x - 36) + 'px,' + (F.y - 36) + 'px)';
+    g.style.setProperty('--tilt', cl(F.vx * 1.6, 28).toFixed(2) + 'deg');
+    g.style.setProperty('--lx', cl(-F.vx * 2.2, 26).toFixed(2) + '%'); g.style.setProperty('--ly', cl(-F.vy * 2.2, 26).toFixed(2) + '%');
+    g.style.setProperty('--sq', (1 + sp * 0.1).toFixed(3)); g.style.setProperty('--sr', (1 - sp * 0.07).toFixed(3));
+    g.style.setProperty('--ang', (Math.atan2(F.vy, F.vx) * 180 / Math.PI).toFixed(1) + 'deg');
+    F.raf = requestAnimationFrame(follow);
+  }
+  const place = (x, y, now) => { if (!O.ghost) return; F.tx = x; F.ty = y; if (now || (typeof RM !== 'undefined' && RM)) { F.x = x; F.y = y; O.ghost.style.transform = 'translate(' + (x - 36) + 'px,' + (y - 36) + 'px)'; return; } if (!F.raf) F.raf = requestAnimationFrame(follow); };
   const hitAt = (x, y) => { let best = null; O.tg.forEach((t, i) => { const r = t.r; if (x >= r.left - 6 && x <= r.right + 6 && y >= r.top - 6 && y <= r.bottom + 6) { const a = r.width * r.height; if (!best || a < best.a) best = { i, a }; } }); return best ? best.i : null; };
   function setOver(i) {
     if (O.over === i) return; O.over = i; O.layer && O.layer.querySelectorAll('.orbt').forEach(n => n.classList.toggle('over', +n.dataset.i === i));
@@ -96,7 +112,7 @@
   function cleanup() {
     const b = O.btn; if (b) { b._orbEat = Date.now(); b.removeEventListener('pointermove', onMove); b.removeEventListener('pointerup', onUp); b.removeEventListener('pointercancel', cancel); b.classList.remove('orbaway'); }
     O.layer && O.layer.remove(); O.layer = null; if (O.ghost) { const g = O.ghost; g.classList.remove('on'); setTimeout(() => g.remove(), 260); } O.ghost = null;
-    document.body.classList.remove('orbing'); O.held = false; O.aim = false; O.over = null;
+    document.body.classList.remove('orbing'); if (O.held) O.eatAll = Date.now() + 700; O.held = false; O.aim = false; O.over = null;
   }
   function cancel() { cleanup(); }
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && O.held) cancel(); });
@@ -250,6 +266,8 @@
   }
 
   /* a hold must not also open "Add" (window capture runs before every other click handler) */
+  /* v2043 · after carrying the orb, the tap that the phone makes when you let go must not open what is under your finger */
+  window.addEventListener('click', e => { if (O.eatAll && Date.now() < O.eatAll) { O.eatAll = 0; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
   window.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.aorb'); if (b && b._orbEat && Date.now() - b._orbEat < 1500) { b._orbEat = 0; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
   ACT.orbDrop = el => { const t = { type: el.dataset.type, card: el.dataset.card, b: el.dataset.b, id: el.dataset.id, d: el.dataset.d }; drop(t); };
   window.ORB = { drop, mood, collect };
