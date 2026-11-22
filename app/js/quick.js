@@ -62,31 +62,37 @@
     const what = ty === 'habit' ? L(g === 7 ? 'every day' : g + '× a week', g === 7 ? 'každý den' : g + '× týdně') : ty === 'month' ? L('every month', 'každý měsíc') : r.deadline ? L('by ', 'do ') + (typeof dayShort === 'function' ? dayShort(r.deadline) : r.deadline) : L('no deadline', 'bez termínu');
     return '<div class="qcp"><span class="qcd" style="--c:' + (ty === 'habit' ? 'var(--green)' : ty === 'month' ? '#4cc9d9' : 'var(--orange)') + '"></span><b>' + esc(r.name) + '</b><span>' + esc(what) + '</span></div>';
   }
+  /* v2051 · four big choices (Habit · Project · Monthly · Studio); typing marks the one Aurora understood */
+  const TYPES = () => [
+    ['habit', ico('repeat', 20, 2), L('Habit', 'Návyk'), L('something you repeat', 'co opakuješ'), '#3fc483'],
+    ['project', ico('flame', 20, 2), L('Project', 'Projekt'), L('get it done by a date', 'dotáhnout do termínu'), '#f2a541'],
+    ['month', ico('cal', 20, 2), L('Monthly', 'Měsíčně'), L('bills, things each month', 'platby, věci každý měsíc'), '#5fb2d4'],
+    ['studio', ico('play', 20, 2), 'Studio', L('video in, cut out', 'video → sestřih'), '#5fd0cf']];
   function paint(el) {
-    const r = read(Q.text), ty = Q.type || r.type;
+    const r = read(Q.text), ty = Q.type || (r.name ? r.type : null);
     el.querySelector('#qcPrev').innerHTML = line(r);
-    el.querySelectorAll('.qct button').forEach(b => b.classList.toggle('on', b.dataset.k === ty && !!r.name));
+    el.querySelectorAll('.qtl').forEach(b => b.classList.toggle('on', b.dataset.k === ty));
     const g = el.querySelector('.qcg'); g.hidden = !(ty === 'habit' && r.name);
     g.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.g === (Q.goal || r.goal || 3)));
     const sv = document.getElementById('sheetSave'); if (sv) sv.disabled = !r.name;
   }
   function card(pre) {
     Q.text = pre || ''; Q.type = null; Q.goal = null;
-    const ex = L(['Running 3× a week', 'Website for FIT by Friday', 'Bills every month'], ['Běhání 3× týdně', 'Web pro FIT do pátku', 'Účty každý měsíc']);
-    openSheet({ title: t('newCard'), right: L('Create', 'Vytvořit'), rightDisabled: !read(Q.text).name, cls: 'qcsheet',
-      body: '<div class="fld in big"><input id="qcIn" autocomplete="off" enterkeyhint="done" placeholder="' + esc(L('What do you want to keep doing or get done?', 'Co chceš dělat pravidelně nebo dotáhnout?')) + '" value="' + esc(Q.text) + '"></div>'
+    openSheet({ title: t('newCard'), right: L('Create', 'Vytvořit'), rightDisabled: !read(Q.text).name, cls: 'qcsheet a3qc',
+      body: '<div class="fld in big"><input id="qcIn" autocomplete="off" enterkeyhint="done" placeholder="' + esc(L('What do you want to keep doing or get done?', 'Co chceš dělat nebo dotáhnout?')) + '" value="' + esc(Q.text) + '"></div>'
         + '<div id="qcPrev"></div>'
-        + '<div class="qct seg in"><button data-k="habit">' + esc(L('Habit', 'Návyk')) + '</button><button data-k="project">' + esc(L('Project', 'Projekt')) + '</button><button data-k="month">' + esc(L('Monthly', 'Měsíčně')) + '</button></div>'
+        + '<div class="qtls">' + TYPES().map(([k, ic, n, sub, c]) => '<button class="qtl press" data-k="' + k + '" style="--c:' + c + '"><span class="qti">' + ic + '</span><b>' + esc(n) + '</b><small>' + esc(sub) + '</small></button>').join('') + '</div>'
         + '<div class="qcg" hidden>' + [1, 2, 3, 4, 5, 7].map(n => '<button data-g="' + n + '">' + (n === 7 ? L('daily', 'denně') : n + '×') + '</button>').join('') + '</div>'
-        + '<div class="qcex">' + ex.map(x => '<button class="chip frost press" data-x="' + esc(x) + '">' + esc(x) + '</button>').join('') + '</div>'
         + '<div class="qcmore"><button class="lnk" data-a="srcLink">' + esc(L('Paste a link instead', 'Nebo vlož odkaz')) + '</button><button class="lnk" id="qcFull">' + esc(L('More options', 'Víc možností')) + '</button></div>',
       mount: el => {
         const i = el.querySelector('#qcIn'); paint(el); setTimeout(() => i.focus(), 320);
         i.addEventListener('input', () => { Q.text = i.value; paint(el); });
         i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const sv = document.getElementById('sheetSave'); sv && !sv.disabled && sv.click(); } });
-        el.querySelectorAll('.qct button').forEach(b => b.onclick = () => { Q.type = b.dataset.k; paint(el); });
+        el.querySelectorAll('.qtl').forEach(b => b.onclick = () => {
+          if (b.dataset.k === 'studio') { closeSheet(true); setTimeout(() => { if (window.A3S) A3S.open(); }, 300); return; }
+          Q.type = b.dataset.k; paint(el); if (!read(Q.text).name) i.focus();
+        });
         el.querySelectorAll('.qcg button').forEach(b => b.onclick = () => { Q.goal = +b.dataset.g; paint(el); });
-        el.querySelectorAll('.qcex button').forEach(b => b.onclick = () => { i.value = Q.text = b.dataset.x; Q.type = null; Q.goal = null; paint(el); i.focus(); });
         el.querySelector('#qcFull').onclick = () => { closeSheet(true); setTimeout(() => openCardSheet(null), 320); };
       },
       onSave: () => {

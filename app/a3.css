@@ -604,3 +604,44 @@ body.desk.a3setbig .a3dset { padding:0; }
 .a3wid .a3idc2 { font-size:12px; }
 /* the app's own widget pages in the canvas glass */
 .a3own { color: var(--cream); }
+
+/* ---------- New card: four big choices ---------- */
+.a3qc .qtls { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin-top:14px; }
+.a3qc .qtl { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:14px; border-radius:22px; text-align:left; color: var(--cream);
+  background: linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.02)), rgba(20,36,50,.34); box-shadow: inset 0 1px 0 rgba(255,255,255,.2), inset 0 0 0 1px rgba(255,255,255,.07); overflow:hidden; transition: box-shadow .25s, transform .3s var(--out); }
+.a3qc .qtl::before { content:""; position:absolute; inset:0; pointer-events:none; background: radial-gradient(120% 90% at 100% 0%, color-mix(in oklab, var(--c) 30%, transparent), transparent 62%); opacity:.7; transition: opacity .25s; }
+.a3qc .qtl > * { position:relative; }
+.a3qc .qti { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:6px; color: var(--c); background: color-mix(in oklab, var(--c) 18%, transparent); }
+.a3qc .qtl b { font: 700 17px/1.1 'Bricolage Grotesque', Inter, sans-serif; letter-spacing:-.02em; }
+.a3qc .qtl small { font: 400 12.5px/1.3 Inter; color: var(--t2); }
+.a3qc .qtl.on { box-shadow: 0 0 0 2px var(--c), 0 10px 26px -10px color-mix(in oklab, var(--c) 70%, transparent); }
+.a3qc .qtl.on::before { opacity:1; }
+.a3qc .qtl:active { transform: scale(.97); }
+.a3qc .qtl[data-k="studio"] .qti { background: conic-gradient(from 0deg, #5fd0cf, #7480ff, #ee5a85, #f2a541, #5fd0cf); color:#fff; }
+.a3qc .qcg { margin-top:12px; }
+.a3qc .qcex { display:none; }
+
+/* ---------- Aurora Studio ---------- */
+.a3sth { padding:20px; display:flex; flex-direction:column; gap:14px; }
+.a3sth .a3wkn .a2-d { font-size:72px; }
+.a3sth .a2-btn { height:50px; gap:8px; }
+.a3sts { font-size:13px; line-height:1.45; }
+.a3stl { padding:6px 16px 10px; display:flex; flex-direction:column; }
+.a3ste { font-size:14px; padding:6px 0 10px; }
+.a3stl .strow { display:flex; align-items:center; gap:12px; width:100%; min-height:64px; padding:8px 0; border-top:1px solid rgba(255,255,255,.07); background:none; box-shadow:none; border-radius:0; text-align:left; color: var(--cream); }
+.a3stl .a3tlh + .strow { border-top:0; }
+.a3stl .stth { width:52px; height:52px; border-radius:14px; overflow:hidden; flex:none; display:flex; align-items:center; justify-content:center; background: rgba(8,20,30,.3); }
+.a3stl .stth img { width:100%; height:100%; object-fit:cover; }
+.a3stl .strow .tx { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.a3stl .strow .tx b { font: 600 15px/1.25 Inter; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.a3stl .strow .tx small { font-size:12.5px; color: var(--t2); }
+.a3stl .stgo { flex:none; height:32px; padding:0 12px; border-radius:99px; background: var(--cream); color:#1b2228; font: 600 13px/32px Inter; display:inline-flex; align-items:center; }
+.a3stl .stpct { flex:none; width:60px; height:5px; border-radius:3px; background: rgba(255,255,255,.12); overflow:hidden; }
+.a3stl .stpct i { display:block; height:100%; width:calc(var(--p) * 1%); background: linear-gradient(90deg,#5fd0cf,#7480ff); }
+.a3dstudio .a3sth .a3wkn .a2-d { font-size:96px; }
+.a3ndr .a2-t2 { flex:none; font-size:14px; }
+button.a3ndr { width:100%; text-align:left; }
+/* Board: Cut on a video */
+.a3bcut { position:absolute; right:10px; bottom:10px; height:28px; padding:0 10px; border-radius:99px; background: rgba(20,36,50,.62); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: var(--cream); font: 600 12px/28px Inter; display:inline-flex; align-items:center; gap:5px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+.a3tools.one { grid-template-columns: minmax(0,1fr); }
+.a3qc #qcPrev:empty { display:none; }

@@ -99,14 +99,17 @@
     if (signed() && Date.now() - ST.at > 20000 && !ST.loading) load(true);
   }
   function paintAll() {
+    if (window.A3S) A3S.paint();
     if (!V.card) return;
     if (desk()) { const m = $('#dCardMain'); if (m) mount(m, true); } else { const e = $('#s-card'); if (e) mount(e, false); }
     if (SH.open && SH.stJob) { const j = ST.jobs.find(x => x.id === SH.stJob); if (j && SH.stStatus !== j.status) openJob(j.id); }
   }
 
   /* ---------- new video ---------- */
-  ACT.stNew = el => {
-    const card = el.dataset.id; let file = null;
+  ACT.stNew = async el => {
+    const card = el.dataset.id || 'studio'; let file = null;
+    /* v2051 · from a Board video: the file is already here */
+    if (el.dataset.mom) { const m = S.moments.find(x => x.id === el.dataset.mom); try { const b = m && m.img && await DB.get('media', m.img); if (b) file = new File([b], (m.note || 'video').slice(0, 40).replace(/[^\w\- ]+/g, '') + '.mp4', { type: b.type || 'video/mp4' }); } catch (e) {} }
     const ex = [L('Reel: drop the pauses and ums, captions, hook on top', 'Reel, vyhoď pauzy a ehm, titulky, hook nahoru'), L('3 funniest moments for TikTok', '3 nejvtipnější momenty na TikTok'), L('Fast cut to music, 15 s', 'Rychlý sestřih na hudbu, 15 s')];
     openSheet({ title: L('New video', 'Nové video'), leftLabel: L('Cancel', 'Zrušit'), right: L('Cut it', 'Stříhat'), cls: 'stsh',
       body: '<label class="stpick press" for="stFile"><span class="stic">' + ico('upload', 18, 2.2) + '</span><span class="tx"><b id="stFn">' + esc(L('Choose a video', 'Vyber video')) + '</b><small id="stFs">' + esc(L('From your phone or computer', 'Z mobilu nebo počítače')) + '</small></span></label><input type="file" id="stFile" accept="video/*" hidden>'
@@ -114,6 +117,7 @@
         + '<div class="stex">' + ex.map(x => '<button class="chip frost press" data-ex="' + esc(x) + '">' + esc(x) + '</button>').join('') + '</div>'
         + '<p class="stfoot">' + esc(L('Uploads in parts, so a dropped connection does not matter. Nothing is published without you.', 'Nahrává se po kouscích, výpadek nevadí. Nic se nevydá bez tebe.')) + (ST.at ? ' · ' + esc(L((ST.daily - ST.used) + ' videos left today', 'dnes zbývá ' + Math.max(0, ST.daily - ST.used) + ' videí')) : '') + '</p>',
       mount: e2 => {
+        if (file) { e2.querySelector('#stFn').textContent = file.name; e2.querySelector('#stFs').textContent = mb(file.size) + ' · ' + L('from Board', 'z Boardu'); }
         e2.querySelector('#stFile').onchange = ev => { file = ev.target.files[0] || null; if (file) { e2.querySelector('#stFn').textContent = file.name; e2.querySelector('#stFs').textContent = mb(file.size); } };
         e2.querySelectorAll('[data-ex]').forEach(b => b.onclick = () => { const t = e2.querySelector('#stPr'); t.value = b.dataset.ex; t.focus(); });
       },
@@ -173,5 +177,5 @@
     if (typeof deskRender === 'function') { const _d = deskRender; deskRender = function (a) { _d(a); if (desk() && V.card) mount($('#dCardMain'), true); }; }
     restoreUps();
   });
-  window.STUDIO = { load, base, ST };
+  window.STUDIO = { load, base, ST, rowJob, rowUp, signed, busy: j => busy(j), paintAll };
 })();

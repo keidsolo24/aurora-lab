@@ -254,9 +254,11 @@
     const f = V.deckFilter || 'all';
     const ks = f === 'all' || f === 'project' ? keiroCards().map((k, i) => ({ k, key: 'k:' + k.k, i })) : [];
     const cs_ = filteredCards().map((c, i) => ({ c, key: 'c:' + c.id, i: 100 + i }));
+    if (S.studioOn && (f === 'all' || f === 'project')) ks.push({ s: true, key: 's:studio', i: 50 });
     return ks.concat(cs_).sort((a, b) => pos(a.key) - pos(b.key) || a.i - b.i);
   }
   function spacePhoneCard(x, i) {
+    if (x.s) return studioPhoneCard(i);
     if (x.k) { const k = x.k, fa = keiroFacts(k);
       const body = fa.send ? '<div class="a2-well a3wl"><span class="a2-dot' + (fa.hot ? ' a2-pulse' : '') + '" style="--c:#ee5a85"></span><span class="a3wlt">' + esc(L('Send link to campaign', 'Odeslat odkaz do kampaně')) + '</span>' + (fa.mins != null ? '<span class="a3wlm">' + fa.mins + ' min</span>' : '<span class="a3wlm">' + fa.send + '</span>') + '</div>' : '';
       return '<div class="a2-glass a2-tint a2-in a3sc" role="button" style="--i:' + i + ';--c:' + k.color + '" data-a="krOpen" data-k="' + esc(k.k) + '"><div class="a3sch"><div class="a3scn">' + kick(L('Project · Clips', 'Projekt · Klipy'), k.color) + '<b class="a2-d">' + esc(k.name) + '</b>' + (!fa.send ? '<span class="a2-t2" style="font-size:14px">' + (fa.rv ? fa.rv + ' ' + esc(L(fa.rv === 1 ? 'clip to review' : 'clips to review', plural(fa.rv, 'klip ke schválení', 'klipy ke schválení', 'klipů ke schválení'))) : esc(L('Nothing to review', 'Nic ke schválení'))) + '</span>' : '') + '</div>' + ring(56, k.f, k.color, i, k.n, 16) + '</div>' + body + '</div>'; }
@@ -269,13 +271,14 @@
     return '<div class="a2-glass a2-tint a2-in a3sc" role="button" style="--i:' + i + ';--c:' + c.color + '" data-a="openCard" data-id="' + c.id + '"><div class="a3sch"><div class="a3scn">' + kick(kickText(c), c.color) + '<b class="a2-d">' + esc(c.name) + '</b></div>' + ring(56, v.f, c.color, i, v.v, v.v.length > 4 ? 12 : 15) + '</div>' + foot + '</div>';
   }
   function spacePhoneHalf(x, i) {
+    if (x.s) return studioPhoneCard(i);
     if (x.k) { const k = x.k; return '<div class="a2-glass a2-tint a2-in a3sh2" role="button" style="--i:' + i + ';--c:' + k.color + '" data-a="krOpen" data-k="' + esc(k.k) + '">' + kick(t('project'), k.color) + '<div class="a3shr"><b class="a2-d">' + esc(k.name) + '</b><b class="a2-num">' + k.n + '</b></div><span class="a2-t2">' + esc(L('to review', 'ke schválení')) + '</span></div>'; }
     const c = x.c, v = cardVal(c), nx = nextOf(c);
     return '<div class="a2-glass a2-tint a2-in a3sh2" role="button" style="--i:' + i + ';--c:' + c.color + '" data-a="openCard" data-id="' + c.id + '">' + kick(c.type === 'habit' ? t('habit') : c.type === 'month' ? L('Monthly', 'Měsíčně') : t('project'), c.color) + '<div class="a3shr"><b class="a2-d">' + esc(c.name) + '</b><b class="a2-num">' + esc(v.v) + '</b></div><span class="a2-t2">' + esc(nx ? nx.t + (nx.w ? ' · ' + nx.w : '') : L('No steps yet', 'Zatím žádný krok')) + '</span></div>';
   }
   function spacesSeg(act) {
     const f = V.deckFilter || 'all'; const n = S.cards.length + (f === 'all' ? keiroCards().length : 0);
-    return '<div class="a2-seg">' + [['all', t('all') + ' · ' + (S.cards.length + keiroCards().length)], ['habit', t('habits')], ['project', t('projects')]].map(([k, l]) => '<button class="' + (f === k ? 'on' : '') + '" data-a="' + act + '" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div>';
+    return '<div class="a2-seg">' + [['all', t('all') + ' · ' + (S.cards.length + keiroCards().length + (S.studioOn ? 1 : 0))], ['habit', t('habits')], ['project', t('projects')]].map(([k, l]) => '<button class="' + (f === k ? 'on' : '') + '" data-a="' + act + '" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div>';
   }
   /* phone: our swipe deck, one tall card per space, in the canvas look */
   function spacesPhone() {
@@ -294,6 +297,7 @@
     let raf = 0; d.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { const mid = d.scrollLeft + d.clientWidth / 2; let best = 0, bd = 1e9; [...d.children].forEach((c, k) => { const dd = Math.abs(c.offsetLeft + c.clientWidth / 2 - mid); if (dd < bd) { bd = dd; best = k; } }); if (best !== V.deckIdx) { V.deckIdx = best; dots && [...dots.children].forEach((x, k) => x.classList.toggle('on', k === best)); } }); }, { passive: true });
   }
   function spaceDeskCard(x, i) {
+    if (x.s) return studioPhoneCard(i);
     const nxt = (lab, txt, w, col) => '<div class="a3nxs"><span class="a2-lab" style="color:color-mix(in oklab,' + col + ' 55%,#fff)">' + esc(lab) + '</span><span>' + esc(txt) + (w ? ' <span class="a2-t2">· ' + esc(w) + '</span>' : '') + '</span></div>';
     if (x.k) { const k = x.k, fa = keiroFacts(k);
       const wells = '<div class="a3w3">' + [[fa.out, L('out today', 'dnes venku')], [fa.sch, L('scheduled', 'naplánováno')], [fa.send, L('to send', 'k odeslání')]].map(([n, l]) => '<div class="a2-well"><b class="a2-d a2-num">' + esc(String(n)) + '</b><div class="a2-t2">' + esc(l) + '</div></div>').join('') + '</div>';
@@ -398,8 +402,8 @@
   function toolTiles(c, isDesk) {
     if (c.type !== 'project') return '';
     const tile = (icon, b, s2, act) => '<button class="a2-glass a3tool' + (isDesk ? ' d' : '') + '" data-a="' + act + '" data-id="' + c.id + '"><span class="a2-icon">' + ico(icon, isDesk ? 18 : 16, 2) + '</span><span class="a3toolt"><b>' + esc(b) + '</b><span class="a2-t2">' + esc(s2) + '</span></span></button>';
-    return '<div class="a2-in a3tools' + (isDesk ? ' d' : '') + '" style="--i:6">' + tile('play', 'Studio', isDesk ? L('Upload a video, say what you want', 'Nahraj video, řekni co chceš') : L('cut a video', 'střih videa'), 'stNew')
-      + (c.src ? '' : tile('link', isDesk ? L('Connect a source', 'Připojit zdroj') : L('Source', 'Zdroj'), isDesk ? L('Paste a link, Aurora builds the view', 'Vlož odkaz, Aurora postaví přehled') : L('paste a link', 'vlož odkaz'), 'a3src')) + '</div>';
+    if (c.src) return '';
+    return '<div class="a2-in a3tools one' + (isDesk ? ' d' : '') + '" style="--i:6">' + (c.src ? '' : tile('link', isDesk ? L('Connect a source', 'Připojit zdroj') : L('Source', 'Zdroj'), isDesk ? L('Paste a link, Aurora builds the view', 'Vlož odkaz, Aurora postaví přehled') : L('paste a link', 'vlož odkaz'), 'a3src')) + '</div>';
   }
   /* together cards: only the people (no news feed on the card) */
   const together = c => c.sh ? '<div class="a3sp2">' + (typeof spoluPeople === 'function' ? spoluPeople(c) : '') + '</div>' : '';
@@ -551,7 +555,7 @@
     const cap = m.kind === 'link' ? (m.title || m.url || '') : (m.note || '');
     const ht = Math.round(h * 150);
     return { h: h + (cap ? .25 : 0), html: '<div class="a2-in a3bt" style="--i:' + i + '"><button class="a3bimg" style="height:' + ht + 'px;' + (u ? 'background:#14202a url(' + esc(u) + ') center/cover' : 'background:linear-gradient(160deg,#1f3a5f,#0e1b2e)') + '" data-a="viewMoment" data-id="' + m.id + '">' + inner
-      + (isV && m.dur ? '<span class="a3bdur">' + Math.floor(m.dur / 60) + ':' + String(Math.round(m.dur % 60)).padStart(2, '0') + '</span>' : '') + (isV ? '<span class="a2-icon a3bplay">' + ico('play', 16, 2) + '</span>' : '') + plan + (m.pin ? '<span class="a3bpin">' + ico('pin', 13, 2) + '</span>' : '') + '</button>'
+      + (isV && m.dur ? '<span class="a3bdur">' + Math.floor(m.dur / 60) + ':' + String(Math.round(m.dur % 60)).padStart(2, '0') + '</span>' : '') + (isV ? '<span class="a2-icon a3bplay">' + ico('play', 16, 2) + '</span><span class="a3bcut" role="button" data-a="stNew" data-mom="' + m.id + '" data-id="studio">' + ico('spark', 12, 2.2) + esc(L('Cut', 'Střih')) + '</span>' : '') + plan + (m.pin ? '<span class="a3bpin">' + ico('pin', 13, 2) + '</span>' : '') + '</button>'
       + (cap ? '<span class="a3bcap">' + dot + '<span>' + esc(cap.split('\n')[0]) + '</span></span>' : '') + '</div>' };
   }
   function boardCols(ms, n) {
@@ -722,11 +726,75 @@
     const g = el.querySelector('#a3grain'); if (g) { g.addEventListener('input', () => { S.a3grain = +g.value; wall(); }); g.addEventListener('change', () => save()); }
   }
 
+
+  /* ================= AURORA STUDIO · one space for all videos (upload, say what you want, Aurora cuts) ================= */
+  const STC = '#5fd0cf';
+  const STD = () => window.STUDIO || null;
+  function studioFacts() {
+    const st = STD(); const ST = st ? st.ST : { jobs: [], ups: {}, daily: 5, used: 0 };
+    const ups = Object.values(ST.ups || {}); const jobs = ST.jobs || [];
+    const busy = jobs.filter(j => st && st.busy(j)); const ready = jobs.filter(j => j.status === 'ready'); const done = jobs.filter(j => j.status === 'final');
+    const left = Math.max(0, (ST.daily || 5) - (ST.used || 0));
+    return { st, ST, ups, jobs, busy, ready, done, left, daily: ST.daily || 5, used: ST.used || 0, signed: !!(st && st.signed()) };
+  }
+  function studioNext(f) {
+    if (!f.signed) return L('Sign in to cut videos', 'Přihlas se a stříhej');
+    if (f.ups.length) return L('Uploading ', 'Nahrávám ') + (f.ups[0].pct || 0) + ' %';
+    if (f.busy.length) return L('Cutting ', 'Stříhám ') + (f.busy[0].prompt || f.busy[0].name || '');
+    if (f.ready.length) return L('Pick an opening · ', 'Vyber začátek · ') + (f.ready[0].prompt || f.ready[0].name || '');
+    return L('Upload a video, say what you want', 'Nahraj video, řekni co chceš');
+  }
+  function studioPhoneCard(i) {
+    const f = studioFacts();
+    return '<div class="a2-glass a2-tint a2-in a3dc a3dk" role="button" style="--i:' + i + ';--c:' + STC + '" data-a="a3StOpen"><div class="a3dch">' + kick(L('Studio · video cut', 'Studio · střih videa'), STC) + (f.busy.length || f.ups.length ? '<span class="a3nowb" style="background:rgba(95,208,207,.2);color:#9ff0ec">' + esc(L('CUTTING', 'STŘÍHÁ')) + '</span>' : '') + '</div>'
+      + '<div class="a3dcn"><b class="a2-d" style="font-size:clamp(26px,7.6vw,38px)">Aurora Studio</b>' + ring(64, f.used / f.daily, STC, i, f.left + '/' + f.daily, 15) + '</div>'
+      + '<div class="a3w3">' + [[f.ups.length + f.busy.length, L('in progress', 'rozpracováno')], [f.ready.length, L('to pick', 'k výběru')], [f.done.length, L('done', 'hotovo')]].map(([n, l]) => '<div class="a2-well"><b class="a2-d a2-num">' + n + '</b><div class="a2-t2">' + esc(l) + '</div></div>').join('') + '</div>'
+      + '<div class="a3nxs"><span class="a2-lab" style="color:#9ff0ec">' + esc(t('nextStep')) + '</span><span>' + esc(studioNext(f)) + '</span></div></div>';
+  }
+  function studioPage(isDesk) {
+    const f = studioFacts();
+    const head = isDesk ? '<div class="a2-in a3ctit" style="--i:1"><b class="a2-d">Aurora Studio</b>' + kick(L('Studio · video cut', 'Studio · střih videa'), STC) + '</div>'
+      : '<div class="a3hd a2-in" style="--i:0;padding:0 4px"><button class="a2-icon" data-a="a3StClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button></div><div class="a2-in a3cti" style="--i:1">' + kick(L('Studio · video cut', 'Studio · střih videa'), STC) + '<b class="a2-d" style="font-size:48px">Aurora Studio</b></div>';
+    const hero = f.signed
+      ? '<div class="a2-glass a2-tint a2-in a3sth" style="--i:2;--c:' + STC + '"><div class="a3wkh"><div class="a3wkn"><span class="a2-lab">' + esc(L('Today', 'Dnes')) + '</span><div><b class="a2-d a2-num">' + f.left + '</b><span class="a2-t2">/ ' + f.daily + ' ' + esc(L('videos left', 'videí zbývá')) + '</span></div></div>' + ring(isDesk ? 120 : 96, f.used / f.daily, STC, 2) + '</div>'
+        + '<button class="a2-btn a3w" data-a="stNew" data-id="studio">' + ico('plus', 16, 2.4) + esc(L('New video', 'Nové video')) + '</button><span class="a2-t2 a3sts">' + esc(L('Upload it and write what you want. Aurora cuts it, you pick the opening. Nothing goes out without you.', 'Nahraj ho a napiš, co z něj chceš. Aurora ho sestříhá, ty vybereš začátek. Nic nejde ven bez tebe.')) + '</span></div>'
+      : '<div class="a2-glass a2-tint a2-in a3sth" style="--i:2;--c:' + STC + '"><b class="a2-d" style="font-size:28px">' + esc(L('Sign in first', 'Nejdřív se přihlas')) + '</b><span class="a2-t2 a3sts">' + esc(L('Studio cuts on the server, so it needs your Aurora account.', 'Studio stříhá na serveru, potřebuje tvůj účet v Auroře.')) + '</span><button class="a2-btn a3w" data-a="a3StLogin">' + esc(L('Sign in', 'Přihlásit se')) + '</button></div>';
+    const st = f.st; const rowsA = f.ups.map(u => st.rowUp(u)).concat(f.busy.map(j => st.rowJob(j)), f.ready.map(j => st.rowJob(j)));
+    const rowsB = f.jobs.filter(j => !st.busy(j) && j.status !== 'ready').slice(0, 12).map(j => st.rowJob(j));
+    const listA = '<div class="a2-glass a2-in a3stl" style="--i:3"><span class="a2-lab a3tlh">' + esc(L('In progress', 'Rozpracované')) + (rowsA.length ? ' · ' + rowsA.length : '') + '</span>' + (rowsA.length ? rowsA.join('') : '<span class="a2-t3 a3ste">' + esc(L('Nothing being cut right now.', 'Teď se nic nestříhá.')) + '</span>') + '</div>';
+    const listB = '<div class="a2-glass a2-in a3stl" style="--i:4"><span class="a2-lab a3tlh">' + esc(L('Done', 'Hotové')) + (rowsB.length ? ' · ' + rowsB.length : '') + '</span>' + (rowsB.length ? rowsB.join('') : '<span class="a2-t3 a3ste">' + esc(L('Your finished cuts land here.', 'Hotové střihy se objeví tady.')) + '</span>') + '</div>';
+    const tip = '<button class="a2-glass a2-in a3ndr" style="--i:5" data-a="tab" data-k="board"><span>' + esc(L('A video already on Board? Tap Cut on it.', 'Video už máš na Boardu? Ťukni u něj na Střih.')) + '</span><span class="a2-t2">Board ›</span></button>';
+    if (isDesk) return '<main class="dmain a2 a3d a3dcard scr2 a3dstudio">' + head + '<div class="a3g2"><div class="a3col">' + hero + tip + '</div><div class="a3col">' + listA + listB + '</div></div></main>';
+    return '<div class="a2 a3p a3studio">' + head + hero + listA + listB + tip + '</div>';
+  }
+  function openStudio() {
+    S.studioOn = true; save();
+    const st = STD(); if (st && st.signed()) st.load(true);
+    if (desk()) { V.stv = true; V.card = null; V.kd = false; V.tab = 'spaces'; deskRender(true); return; }
+    const el = $('#s-card'); V.studio = true; el.classList.add('a3s'); el.classList.remove('out'); el.classList.add('on'); el.scrollTop = 0;
+    $('#nav').classList.add('away'); document.body.classList.add('navless'); el.innerHTML = studioPage(false); if (window.FX) FX.enter(el);
+  }
+  function closeStudio() {
+    if (desk()) { V.stv = false; deskRender(true); return; }
+    V.studio = false; const el = $('#s-card'); $('#nav').classList.remove('away'); document.body.classList.remove('navless');
+    el.classList.add('out'); setTimeout(() => { if (!V.studio && !V.card && !V.keiro) { el.classList.remove('on', 'out'); el.innerHTML = ''; } }, 330); RENDER[V.tab]();
+  }
+  ACT.a3StOpen = () => openStudio();
+  ACT.a3StClose = () => closeStudio();
+  ACT.a3StLogin = () => { if (V.studio) closeStudio(); openSettings(); ACT.accPage && ACT.accPage(); };
+  window.A3S = { paint: () => {
+    try {
+      if (V.studio && !desk()) { const el = $('#s-card'); const y = el.scrollTop; el.innerHTML = studioPage(false); el.scrollTop = y; }
+      else if (V.stv && desk()) { const m = $('#desk main.a3dstudio'); if (m) { const y = m.scrollTop; m.outerHTML = studioPage(true); const m2 = $('#desk main.a3dstudio'); if (m2) m2.scrollTop = y; } }
+      else if (V.tab === 'spaces' && !V.card && !V.keiro && !V.kd && S.studioOn) { if (desk()) deskRender(); else renderSpaces(); }
+    } catch (e) {}
+  }, open: openStudio };
+
   /* ================= the computer's top bar: aurora · pill nav with the orb · Ask or add · settings ================= */
   function topDesk() {
-    const cur = V.card || V.keiro || V.kd ? 'spaces' : V.tab;
+    const cur = V.card || V.keiro || V.kd || V.stv ? 'spaces' : V.tab;
     const a = k => '<button class="a2-chip' + (cur === k ? ' on' : '') + '" data-a="tab" data-k="' + k + '">' + esc(t(k)) + '</button>';
-    const left = V.kd ? '<div class="a3logo a3back"><button class="a2-icon" data-a="krClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span class="a2-t2">Spaces</span></div>' : V.card && cardById(V.card) ? '<div class="a3logo a3back"><button class="a2-icon" data-a="closeCard" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span class="a2-t2">Spaces</span></div>' : '<button class="a3logo" data-a="tab" data-k="home"><b class="a2-d">aurora</b></button>';
+    const left = V.stv ? '<div class="a3logo a3back"><button class="a2-icon" data-a="a3StClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span class="a2-t2">Spaces</span></div>' : V.kd ? '<div class="a3logo a3back"><button class="a2-icon" data-a="krClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span class="a2-t2">Spaces</span></div>' : V.card && cardById(V.card) ? '<div class="a3logo a3back"><button class="a2-icon" data-a="closeCard" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span class="a2-t2">Spaces</span></div>' : '<button class="a3logo" data-a="tab" data-k="home"><b class="a2-d">aurora</b></button>';
     const cardR = V.card && cardById(V.card); const shR = cardR && cardR.sh;
     return '<header class="dtop a2 a3top a2-in" style="--i:0">' + left
       + '<nav class="a2-glass l2 a3pill dnav" aria-label="' + esc(L('Sections', 'Sekce')) + '">' + a('home') + a('spaces') + a('board') + a('plan') + '</nav>'
@@ -734,6 +802,7 @@
     function right() {
       const set = '<button class="a2-icon" data-a="openSettings" aria-label="' + esc(t('settings')) + '"><span id="syncDot" class="sdot"></span>' + SUN + '</button>';
       if (cardR) return (shR ? '<button class="a2-chip" style="height:44px" data-a="spInvite" data-id="' + cardR.id + '">' + ico('users', 16, 2) + esc(L('Invite', 'Pozvat')) + '</button>' : '') + '<button class="a2-icon" data-a="editCard" aria-label="' + esc(t('editCard')) + '">' + ico('more', 20, 2) + '</button>';
+      if (V.stv) return STD() && STD().signed() ? '<button class="a2-btn" data-a="stNew" data-id="studio">+ ' + esc(L('New video', 'Nové video')) + '</button>' : '';
       if (V.kd) { const kx = KX(); const n = kx ? kx.page(() => (kx.F().review || []).length) : 0; return '<button class="a2-btn" data-a="krReview"' + (n ? '' : ' disabled') + '>' + esc(L('Review ', 'Schválit ') + n) + '</button>'; }
       if (V.tab === 'board' && !V.card) return '<button class="a2-icon" data-a="boardSearch" aria-label="' + esc(t('search')) + '">' + ico(V.boardSearch ? 'x' : 'search', 19, 2) + '</button>' + set;
       if (V.tab === 'spaces') return '<button class="a2-btn" data-a="newCard">+ ' + esc(t('newCard')) + '</button>' + set;
@@ -820,7 +889,7 @@
     /* computer pages */
     deskTop = topDesk;
     deskHome = homeDesk;
-    deskSpaces = spacesDesk;
+    deskSpaces = function () { return V.stv ? studioPage(true) : spacesDesk(); };
     deskBoard = boardDesk;
     const _dp = deskPlan;
     if (!DESK.mode || DESK.mode === 'week') DESK.mode = 'list';
@@ -830,6 +899,9 @@
     deskCardMount = function () { const c = cardById(V.card); if (c) return; return _dcm(); };
     const _dr = deskRender;
     deskRender = function (a) { _dr.apply(this, arguments); const d = $('#desk'); if (d && DESK.on) { d.classList.add('a3desk'); bindSliders(d); bindAdd(d); if (V.tab === 'board' && !V.card) bindBoard(d, true); if (V.card) adoptPanels(d.querySelector('#dCardMain')); } };
+    const _go = go; go = function (tab) { if (V.studio && !desk()) { V.studio = false; $('#nav').classList.remove('away'); document.body.classList.remove('navless'); const el = $('#s-card'); if (!V.card) { el.classList.remove('on', 'out'); el.innerHTML = ''; } } V.stv = false; return _go.apply(this, arguments); };
+    const _oc = openCard; openCard = function () { V.stv = false; if (V.studio) { V.studio = false; } return _oc.apply(this, arguments); };
+    if (ACT.stNew && !ACT.stNew._a3) { const _sn = ACT.stNew; ACT.stNew = function (el) { S.studioOn = true; save(); return _sn.apply(this, arguments); }; ACT.stNew._a3 = 1; }
     wall();
     if (S && S.onboarded) { if (desk()) deskRender(); else render(); }
   }
