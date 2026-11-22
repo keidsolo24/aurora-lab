@@ -262,6 +262,7 @@ window.KR = (function () {
       + blocks()
       + '<div class="kfoot">' + esc(live() ? L('From your laptop · updated ', 'Z notebooku · aktualizováno ') + (C.at ? clock(C.at) : '–') + L(' · every ', ' · každé ') + C.every + ' min' : L('Demo data from the brief · add the address in Keiro settings', 'Ukázková data z briefu · adresu doplníš v nastavení Keira')) + '</div>';
     el.scrollTop = y;
+    if (window.A3K) A3K.phone(el);
   }
 
 
@@ -801,7 +802,7 @@ window.KR = (function () {
     if (!C.on || !el || V.card) return;
     if (V.tab !== 'spaces') { V.kd = false; if (V.tab === 'home') { const r = el.querySelector('.krow'); if (r && C.feed) { const one = pr => { const o = nowState(), st = F().stats_today || {}, tot = (st.approved || 0) + o.n; return '<button class="krow press" data-a="krOpen" data-k="' + esc(pr ? pr.name : '') + '"><span class="kr">' + ringSVG(40, tot ? (st.approved || 0) / tot : 0, KC(), 3.5) + '</span><span class="kt"><span>' + esc(pr ? pr.name : 'Keiro') + '</span><small' + (o.red ? ' style="color:#ff8a8a"' : '') + '>' + esc(o.urgent ? o.t + ' · ' + o.s : L('project · ', 'projekt · ') + o.status) + '</small></span><span class="num" style="font-size:22px">' + o.n + '<small> ' + esc(L('wait', 'čeká')) + '</small></span></button>'; }; r.insertAdjacentHTML('beforebegin', projs().length ? projs().map(p => inP(p.name, () => one(p))).join('') : one(null)); } } return; }
     const m = el.querySelector('main.dmain'); if (!m) return;
-    if (V.kd) { const ent = m.classList.contains('enter'), y = m.scrollTop; m.className = 'dmain g12 rows scrolly kdp' + (ent ? ' enter' : ''); m.innerHTML = C.feed ? page(deskPage) : '<div class="dph"><div class="dgrp"><button class="cb frost press" data-a="krClose">' + ico('back', 20, 2.2) + '</button><h1>Keiro</h1></div></div>'; m.scrollTop = ent ? 0 : y; return; }
+    if (V.kd) { const ent = m.classList.contains('enter'), y = m.scrollTop; m.className = 'dmain g12 rows scrolly kdp' + (ent ? ' enter' : ''); m.innerHTML = C.feed ? page(deskPage) : '<div class="dph"><div class="dgrp"><button class="cb frost press" data-a="krClose">' + ico('back', 20, 2.2) + '</button><h1>Keiro</h1></div></div>'; if (C.feed && window.A3K) page(() => A3K.desk(m)); m.scrollTop = ent ? 0 : y; return; }
     if (!C.feed || (V.deckFilter && V.deckFilter !== 'all' && V.deckFilter !== 'project')) return;
     const g = m.querySelector('.dcards'); if (!g) return; g.insertAdjacentHTML('afterbegin', projs().length ? projs().map(p => inP(p.name, () => deskCardHTML(p))).join('') : deskCardHTML());
     const nw = g.querySelector('.dnew'); if (nw && g.children.length % 4 === 1) nw.remove();
@@ -855,5 +856,7 @@ window.KR = (function () {
   const cardList = () => !C.on || !C.feed ? [] : projs().length ? projs().map(p => ({ k: 'k:' + p.name, name: p.name, sub: L('Project', 'Projekt'), color: pcol(p.name) })) : [{ k: 'k:', name: 'Keiro', sub: L('Project · tool', 'Projekt · nástroj'), color: C.color || '#ff4f7b' }];
   /* v2050: Home 2.0 reads the same now-state as one row */
   const now = () => (C.on && C.home && C.feed) ? nowState() : null;
-  return { pushList, note, widget, now, deskHook, planHook, cardList, spacesHook, settingsPage, statusLine, refresh, _C: () => C };
+  /* v2051: the canvas pages read the same Keiro state */
+  const x = () => ({ page, cur, blocks, deskPage, loadStats, ST: () => ST, PC, KV, live, inP, projs, proj, parts, nowState, pcol, KC, F, rels, hm, clips, offline, poolText, slotText, pill, relSub, liveRel, ago, klip, kfmt, C });
+  return { pushList, note, widget, now, deskHook, planHook, cardList, spacesHook, settingsPage, statusLine, refresh, _C: () => C, x };
 })();
