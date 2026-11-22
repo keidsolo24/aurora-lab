@@ -96,7 +96,7 @@
   window.keiroLoad = function () {
     if (window.KR) return Promise.resolve(window.KR);
     if (kLoading) return kLoading;
-    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2031'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
+    kLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/keiro.js?v=2033'; s.onload = () => res(window.KR); s.onerror = rej; document.head.appendChild(s); });
     return kLoading;
   };
   if (KCFG().on) keiroLoad().then(() => { if (S) render(); }).catch(() => {});
@@ -456,7 +456,7 @@
   const kf = n => { n = +n || 0; const a = Math.abs(n); return a >= 1e9 ? (Math.round(n / 1e8) / 10) + 'B' : a >= 1e6 ? (Math.round(n / 1e5) / 10) + 'M' : a >= 1e4 ? Math.round(n / 1e3) + 'k' : a >= 1e3 ? (Math.round(n / 100) / 10) + 'k' : String(Math.round(n * 100) / 100); };
   function srcSummary(d) { const k = (d.kpis || [])[0]; return [tr(d.sub), k ? kf(k.value) + ' ' + tr(k.label).toLowerCase() + (k.text ? ' · ' + tr(k.text) : '') : ''].filter(Boolean).join(' · '); }
   const ago2 = iso => { if (!iso) return ''; const t = +new Date(iso); if (!t) return ''; const m = Math.round((Date.now() - t) / 60000); if (m < 0) { const d = Math.round(-m / 1440); return d < 1 ? L('today', 'dnes') : L('in ', 'za ') + d + L(' d', ' d'); } return m < 60 ? m + ' min' : m < 1440 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' d'; };
-  const KIND = { youtube: 'YouTube', sheet: 'Google Sheet', calendar: L('Calendar', 'Kalendář'), github: 'GitHub', feed: 'RSS', podcast: 'Podcast' };
+  const KIND = { youtube: 'YouTube', sheet: 'Google Sheet', get calendar() { return L('Calendar', 'Kalendář'); }, github: 'GitHub', feed: 'RSS', podcast: 'Podcast' };
   const busy = new Set();
   async function srcRefresh(c, fresh) {
     if (!c || !c.src || busy.has(c.id)) return; busy.add(c.id); const st = srcGet(c.id) || {}; srcPut(c.id, Object.assign({}, st, { loading: true }));
@@ -497,16 +497,30 @@
     const sr = d.series && d.series.points && d.series.points.length > 2 ? d.series : null;
     if (sr) { const p = sr.points, a2 = p[Math.max(0, p.length - 8)].value, b2 = p[p.length - 1].value, ch = a2 ? Math.round((b2 / a2 - 1) * 100) : 0;
       if (ch) add(sr.label + ' ' + (ch > 0 ? '+' : '') + ch + ' % ' + L('over the last ' + Math.min(7, p.length - 1) + ' rows.', 'za posledních ' + Math.min(7, p.length - 1) + ' řádků.'), ch > 0 ? 'up' : 'down'); }
+    if (d.kind === 'calendar') {
+      const ev = evsOf(d), d7 = Array.from({ length: 7 }, (_, i) => addD(T(), i)), cnt = d7.map(x => ev.filter(e => e.day === x).length), n7 = cnt.reduce((a, b) => a + b, 0);
+      if (!ev.length) add(L('Nothing planned in the calendar.', 'V kalendáři nic naplánovaného.'), 'down', L('Plan something for this week', 'Naplánovat něco na tento týden'));
+      else if (!n7) add(L('Free week, the next thing is ' + untilTxt(ev[0]).toLowerCase() + '.', 'Volný týden, další věc je ' + untilTxt(ev[0]).toLowerCase() + '.'), 'up');
+      else { const mx = Math.max(...cnt), bi = cnt.indexOf(mx), free = cnt.filter(x => !x).length;
+        add(mx > 1 ? L('Busiest day: ' + wd(d7[bi]) + ' (' + mx + '), ' + free + ' free days this week.', 'Nejnabitější den: ' + wd(d7[bi]) + ' (' + mx + '), volných dní tento týden: ' + free + '.') : L(n7 + ' this week, ' + free + ' free days.', 'Tento týden ' + n7 + (n7 === 1 ? ' událost' : n7 < 5 ? ' události' : ' událostí') + ', volných dní: ' + free + '.'), mx >= 3 ? 'down' : '', mx > 1 ? L('Prepare for ', 'Připravit se na ') + wd(d7[bi]) : ''); }
+      return out.slice(0, 3);
+    }
     const ev = (d.events || [])[0];
     if (ev) add(L('Next: ' + short(ev.title, 40) + ' · ' + ago2(ev.when) + '.', 'Další: ' + short(ev.title, 40) + ' · ' + ago2(ev.when) + '.'), '', L('Prepare: ', 'Připravit: ') + short(ev.title, 40));
-    else if (d.kind === 'calendar') add(L('Nothing planned in the calendar.', 'V kalendáři nic naplánovaného.'), 'down', L('Plan something for this week', 'Naplánovat něco na tento týden'));
-    const li = (d.items || []).find(x => x.date);
-    if (li && (d.kind === 'feed' || d.kind === 'podcast' || d.kind === 'github')) { const g = days(li.date);
-      if (g > 14) add(L('Nothing new for ' + Math.floor(g) + ' days.', Math.floor(g) + ' dní nic nového.'), 'down', d.kind === 'podcast' ? L('Record the next episode', 'Natočit další díl') : L('Write the next post', 'Napsat další příspěvek'));
-      else add(L('Latest: ' + short(li.title, 40) + ' · ' + ago2(li.date) + ' ago.', 'Nejnovější: ' + short(li.title, 40) + ' · před ' + ago2(li.date) + '.'), ''); }
+    const dd = (d.items || []).filter(x => x.date).sort((a, b) => a.date < b.date ? 1 : -1), li = dd[0];
+    if (li && (d.kind === 'feed' || d.kind === 'podcast' || d.kind === 'github')) { const g = days(li.date), gaps = dd.slice(0, 6).map((x, i, A) => i ? days(x.date) - days(A[i - 1].date) : null).filter(x => x != null && x >= 0), gap = gaps.length >= 2 ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : 0;
+      const what = d.kind === 'podcast' ? L('episode', 'díl') : d.kind === 'github' ? L('release', 'vydání') : L('post', 'příspěvek'), nov = d.kind === 'github' ? 'Nové' : 'Nový', nw = d.kind === 'github' ? 'nové' : 'nový';
+      if (gap && g > gap * 1.5 && g > 7) add(L('Usually a new ' + what + ' every ' + gap + ' days, now ' + Math.floor(g) + ' days nothing.', 'Obvykle ' + nw + ' ' + what + ' každých ' + gap + ' ' + dny(gap) + ', teď ' + Math.floor(g) + ' dní nic.'), 'down', d.kind === 'podcast' ? L('Record the next episode', 'Natočit další díl') : d.kind === 'github' ? L('Check what is waiting for a release', 'Projít, co čeká na vydání') : L('Write the next post', 'Napsat další příspěvek'));
+      else if (gap) { const nxD = addD(isoL(new Date(li.date)), gap); add(L('A new ' + what + ' about every ' + gap + ' days, the next one around ' + wd(nxD < T() ? T() : nxD), nov + ' ' + what + ' zhruba každých ' + gap + ' ' + dny(gap) + ', další kolem ' + wd(nxD < T() ? T() : nxD)), ''); }
+      else if (g > 14) add(L('Nothing new for ' + Math.floor(g) + ' days.', Math.floor(g) + ' dní nic nového.'), 'down', d.kind === 'podcast' ? L('Record the next episode', 'Natočit další díl') : L('Write the next post', 'Napsat další příspěvek'));
+      else add(L('Latest ' + ago2(li.date) + ' ago.', 'Nejnovější před ' + ago2(li.date) + '.'), ''); }
     return out.slice(0, 3);
   }
   const askGet = id => { try { return JSON.parse(localStorage.getItem('srca:' + id) || 'null'); } catch (e) { return null; } };
+  /* v2033 · AI limit: the reader counts calls per account; Aurora remembers what is left today */
+  const aiUser = () => { try { if (S && S.acc && S.acc.id) return String(S.acc.id); let d = localStorage.getItem('aiDev'); if (!d) { d = 'd' + Math.random().toString(36).slice(2, 12); localStorage.setItem('aiDev', d); } return d; } catch (e) { return 'anon'; } };
+  const aiSeen = j => { if (!j || j.limit == null) return; try { localStorage.setItem('aiQuota', JSON.stringify({ d: T(), left: j.left == null ? null : j.left, limit: j.limit })); } catch (e) {} };
+  const aiLeft = () => { try { const q = JSON.parse(localStorage.getItem('aiQuota') || 'null'); return q && q.d === T() ? q : null; } catch (e) { return null; } };
   const askCfg = () => { try { return { pin: localStorage.getItem('srcAskPin') || '', model: localStorage.getItem('srcAskModel') || 'sonnet', effort: localStorage.getItem('srcAskEffort') || 'low' }; } catch (e) { return { pin: '', model: 'sonnet', effort: 'low' }; } };
   const MNAME = { sonnet: 'Claude Sonnet', opus: 'Claude Opus', haiku: 'Claude Haiku' };
   const asking = new Set();
@@ -613,10 +627,11 @@
       if (cnt.length > 1 && cnt[0][1] - cnt[cnt.length - 1][1] >= 3) out.push({ t: L('This month the most: ', 'Tento měsíc nejvíc: ') + cnt[0][0].label + ' (' + cnt[0][1] + '), ' + L('the least: ', 'nejméně: ') + cnt[cnt.length - 1][0].label + ' (' + cnt[cnt.length - 1][1] + ').', tone: '' });
       const tmOn = M.people.filter(p => !M.isOff(M.at(p, tm))); if (M.byDate[tm] != null && !tmOn.length) out.push({ t: L('Nobody is on tomorrow.', 'Zítra nikdo nemá směnu.'), tone: 'down', task: L('Check tomorrow\'s cover', 'Zkontrolovat zítřejší obsazení') });
     } else if (M.kind === 'list') {
-      out.push({ t: M.recs.length + ' ' + L('rows in the sheet.', 'řádků v tabulce.'), tone: '' });
+      const gg = {}; M.recs.forEach(x => { if (x.group) gg[x.group] = (gg[x.group] || 0) + 1; }); const g1 = Object.entries(gg).sort((a, b) => b[1] - a[1])[0];
+      out.push({ t: g1 && Object.keys(gg).length > 1 ? L('Most: ' + g1[0] + ' (' + g1[1] + ' of ' + M.recs.length + ').', 'Nejvíc: ' + g1[0] + ' (' + g1[1] + ' z ' + M.recs.length + ').') : M.recs.length + ' ' + L('rows in the sheet.', 'řádků v tabulce.'), tone: '' });
     } else if (M.kind === 'rows') {
       const r2 = M.recs.filter(x => x.nums.some(v => v != null)); if (r2.length > 2) { const a = r2[Math.max(0, r2.length - 8)].nums[0], b = r2[r2.length - 1].nums[0]; if (a && b != null) { const ch = Math.round((b / a - 1) * 100); if (ch) out.push({ t: M.numLabels[0] + ' ' + (ch > 0 ? '+' : '') + ch + ' % ' + L('over the last rows.', 'za poslední řádky.'), tone: ch > 0 ? 'up' : 'down' }); } }
-      const up = M.recs.find(x => x.date && x.date >= T()); if (up) out.push({ t: L('Next: ', 'Další: ') + (up.label || '') + ' · ' + wd(up.date), tone: '', task: up.label ? L('Prepare: ', 'Připravit: ') + short(up.label, 40) : '' });
+      const up = M.recs.find(x => x.date && x.date >= T() && x.label); if (up) out.push({ t: L('Next: ', 'Další: ') + (up.label || '') + ' · ' + wd(up.date), tone: '', task: up.label ? L('Prepare: ', 'Připravit: ') + short(up.label, 40) : '' });
     }
     return out.concat((rc.lines || []).filter(t => !/(row|column|header|cell|řád|sloup|hlavič|buňk)/i.test(t)).slice(0, 1).map(t => ({ t, tone: 'ai' }))).slice(0, 4);
   }
@@ -706,9 +721,41 @@
       const say1 = ins1 ? '<div class="say1' + (ins1.tone ? ' ' + ins1.tone : '') + '"><i></i><span>' + esc(ins1.t) + '</span>' + (ins1.task ? '<button class="saytask press" data-a="srcTask" data-id="' + c.id + '" data-t="' + esc(ins1.task) + '" aria-label="' + esc(L('Make it a task', 'Udělat z toho úkol')) + '">' + ico('plus', 13, 2.4) + '</button>' : '') + '</div>' : '';
       const moreBtn = moreButton(c, more, L('who is on, your shifts, people', 'kdo slouží, tvoje směny, lidi'));
       const pick = me ? '' : blocks.next;
-      const extra = more ? [blocks.today, me ? blocks.next : '', blocks.rank, '<section class="pn frost solid saypn" style="--c:' + col + '"><div class="ph2"><span class="cap">' + esc(L('Aurora says', 'Aurora říká')) + '</span></div><div class="saybox">' + sayIn + '</div><div class="askrow"><button class="lnk asksetup" data-a="srcRecipeEdit" data-id="' + c.id + '">' + ico('spark', 13, 2.2) + ' ' + esc(L('Change the view', 'Změnit pohled')) + '</button></div></section>'] : [];
-      if (desk) return '<div class="srcp sdash desk fx-go' + (more ? ' more' : '') + '" data-src="' + c.id + '" style="--c:' + col + '">' + headR + rowsOf(blocks.month, '<div class="sside">' + blocks.hero + pick + say1 + blocks.who + '</div>', []) + moreBtn + (extra.length ? rowsOf(null, null, extra) : '') + '</div>';
-      return '<div class="srcp sdash mob fx-go' + (more ? ' more' : '') + '" data-src="' + c.id + '" style="--c:' + col + '">' + headR + blocks.hero + pick + say1 + (blocks.strip || blocks.who) + blocks.month + moreBtn + extra.join('') + '</div>';
+      const extraAll = [blocks.today, me ? blocks.next : '', blocks.rank, '<section class="pn frost solid saypn" style="--c:' + col + '"><div class="ph2"><span class="cap">' + esc(L('Aurora says', 'Aurora říká')) + '</span></div><div class="saybox">' + sayIn + '</div><div class="askrow"><button class="lnk asksetup" data-a="srcRecipeEdit" data-id="' + c.id + '">' + ico('spark', 13, 2.2) + ' ' + esc(L('Change the view', 'Změnit pohled')) + '</button></div></section>']; const extra = more ? extraAll : [];
+      void moreBtn; void extra;
+      const B = { month: { h: blocks.month, s: 'L' }, hero: { h: blocks.hero }, pick: { h: pick }, say1: { h: say1 }, who: { h: blocks.who }, strip: { h: blocks.strip || blocks.who }, today: { h: extraAll[0] }, next: { h: extraAll[1] }, rank: { h: extraAll[2] }, say: { h: extraAll[3] } };
+      return compose(c, desk, more, headR, B, { what: L('who is on, your shifts, people', 'kdo slouží, tvoje směny, lidi'), d: [['month', { st: ['hero', 'pick', 'say1', 'who'], s: 'S' }]], dm: ['today', 'next', 'rank', 'say'], m: ['hero', 'pick', 'say1', 'strip', 'month'], mm: ['today', 'next', 'rank', 'say'] });
+    }
+    if (M.kind === 'list') {
+      const more = V.srcMore && V.srcMore[c.id], grp = {}; M.recs.forEach(x => { if (x.group) grp[x.group] = (grp[x.group] || 0) + 1; });
+      const gs = Object.entries(grp).sort((a, b) => b[1] - a[1]), gcol = k => CODEC[Math.max(0, gs.findIndex(g => g[0] === k)) % CODEC.length];
+      const f = (V.recF && V.recF[c.id]) || '', qRaw = (V.recQ && V.recQ[c.id]) || '', q = qRaw.toLowerCase();
+      const shown = M.recs.filter(x => (!f || x.group === f) && (!q || (x.label + ' ' + x.vals.join(' ') + ' ' + x.group).toLowerCase().includes(q)));
+      const ftile = (k, lab, n, i) => '<button class="pn frost solid kkpi lft press' + (f === k ? ' on' : '') + '" style="--i:' + i + ';--k:' + (k ? gcol(k) : col) + '" data-a="srcF" data-id="' + c.id + '" data-k="' + esc(k) + '" aria-pressed="' + (f === k) + '"><span class="cap">' + esc(lab) + '</span><div class="kkn">' + n + '</div><span class="lbar"><i style="width:' + Math.max(4, n / M.recs.length * 100).toFixed(0) + '%"></i></span></button>';
+      const top = gs.length > 1 ? '<div class="kd4' + (desk ? '' : ' m') + '">' + ftile('', L('All', 'Vše'), M.recs.length, 0) + gs.slice(0, 3).map((g, i) => ftile(g[0], g[0], g[1], i + 1)).join('') + '</div>'
+        : '<section class="pn frost solid shero" style="--k:' + col + '"><span class="cap">' + esc(rc.what || L('Rows', 'Řádky')) + '</span><div class="shb"><b>' + M.recs.length + '</b><em>' + esc(rc.unit || L('rows', 'řádků')) + '</em></div></section>';
+      const selI = V.recSel && V.recSel[c.id], sel = shown.find(x => x.row === selI) || shown[0];
+      const rowB = x => '<button class="lrow2 press' + (desk && sel === x ? ' on' : '') + '" data-a="srcRec" data-id="' + c.id + '" data-r="' + x.row + '">' + (x.group ? '<i style="background:' + gcol(x.group) + '"></i>' : '') + '<span class="tx"><b>' + esc(x.label || x.vals[0] || '') + '</b><small>' + esc(x.vals.filter(Boolean).slice(0, 2).join(' · ')) + '</small></span>' + (x.group ? '<span class="lgp" style="--k:' + gcol(x.group) + '">' + esc(x.group) + '</span>' : '') + (desk ? '' : '<span class="sgo">' + ico('chev', 14, 2.4) + '</span>') + '</button>';
+      const n0 = desk ? 10 : 6, lim = V.srcAll === c.id ? 300 : n0;
+      const listP = '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(f || rc.what || L('Rows', 'Řádky')) + '</span><span class="muted">' + shown.length + '</span></div><div class="fld in recq"><input data-recq="' + c.id + '" value="' + esc(qRaw) + '" placeholder="' + esc(L('Search…', 'Hledat…')) + '" autocomplete="off"></div>' + (shown.slice(0, lim).map(rowB).join('') || '<p class="muted saynone">' + esc(L('Nothing found.', 'Nic nenalezeno.')) + '</p>') + (shown.length > n0 ? '<button class="lnk srcmore" data-a="srcAll" data-id="' + c.id + '">' + esc(V.srcAll === c.id ? L('Show less', 'Méně') : L('Show all ', 'Ukázat všech ') + shown.length) + '</button>' : '') + '</section>';
+      const s1 = say1Of(c, ins.find(x => x.tone === 'ai') || ins[0]), mbL = moreButton(c, more, gs.length ? L('by ', 'podle: ') + (M.groupLabel || '') : '');
+      void mbL; const B = { filters: { h: top, raw: true }, say1: { h: s1, raw: true }, list: { h: listP, s: 'L' }, detail: { h: desk && sel ? recDetail(c, M, sel, true) : '', s: 'S' }, rank: { h: blocks.rank }, say: { h: say } };
+      return compose(c, desk, more, headR, B, { what: gs.length ? L('by ', 'podle: ') + (M.groupLabel || '') : '', d: [['filters'], ['say1'], ['list', 'detail']], dm: ['rank', 'say'], m: ['filters', 'say1', 'list'], mm: ['rank', 'say'] });
+    }
+    if (M.kind === 'rows') {
+      const more = V.srcMore && V.srcMore[c.id], r2 = M.recs.filter(x => x.nums.some(v => v != null)), lastR = r2[r2.length - 1], prevR = r2[r2.length - 2];
+      const up = M.recs.find(x => x.date && x.date > (lastR && lastR.date || td) && x.date >= td);
+      const v0 = lastR && lastR.nums[0], p0 = prevR && prevR.nums[0], dl = v0 != null && p0 != null ? v0 - p0 : null;
+      const pts = r2.slice(-30).map(x => ({ label: x.date ? dm(x.date) : '', value: x.nums[0] || 0 }));
+      const hero = '<section class="pn frost solid rhero"><div class="shb"><span class="cap">' + esc((lastR && lastR.date ? wd(lastR.date) : L('Latest', 'Poslední')) + ' · ' + (M.numLabels[0] || '')) + '</span><b>' + (v0 != null ? kf(v0) : M.recs.length) + '</b>' + (dl != null && dl !== 0 ? '<em class="' + (dl > 0 ? 'up' : 'down') + '">' + (dl > 0 ? '+' : '') + kf(dl) + L(' vs the row before', ' proti minulému') + '</em>' : '') + '</div>' + (pts.length > 1 ? bars(pts, col, 0, desk ? 1400 : 440) : '') + '</section>';
+      const vs = r2.filter(x => x.nums[0] != null), mxR = vs.reduce((a, x) => !a || x.nums[0] > a.nums[0] ? x : a, null), avgV = vs.length ? vs.reduce((a, x) => a + x.nums[0], 0) / vs.length : 0;
+      const side = M.numLabels.slice(1, 2).map((lb, i) => lastR && lastR.nums[i + 1] != null ? tile(lb, kf(lastR.nums[i + 1]), lastR.date ? wd(lastR.date) : '', 0) : '').filter(Boolean)
+        .concat(mxR ? [tile(L('Best', 'Nejvíc'), kf(mxR.nums[0]), mxR.date ? wd(mxR.date) : (mxR.label || ''), 1)] : []).concat(vs.length > 1 ? [tile(L('Average', 'Průměr'), kf(Math.round(avgV)), vs.length + ' ' + L('records', 'záznamů'), 2)] : [tile(L('Rows', 'Řádků'), M.recs.length, rc.unit || '', 3)]).slice(0, 3);
+      const useC = [0, 1, 2].filter(k => r2.some(x => x.nums[k] != null)).slice(0, 2);
+      const tableR = '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Latest records', 'Poslední záznamy')) + '</span><span class="muted">' + esc(useC.map(k => M.numLabels[k]).join(' · ')) + '</span></div><table class="ktb srctb"><tbody>' + r2.slice(-8).reverse().map(x => '<tr><td><span class="srcrow"><span><b>' + esc(x.date ? wd(x.date) : x.label) + '</b>' + (x.date && x.label ? '<small class="muted">' + esc(x.label) + '</small>' : '') + '</span></span></td>' + useC.map(k => '<td class="vnum">' + (x.nums[k] == null ? '–' : kf(x.nums[k])) + '</td>').join('') + '</tr>').join('') + '</tbody></table>' + (up ? '<div class="say1 rnext"><i></i><span>' + esc(L('Next: ', 'Další: ') + wd(up.date) + (up.label ? ' · ' + up.label : '')) + '</span></div>' : '') + '</section>';
+      const s1 = say1Of(c, ins[0]), mbR = moreButton(c, more, '');
+      void mbR; const B = { hero: { h: hero, s: 'L' }, nums: { h: side.length ? '<div class="kd4' + (desk ? ' vcol' : ' m') + '">' + side.join('') + '</div>' : '', s: 'S' }, say1: { h: s1 }, table: { h: tableR, s: 'L' }, say: { h: say, s: 'S' } };
+      return compose(c, desk, more, headR, B, { d: [['hero', 'nums'], ['table', 'say']], m: ['hero', 'nums', 'say1', 'table'], mm: ['say'] });
     }
     if (desk) { const main = rest.find(x => x === blocks.month || x === blocks.trend || x === blocks.table) || rest[0], others = rest.filter(x => x !== main);
       const mo3 = V.srcMore && V.srcMore[c.id];
@@ -738,8 +785,8 @@
     const st = srcGet(c.id), d = st && st.data; if (!d || !d.grid) return; const cfg = askCfg(); const key = 'r' + c.id; if (asking.has(key)) return;
     asking.add(key); srcPut(c.id, Object.assign({}, st, { rerr: '' })); repaintCard(c.id);
     let err = '';
-    try { const r = await fetch(srcBase() + '/recipe', { method: 'POST', headers: { 'content-type': 'text/plain', 'x-aurora-pin': cfg.pin }, body: JSON.stringify({ title: c.name, dims: d.grid.length + ' rows × ' + Math.max(...d.grid.map(x => x.length)) + ' columns', sample: sampleOf(d.grid), wish: wish || '', lang: lang(), model: cfg.model, effort: cfg.effort, today: T() }) });
-      const j = await r.json().catch(() => null);
+    try { const r = await fetch(srcBase() + '/recipe', { method: 'POST', headers: { 'content-type': 'text/plain', 'x-aurora-pin': cfg.pin, 'x-aurora-user': aiUser() }, body: JSON.stringify({ title: c.name, dims: d.grid.length + ' rows × ' + Math.max(...d.grid.map(x => x.length)) + ' columns', sample: sampleOf(d.grid), wish: wish || '', lang: lang(), model: cfg.model, effort: cfg.effort, today: T() }) });
+      const j = await r.json().catch(() => null); aiSeen(j);
       if (r.ok && j && j.shape) { if (!wish && c.src.recipe && c.src.recipe.me && !j.me) j.me = c.src.recipe.me; c.src.recipe = j; save(); }
       else err = j && j.error === 'pin' ? L('Wrong PIN, check Settings → Sources → Link reader.', 'Špatný PIN, zkontroluj Settings → Sources → Čtečka odkazů.') : j && j.error === 'limit' ? L('Today’s Claude limit is used up.', 'Dnešní limit Clauda je vyčerpaný.') : (j && j.message) || L('Claude did not answer.', 'Claude neodpověděl.'); }
     catch (e) { err = L('The link reader is not reachable.', 'Čtečka odkazů není dostupná.'); }
@@ -755,9 +802,163 @@
     const o = others.filter(Boolean); for (let i = 0; i < o.length; i += 2) h += o[i + 1] ? '<div class="lr lr11">' + o[i] + o[i + 1] + '</div>' : '<div class="lr lr1">' + o[i] + '</div>';
     return h;
   }
+
+  /* ===== v2033 · block registry: each block is one piece (id, name, size S/M/L); a recipe lists ids; one composer lays them out ===== */
+  const BLK = { hero: ['Answer', 'Odpověď'], nums: ['Numbers', 'Čísla'], week: ['Next 7 days', 'Příštích 7 dní'], later: ['Later', 'Později'], say: ['Aurora says', 'Aurora říká'], say1: ['Aurora line', 'Aurora v jedné větě'],
+    list: ['List', 'Seznam'], chart: ['Chart', 'Graf'], table: ['Table', 'Tabulka'], best: ['Best', 'Nejlepší'], events: ['Coming up', 'Chystá se'], month: ['Two weeks', 'Dva týdny'], who: ['Who is on', 'Kdo slouží'],
+    today: ['Today and tomorrow', 'Dnes a zítra'], next: ['Your next', 'Tvoje další'], rank: ['By person', 'Po lidech'], filters: ['Filters', 'Filtry'], detail: ['Detail', 'Detail'], strip: ['Your week', 'Tvůj týden'], pick: ['Who are you', 'Kdo jsi'] };
+  window.AUR_BLOCKS = BLK;
+  const LASTB = {};
+  const viewOf = c => (c.src && c.src.view) || {};
+  function compose(c, desk, more, head, B, R) {
+    const v = viewOf(c), ok = id => !!(B[id] && B[id].h);
+    const ids = it => typeof it === 'string' ? [it] : it.st;
+    const rowsD = R.d || [], mainDef = [], moreDef = [];
+    (desk ? rowsD.flatMap(r => r.flatMap(ids)) : (R.m || [])).forEach(id => { if (ok(id) && !mainDef.includes(id)) mainDef.push(id); });
+    ((desk ? R.dm : R.mm) || []).forEach(id => { if (ok(id) && !mainDef.includes(id) && !moreDef.includes(id)) moreDef.push(id); });
+    const def = mainDef.concat(moreDef);
+    /* the view the person set: an order of all blocks + which ones sit under "More"; blocks a source no longer has just drop out */
+    let ord = def, offS = moreDef;
+    if (v.order) { ord = v.order.filter(id => def.includes(id)).concat(def.filter(id => !v.order.includes(id))); offS = (v.off || []).filter(id => def.includes(id) && id !== 'hero').concat(moreDef.filter(id => !v.order.includes(id))); }
+    LASTB[c.id] = { ord, off: offS, def, defOff: moreDef };
+    const on = id => ok(id) && !offS.includes(id), pos = id => { const i = ord.indexOf(id); return i < 0 ? 1e3 : i; };
+    let vis = on; const hasIt = it => ids(it).some(vis);
+    const tag = id => String(B[id].h).replace(/^\s*<(\w+)/, '<$1 data-b="' + id + '"');
+    const htmlOf = it => typeof it === 'string' ? tag(it) : '<div class="' + (it.cls || 'sside') + '">' + it.st.filter(vis).map(tag).join('') + '</div>';
+    const sizeOf = it => typeof it === 'string' ? (B[it].s || 'M') : (it.s || 'M');
+    const wrap = row => { const its = row.filter(hasIt); if (!its.length) return ''; if (its.length === 1) { const it = its[0]; return typeof it === 'string' && B[it].raw ? tag(it) : '<div class="lr lr1">' + htmlOf(it) + '</div>'; }
+      const a = sizeOf(its[0]), b = sizeOf(its[1]); return '<div class="lr ' + (a === 'L' && b === 'S' ? 'lr31' : a === 'S' && b === 'L' ? 'lr12' : 'lr11') + '">' + htmlOf(its[0]) + htmlOf(its[1]) + '</div>'; };
+    const first = row => Math.min(...row.map(it => Math.min(...ids(it).map(pos))));
+    const byOrd = l => l.slice().sort((x, y) => pos(x) - pos(y));
+    const pairs = l => { const r = []; for (let i = 0; i < l.length; i += 2) r.push(l.slice(i, i + 2)); return r; };
+    const moreIds = byOrd(def.filter(id => offS.includes(id)));
+    const mb = moreButton(c, more, R.what || '');
+    const vb = '<button class="cb frost press srcvw" data-a="srcView" data-id="' + c.id + '" aria-label="' + esc(L('Edit view', 'Upravit pohled')) + '">' + ico('edit', desk ? 17 : 16, 2.2) + '</button>';
+    if (desk) {
+      const promoted = byOrd(def.filter(id => on(id) && !rowsD.some(r => r.some(it => ids(it).includes(id)))));
+      const rows = rowsD.slice().map((r, i) => [r, i]).sort((x, y) => (first(x[0]) - first(y[0])) || x[1] - y[1]).map(x => x[0]);
+      const hd = head.replace('<button class="cb frost press srcr', vb + '<button class="cb frost press srcr');
+      return dashW(c, true, more, hd + rows.map(wrap).join('') + pairs(promoted).map(wrap).join('') + mb + (more ? (vis = ok, pairs(moreIds).map(wrap).join('')) : ''));
+    }
+    return dashW(c, false, more, head + byOrd(def.filter(on)).map(tag).join('') + '<div class="smrow">' + mb + vb + '</div>' + (more ? moreIds.map(tag).join('') : ''));
+  }
+  /* "Edit view": order the blocks and choose what sits on the card and what under "More"; per card, nothing is deleted */
+  ACT.srcView = el => {
+    const c = cardById(el.dataset.id); if (!c || !c.src) return; const lb = LASTB[c.id]; if (!lb || !lb.def.length) return;
+    let ord = lb.ord.slice(), off = lb.off.slice();
+    const row = (id, i) => { const lock = id === 'hero', inM = off.includes(id);
+      return '<div class="srow vwr' + (inM ? ' dn' : '') + '"><span class="tx">' + esc(L(...(BLK[id] || [id, id]))) + '<small>' + esc(lock ? L('always on top', 'vždy nahoře') : inM ? L('under More', 'pod Víc ›') : L('on the card', 'na kartě')) + '</small></span><span class="vwa">'
+        + (lock ? '' : '<button class="cb frost press" data-mv="-1" data-k="' + id + '"' + (i > (ord[0] === 'hero' ? 1 : 0) ? '' : ' disabled') + ' aria-label="' + esc(L('Up', 'Nahoru')) + '">↑</button><button class="cb frost press" data-mv="1" data-k="' + id + '"' + (i < ord.length - 1 ? '' : ' disabled') + ' aria-label="' + esc(L('Down', 'Dolů')) + '">↓</button><button class="vwt" data-tg="' + id + '" aria-pressed="' + !inM + '" aria-label="' + esc(L('On the card', 'Na kartě')) + '"><span class="tg' + (inM ? '' : ' on') + '"></span></button>') + '</span></div>'; };
+    const paint = box => { box.innerHTML = '<section class="grp frost solid vwl">' + ord.map(row).join('') + '</section><button class="lnk vwreset" data-rs="1">' + esc(L('Back to the default view', 'Vrátit výchozí pohled')) + '</button>'; };
+    openSheet({ title: L('Edit view', 'Upravit pohled'), leftLabel: L('Cancel', 'Zrušit'), right: L('Done', 'Hotovo'), cls: 'vwsh',
+      body: '<p class="lkp">' + esc(L('Move blocks and pick what stays on the card. Switched off goes under More, nothing is lost.', 'Posuň bloky a vyber, co zůstane na kartě. Vypnuté jde pod Víc, nic se neztratí.')) + '</p><div id="vwBox"></div>',
+      mount: e2 => { const box = e2.querySelector('#vwBox'); paint(box);
+        box.onclick = ev => { const b = ev.target.closest('button'); if (!b) return;
+          if (b.dataset.tg) { const k = b.dataset.tg; off = off.includes(k) ? off.filter(x => x !== k) : off.concat(k); }
+          else if (b.dataset.mv) { const i = ord.indexOf(b.dataset.k), j = i + +b.dataset.mv; if (j < 0 || j >= ord.length || ord[j] === 'hero') return; [ord[i], ord[j]] = [ord[j], ord[i]]; }
+          else if (b.dataset.rs) { off = lb.defOff.slice(); ord = lb.def.slice(); }
+          haptic && haptic(); paint(box); }; },
+      onSave: () => { const same = ord.join() === lb.def.join() && off.slice().sort().join() === lb.defOff.slice().sort().join(); c.src.view = same ? null : { order: ord, off }; save(); closeSheet(true); repaintCard(c.id); } });
+  };
+  /* ===== v2032 · answer first for every source: one big answer, the main overview, one Aurora line, the rest under "More" ===== */
+  const hm = dt => dt.toLocaleTimeString(lang() === 'cs' ? 'cs-CZ' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+  const isoL = t => t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+  const dayDiff = iso2 => Math.round((new Date(iso2 + 'T12:00:00') - new Date(T() + 'T12:00:00')) / 864e5);
+  const dny = n => lang() === 'cs' ? (n === 1 ? 'den' : n < 5 ? 'dny' : 'dní') : (n === 1 ? 'day' : 'days');
+  const imgT = (u, cls) => u ? '<img class="' + cls + '" src="' + esc(u) + '" onerror="this.style.visibility=\'hidden\'" alt="" loading="lazy" referrerpolicy="no-referrer">' : '';
+  const agoT = iso2 => { if (!iso2) return ''; const m = Math.round((Date.now() - +new Date(iso2)) / 60000); if (!(m >= 0)) return ''; if (m < 60) return L(m + ' min ago', 'před ' + m + ' min'); if (m < 1440) return L(Math.round(m / 60) + ' h ago', 'před ' + Math.round(m / 60) + ' h'); const dd = Math.round(m / 1440); return dd === 1 ? L('yesterday', 'včera') : L(dd + ' days ago', 'před ' + dd + ' dny'); };
+  function evsOf(d) {
+    const now = Date.now();
+    return (d.events || []).map((x, i) => { const allDay = String(x.when).length === 10, dt = new Date(allDay ? x.when + 'T12:00:00' : x.when); return Object.assign({}, x, { i, allDay, dt, day: allDay ? x.when : isoL(dt) }); })
+      .filter(x => !isNaN(x.dt) && (x.allDay ? x.day >= T() : +x.dt > now - 2 * 3600e3)).sort((a, b) => a.dt - b.dt);
+  }
+  function untilTxt(x) {
+    const dd = dayDiff(x.day);
+    if (!x.allDay && dd === 0) { const m = Math.round((+x.dt - Date.now()) / 60000); if (m <= 0) return L('Now', 'Právě teď'); if (m < 60) return L('In ', 'Za ') + m + ' min'; const h = Math.floor(m / 60), r = m % 60; return L('In ', 'Za ') + h + ' h' + (r ? ' ' + r + ' min' : ''); }
+    return dd <= 0 ? L('Today', 'Dnes') : dd === 1 ? L('Tomorrow', 'Zítra') : L('In ', 'Za ') + dd + ' ' + dny(dd);
+  }
+  const say1Of = (c, x) => x ? '<div class="say1' + (x.tone ? ' ' + x.tone : '') + '"><i></i><span>' + esc(x.t) + '</span>' + (x.task ? '<button class="saytask press" data-a="srcTask" data-id="' + c.id + '" data-t="' + esc(x.task) + '" aria-label="' + esc(L('Make it a task', 'Udělat z toho úkol')) + '">' + ico('plus', 13, 2.4) + '</button>' : '') + '</div>' : '';
+  const sayPanel = (c, d) => '<section class="pn frost solid saypn" style="--c:' + c.color + '"><div class="ph2"><span class="cap">' + esc(L('Aurora says', 'Aurora říká')) + '</span><span class="muted">' + esc(L('+ makes it a task', '+ udělá z toho úkol')) + '</span></div><div class="saybox" data-say="' + c.id + '">' + sayHTML(c, d) + '</div></section>';
+  const dashW = (c, desk, more, inner) => '<div class="srcp sdash ' + (desk ? 'desk' : 'mob') + ' fx-go' + (more ? ' more' : '') + '" data-src="' + c.id + '" style="--c:' + c.color + '">' + inner + '</div>';
+  const isMore = c => !!(V.srcMore && V.srcMore[c.id]);
+
+  /* calendar: "In 1 h 20 min · Shoot" + the week by day */
+  function calPanel(c, d, st, desk, head) {
+    const col = c.color, ev = evsOf(d), nx = ev[0], td = T(), more = isMore(c);
+    const hero = nx ? '<button class="pn frost solid shero ehero press" data-a="srcEv" data-id="' + c.id + '" data-i="' + nx.i + '" style="--k:' + col + '"><span class="cap">' + esc(untilTxt(nx)) + '</span><b class="eht">' + esc(nx.title) + '</b><span class="shs">' + esc((nx.allDay ? L('All day', 'Celý den') : hm(nx.dt)) + ' · ' + wd(nx.day)) + '</span></button>'
+      : '<section class="pn frost solid shero ehero" style="--k:rgba(243,234,216,.3)"><span class="cap">' + esc(L('Coming up', 'Chystá se')) + '</span><b class="eht">' + esc(L('Nothing planned', 'Nic naplánovaného')) + '</b><button class="chip frost press" data-a="srcTask" data-id="' + c.id + '" data-t="' + esc(L('Plan something for this week', 'Naplánovat něco na tento týden')) + '">' + ico('plus', 13, 2.4) + ' ' + esc(L('Plan something', 'Naplánovat')) + '</button></section>';
+    const days7 = Array.from({ length: 7 }, (_, i) => addD(td, i)), by = {}; ev.forEach(x => (by[x.day] = by[x.day] || []).push(x));
+    const n7 = days7.reduce((a, x) => a + (by[x] || []).length, 0);
+    const blk = x => '<button class="evb press' + (x === nx ? ' nx' : '') + '" data-a="srcEv" data-id="' + c.id + '" data-i="' + x.i + '"><b>' + esc(x.title) + '</b><small>' + esc(x.allDay ? L('all day', 'celý den') : hm(x.dt)) + '</small></button>';
+    const wdS = x => new Date(x + 'T12:00:00').toLocaleDateString(lang() === 'cs' ? 'cs-CZ' : 'en-GB', { weekday: 'short' });
+    const cap = '<div class="ph2"><span class="cap">' + esc(L('Next 7 days', 'Příštích 7 dní')) + '</span><span class="muted">' + esc(n7 + ' ' + L(n7 === 1 ? 'event' : 'events', n7 === 1 ? 'událost' : n7 > 1 && n7 < 5 ? 'události' : 'událostí')) + '</span></div>';
+    let week;
+    if (desk) week = '<section class="pn frost solid evpn">' + cap + '<div class="evwk">' + days7.map(x => '<div class="evcol"><span class="evh' + (x === td ? ' td' : '') + '">' + esc(wdS(x) + ' ' + new Date(x + 'T12:00:00').getDate() + (x === td ? L(' · today', ' · dnes') : '')) + '</span>' + ((by[x] || []).slice(0, 4).map(blk).join('') || '<i class="evnone"></i>') + ((by[x] || []).length > 4 ? '<small class="muted">+' + (by[x].length - 4) + '</small>' : '') + '</div>').join('') + '</div></section>';
+    else { const sel = (V.calDay && V.calDay[c.id] && days7.includes(V.calDay[c.id]) && V.calDay[c.id]) || days7.find(x => by[x]) || td;
+      week = '<section class="pn frost solid">' + cap + '<div class="mystrip">' + days7.map(x => { const n = (by[x] || []).length; return '<button class="msd' + (x === sel ? ' td' : '') + '" data-a="srcCalDay" data-id="' + c.id + '" data-d="' + x + '"><small>' + esc(wdS(x)) + '</small><i' + (n ? ' style="background:' + col + '"' : ' class="off"') + '>' + (n || '') + '</i><em>' + new Date(x + 'T12:00:00').getDate() + '.</em></button>'; }).join('') + '</div><div class="evday"><span class="cap">' + esc(wd(sel)) + '</span>' + ((by[sel] || []).map(blk).join('') || '<p class="muted saynone">' + esc(L('Nothing that day.', 'Ten den nic.')) + '</p>') + '</div></section>'; }
+    const later = ev.filter(x => x.day > days7[6]);
+    const laterP = later.length ? '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Later', 'Později')) + '</span><span class="muted">' + later.length + '</span></div>' + later.slice(0, 6).map(x => '<button class="srcit evrow press" data-a="srcEv" data-id="' + c.id + '" data-i="' + x.i + '"><span class="srcd"><b>' + x.dt.getDate() + '.' + (x.dt.getMonth() + 1) + '.</b>' + (x.allDay ? '' : '<small>' + hm(x.dt) + '</small>') + '</span><span class="tx"><b>' + esc(x.title) + '</b><small>' + esc(untilTxt(x)) + '</small></span></button>').join('') + '</section>' : '';
+    const mb = '';
+    void mb; const B = { hero: { h: hero, s: 'S' }, week: { h: week, s: 'L' }, say1: { h: say1Of(c, insights(c, d)[0]) }, later: { h: laterP, s: 'L' }, say: { h: sayPanel(c, d), s: 'S' } };
+    return compose(c, desk, more, head, B, { what: later.length ? L('later', 'později') : '', d: [['hero', 'week'], ['later', 'say']], m: ['hero', 'say1', 'week'], mm: ['later', 'say'] });
+  }
+  ACT.srcCalDay = el => { V.calDay = V.calDay || {}; V.calDay[el.dataset.id] = el.dataset.d; repaintCard(el.dataset.id); };
+  ACT.srcEv = el => {
+    const c = cardById(el.dataset.id), st = c && srcGet(c.id), d = st && st.data; if (!d) return; const x = evsOf(d).find(e => e.i === +el.dataset.i); if (!x) return;
+    openSheet({ title: KIND.calendar, leftLabel: L('Close', 'Zavřít'), cls: 'srcv', body: '<span class="cap evdc">' + esc(untilTxt(x)) + '</span><b class="svt evdt">' + esc(x.title) + '</b><small class="svd">' + esc(wd(x.day) + ' · ' + (x.allDay ? L('all day', 'celý den') : hm(x.dt))) + '</small>'
+      + '<div class="svact">' + '<button class="pbtn cr press" id="evTask">' + ico('plus', 15, 2.4) + esc(L('Prepare in Plan', 'Připravit v Plánu')) + '</button>' + (x.url || d.url ? '<a class="pbtn ghost press" href="' + esc(x.url || d.url) + '" target="_blank" rel="noopener">' + esc(L('Open calendar', 'Otevřít kalendář')) + '</a>' : '') + '</div>',
+      mount: e2 => { e2.querySelector('#evTask').onclick = () => { const dd = x.day > T() ? addD(x.day, -1) : T(); S.items.push({ id: uid(), t: L('Prepare: ', 'Připravit: ') + short(x.title, 50), card: c.id, date: dd, created: T() }); save(); haptic(); closeSheet(true); toast(esc(L('In Plan · ', 'V Plánu · ') + wd(dd))); }; } });
+  };
+
+  /* releases, posts, episodes: the newest one big, how often new ones come, the list */
+  function itemPanel(c, d, st, desk, head, T4, tile) {
+    const col = c.color, more = isMore(c), it = (d.items || []).filter(x => x.title);
+    const dated = it.filter(x => x.date).sort((a, b) => a.date < b.date ? 1 : -1), rows = dated.length ? dated : it, top = rows[0];
+    const capH = d.kind === 'github' ? (d.itemsLabel === 'Releases' ? L('Latest release', 'Poslední vydání') : L('Updated last', 'Naposledy upraveno')) : d.kind === 'podcast' ? L('Latest episode', 'Nejnovější díl') : L('Latest post', 'Nejnovější příspěvek');
+    const old = top && top.date && days(top.date) > 30;
+    /* rhythm: how many per month, last 12 months */
+    let rh = '';
+    if (dated.length >= 3) { const now = new Date(), ms = Array.from({ length: 12 }, (_, i) => { const t = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1); return isoL(t).slice(0, 7); }), cnt = ms.map(m => dated.filter(x => isoL(new Date(x.date)).slice(0, 7) === m).length), mx = Math.max(1, ...cnt);
+      if (cnt.some(Boolean)) rh = '<div class="irh" aria-label="' + esc(L('per month', 'po měsících')) + '">' + cnt.map((n, i) => '<i class="' + (i === 11 ? 'on' : '') + '" style="height:' + Math.max(6, n / mx * 100).toFixed(0) + '%" title="' + esc(ms[i] + ' · ' + n) + '"></i>').join('') + '</div><div class="irl"><span>' + esc(new Date(ms[0] + '-15').toLocaleDateString(lang() === 'cs' ? 'cs-CZ' : 'en-GB', { month: 'short' })) + '</span><span>' + esc(L('per month', 'po měsících')) + '</span><span>' + esc(L('now', 'teď')) + '</span></div>'; }
+    const hero = top ? '<a class="pn frost solid shero ihero press' + (top.thumb ? ' hasth' : '') + '" href="' + esc(top.url || d.url) + '" target="_blank" rel="noopener" style="--k:' + (old ? '#ffb27a' : col) + '">' + imgT(top.thumb, 'ith') + '<span class="ihx"><span class="cap">' + esc(capH) + '</span><b class="eht">' + esc(top.title) + '</b><span class="shs">' + esc([agoT(top.date), top.value != null ? '★ ' + kf(top.value) : ''].filter(Boolean).join(' · ')) + '</span>' + (d.kind === 'github' && d.sub && !rh ? '<span class="ihd">' + esc(d.sub) + '</span>' : '') + rh + '</span></a>'
+      : '<section class="pn frost solid shero ihero" style="--k:' + col + '"><span class="ihx"><span class="cap">' + esc(KIND[d.kind] || '') + '</span><b class="eht">' + esc(d.title) + '</b><span class="shs">' + esc(tr(d.sub) || '') + '</span></span></section>';
+    const lim = V.srcAll === c.id ? 50 : desk ? 6 : 5, rest = rows.slice(1);
+    const list = rest.length ? '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Before that', 'Předtím')) + '</span><span class="muted">' + rest.length + '</span></div>' + rest.slice(0, lim).map(x => '<a class="srcit press" href="' + esc(x.url || d.url) + '" target="_blank" rel="noopener">' + (x.thumb ? imgT(x.thumb, '') : '<span class="srcd"><b>' + (x.date ? dm(x.date) : '·') + '</b></span>') + '<span class="tx"><b>' + esc(x.title) + '</b><small>' + esc([agoT(x.date), x.value != null ? '★ ' + kf(x.value) : ''].filter(Boolean).join(' · ')) + '</small></span><span class="sgo">' + ico('arrow', 13, 2.4) + '</span></a>').join('') + (rest.length > (desk ? 6 : 5) ? '<button class="lnk srcmore" data-a="srcAll" data-id="' + c.id + '">' + esc(V.srcAll === c.id ? L('Show less', 'Méně') : L('Show all ', 'Ukázat všech ') + rest.length) + '</button>' : '') + '</section>' : '';
+    const T3 = T4.slice(0, 3), mb = '';
+    const tall = !!(rh || (top && top.thumb));
+    void mb; const B = { hero: { h: hero, s: tall ? 'L' : 'S' }, nums: { h: T3.length ? '<div class="kd4' + (desk ? (tall ? ' vcol' : '') : ' m') + '">' + T3.map(tile).join('') + '</div>' : '', s: tall ? 'S' : 'L' }, say1: { h: say1Of(c, insights(c, d)[0]) }, list: { h: list, s: 'L' }, say: { h: sayPanel(c, d), s: 'S' } };
+    return compose(c, desk, more, head, B, { d: [['hero', 'nums'], ['list', 'say']], m: ['hero', 'nums', 'say1', 'list'], mm: ['say'] });
+  }
+
+  /* the link could not be read: one clean card that says how to fix it */
+  function errPanel(c, st, desk, kn, ref) {
+    const priv = /soukrom|private|sdílet|share|přístup|access|403|401/i.test(st.err || ''), more = isMore(c);
+    const steps = priv ? [L('Open the sheet in Google Sheets', 'Otevři tabulku v Google Sheets'), L('Share → General access → Anyone with the link', 'Sdílet → Obecný přístup → Kdokoli s odkazem'), L('Role: Viewer, then come back and tap Try again', 'Role: Čtenář, pak se vrať a dej Zkusit znovu')] : [];
+    return dashW(c, desk, more, '<div class="sdh"><div class="dgrp"><span class="kdst"><i style="background:' + c.color + ';box-shadow:none"></i>' + esc(kn) + '</span></div>' + ref + '</div>'
+      + '<section class="pn frost solid serr"><span class="ricon">' + ico(priv ? 'lock' : 'sync', 24, 2) + '</span><b>' + esc(st.setup ? L('The link reader is not set up yet', 'Čtečka odkazů ještě není nastavená') : priv ? L('This sheet is private', 'Tabulka je soukromá') : L('Could not read the link', 'Odkaz se nepodařilo přečíst')) + '</b>'
+      + '<span class="serrm">' + esc(st.setup ? L('One-time setup, about 5 minutes.', 'Jednorázové nastavení, asi 5 minut.') : priv ? L('Aurora can only read sheets anyone with the link can view. Three taps:', 'Aurora umí číst jen tabulky, které může vidět kdokoli s odkazem. Tři kroky:') : (st.err || '')) + '</span>'
+      + (steps.length ? '<ol>' + steps.map(s => '<li>' + esc(s) + '</li>').join('') + '</ol>' : '')
+      + '<div class="sact">' + (st.setup ? '<button class="pbtn cr press" data-a="srcSetup">' + esc(L('Set it up', 'Nastavit')) + '</button>' : '<button class="pbtn cr press" data-a="srcRefresh" data-id="' + c.id + '">' + esc(L('Try again', 'Zkusit znovu')) + '</button>') + '<a class="pbtn ghost press" href="' + esc(c.src.url) + '" target="_blank" rel="noopener">' + esc(L('Open the link', 'Otevřít odkaz')) + '</a></div></section>'
+      + moreButton(c, more, ''));
+  }
+  ACT.srcF = el => { V.recF = V.recF || {}; const id = el.dataset.id; V.recF[id] = V.recF[id] === el.dataset.k ? '' : el.dataset.k; V.recSel = V.recSel || {}; V.recSel[id] = null; repaintCard(id); };
+  ACT.srcRec = el => { const id = el.dataset.id, r = +el.dataset.r; V.recSel = V.recSel || {}; V.recSel[id] = r;
+    if (isDeskV()) { repaintCard(id); return; }
+    const c = cardById(id), st = srcGet(id); if (!c || !st || !st.data) return; const M = model(c.src.recipe, st.data.grid); if (!M || M.kind !== 'list') return; const x = M.recs.find(y => y.row === r); if (!x) return;
+    openSheet({ title: c.src.recipe.what || L('Detail', 'Detail'), leftLabel: L('Close', 'Zavřít'), cls: 'srcv', body: recDetail(c, M, x, false) });
+  };
+  function recDetail(c, M, x, panel) {
+    const gs = {}; M.recs.forEach(y => { if (y.group) gs[y.group] = (gs[y.group] || 0) + 1; }); const order = Object.keys(gs).sort((a, b) => gs[b] - gs[a]);
+    const gc = k => CODEC[Math.max(0, order.indexOf(k)) % CODEC.length];
+    const inner = (panel ? '<span class="cap">' + esc(L('Detail', 'Detail')) + '</span>' : '') + '<b class="ldt">' + esc(x.label || x.vals[0] || '') + '</b>' + (x.group ? '<span class="lgp" style="--k:' + gc(x.group) + '">' + esc(x.group) + '</span>' : '')
+      + '<div class="ldf">' + M.colLabels.map((lb, i) => x.vals[i] ? '<div><small>' + esc(lb || L('Value', 'Hodnota')) + '</small><span>' + esc(x.vals[i]) + '</span></div>' : '').join('') + '</div>'
+      + '<div class="sact"><button class="pbtn ghost press" data-a="srcTask" data-id="' + c.id + '" data-t="' + esc(x.label || x.vals[0] || '') + '">' + ico('plus', 15, 2.4) + esc(L('Task for today', 'Úkol na dnes')) + '</button></div>';
+    return panel ? '<section class="pn frost solid ldet">' + inner + '</section>' : '<div class="ldet sh">' + inner + '</div>';
+  }
   function srcPanel(c, desk) {
     const st = srcGet(c.id) || {}, d = st.data, col = c.color, kn = KIND[(d && d.kind) || c.src.kind] || L('Link', 'Odkaz');
     const ref = '<button class="cb frost press srcr' + (st.loading ? ' spin' : '') + '" data-a="srcRefresh" data-id="' + c.id + '" aria-label="' + esc(L('Refresh', 'Obnovit')) + '">' + ico('sync', desk ? 18 : 16, 2.2) + '</button>';
+    if (!d && st.errAt && !st.loading) return errPanel(c, st, desk, kn, ref);
     if (!d) {
       const msg = st.loading || !st.errAt ? L('Reading ', 'Čtu ') + c.src.url.replace(/^https?:\/\//, '').slice(0, 48) + '…' : st.err || L('Could not read it', 'Nepodařilo se přečíst');
       return '<section class="srcp frost solid' + (desk ? ' desk' : '') + '" data-src="' + c.id + '"><div class="srch"><span class="srck"><i style="background:' + col + '"></i>' + esc(kn) + '</span>' + ref + '</div><div class="srce"><b>' + esc(st.setup ? L('The link reader is not set up yet', 'Čtečka odkazů ještě není nastavená') : st.errAt && !st.loading ? L('Could not read the link', 'Odkaz se nepodařilo přečíst') : L('Getting the numbers…', 'Načítám čísla…')) + '</b><span>' + esc(st.setup ? L('One-time setup, about 5 minutes.', 'Jednorázové nastavení, asi 5 minut.') : msg) + '</span>' + (st.setup ? '<button class="pbtn cr press" data-a="srcSetup">' + esc(L('Set it up', 'Nastavit')) + '</button>' : st.errAt && !st.loading ? '<button class="pbtn ghost press" data-a="srcRefresh" data-id="' + c.id + '">' + esc(L('Try again', 'Zkusit znovu')) + '</button>' : '') + '</div></section>';
@@ -776,22 +977,21 @@
     const rows = it.map((x, ix) => Object.assign({ ix }, x)); if (hasV && srt === 'top') rows.sort((a, b) => (b.value || 0) - (a.value || 0));
     const sortSeg = hasV ? '<div class="seg frost srcsort">' + [['new', L('Latest', 'Nejnovější')], ['top', L('Most viewed', 'Nejsledovanější')]].map(([k, l]) => '<button class="' + (srt === k ? 'on' : '') + '" data-a="srcSort" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div>' : '<span class="muted">' + it.length + '</span>';
     const table = it.length ? '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(tr(d.itemsLabel) || L('Latest', 'Poslední')) + '</span>' + sortSeg + '</div><table class="ktb srctb"><tbody>' + rows.slice(0, lim).map(x => '<tr class="srctr" ' + (hasV ? 'data-a="srcVid" data-id="' + c.id + '" data-i="' + x.ix + '"' : '') + '><td>' + (hasV ? '<span class="srcrow">' : '<a class="srcrow" href="' + esc(x.url || d.url || '#') + '" target="_blank" rel="noopener">') + (x.thumb ? img(x.thumb, 'sth') : '') + '<span><b>' + esc(x.title) + '</b><small class="muted">' + esc(x.date ? ago2(x.date) : '') + '</small></span>' + (hasV ? '</span>' : '</a>') + '</td>' + (hasV ? '<td class="vnum">' + kf(x.value) + '</td>' + (desk ? '<td class="vs">' + vsA(x.value) + '</td>' : '') : '') + '</tr>').join('') + '</tbody></table>' + (it.length > (desk ? 8 : 5) ? '<button class="lnk srcmore" data-a="srcAll" data-id="' + c.id + '">' + esc(V.srcAll === c.id ? L('Show less', 'Méně') : L('Show all ', 'Ukázat všech ') + it.length) + '</button>' : '') + '</section>' : '';
-    const chart = ch ? '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(ch.cap) + '</span><span class="muted">' + (avg ? '<i class="avgk"></i>' + esc(L('average ', 'průměr ') + kf(avg)) : '') + '</span></div>' + ch.svg + '</section>' : '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(L('Over time', 'V čase')) + '</span></div><div class="kwait"><b>' + esc(L('The chart grows from today', 'Graf poroste od dneška')) + '</b><span>' + esc(L('Aurora keeps one number a day.', 'Aurora si každý den uloží jedno číslo.')) + '</span></div></section>';
+    const chart = ch ? '<section class="pn frost solid"><div class="ph2"><span class="cap">' + esc(ch.cap) + '</span><span class="muted">' + (avg ? '<i class="avgk"></i>' + esc(L('average ', 'průměr ') + kf(avg)) : '') + '</span></div>' + ch.svg + '</section>' : '';
+    if (d.kind === 'calendar') return calPanel(c, d, st, desk, head);
+    if (d.kind === 'github' || d.kind === 'feed' || d.kind === 'podcast') return itemPanel(c, d, st, desk, head, T4, tile);
     if (d.kind === 'youtube' && d.best) {
       const r = avg ? Math.round(d.best.value / avg * 10) / 10 : 0;
       const vhero = '<a class="pn frost solid vhero" href="' + esc(d.best.url) + '" target="_blank" rel="noopener">' + img(d.best.thumb, 'vth') + '<span class="vtx"><span class="cap" style="color:#8be0b0">' + esc(r >= 1.3 ? L('Doing ' + r + '× the average', 'Jede ' + String(r).replace('.', lang() === 'cs' ? ',' : '.') + '× líp než průměr') : L('Best of the latest', 'Nejlepší z posledních')) + '</span><b>' + esc(d.best.title) + '</b><small>' + kf(d.best.value) + ' ' + esc(L('views', 'zhlédnutí')) + '</small></span></a>';
       const T3 = T4.filter(k => !/^(Views|Zhlédnutí)$/.test(k.label)).slice(0, 3);
       const nums = '<div class="kd4' + (desk ? ' vcol' : ' m') + '">' + T3.map(tile).join('') + '</div>';
-      const mo = V.srcMore && V.srcMore[c.id], mb = moreButton(c, mo, '');
-      if (desk) return '<div class="srcp sdash desk fx-go' + (mo ? ' more' : '') + '" data-src="' + c.id + '" style="--c:' + col + '">' + head + '<div class="lr lr31">' + vhero + nums + '</div>' + rowsOf(chart, null, []) + rowsOf(table, say, []) + mb + '</div>';
-      return '<section class="srcp sdash mob fx-go' + (mo ? ' more' : '') + '" data-src="' + c.id + '" style="--c:' + col + '">' + head + vhero + nums + (ch ? chart : '') + say + table + mb + '</section>';
+      const mo = V.srcMore && V.srcMore[c.id];
+      const B = { hero: { h: vhero, s: 'L' }, nums: { h: nums, s: 'S' }, chart: { h: chart, s: 'L' }, table: { h: table, s: 'L' }, say: { h: say, s: 'S' } };
+      return compose(c, desk, mo, head, B, { d: [['hero', 'nums'], ['chart'], ['table', 'say']], m: ['hero', 'nums', 'chart', 'say', 'table'] });
     }
-    const mo2 = V.srcMore && V.srcMore[c.id], mb2 = moreButton(c, mo2, '');
-    if (desk) return '<div class="srcp sdash desk fx-go' + (mo2 ? ' more' : '') + '" data-src="' + c.id + '" style="--c:' + col + '">' + head
-      + '<div class="kd4">' + T4.map(tile).join('') + '</div>'
-      + rowsOf(chart, say, []) + (table && (best || evs) ? '<div class="lr lr31">' + table + (best || evs) + '</div>' : rowsOf(table || best || evs, '', [])) + mb2 + '</div>';
-    return '<section class="srcp sdash mob fx-go' + (mo2 ? ' more' : '') + '" data-src="' + c.id + '" style="--c:' + col + '">' + head
-      + '<div class="kd4 m">' + T4.map(tile).join('') + '</div>' + say + (ch ? chart : '') + best + table + evs + mb2 + '</section>';
+    const mo2 = V.srcMore && V.srcMore[c.id];
+    const B = { nums: { h: T4.length ? '<div class="kd4' + (desk ? '' : ' m') + '">' + T4.map(tile).join('') + '</div>' : '', raw: true }, chart: { h: chart, s: 'L' }, say: { h: say, s: 'S' }, table: { h: table, s: 'L' }, best: { h: best, s: 'S' }, events: { h: evs, s: 'S' } };
+    return compose(c, desk, mo2, head, B, { d: [['nums'], ['chart', 'say'], best ? ['table', 'best'] : ['table', 'events'], best ? ['events'] : []], m: ['nums', 'say', 'chart', 'best', 'table', 'events'] });
   }
   const repaintCard = id => { if (V.card !== id) return; if (isDeskV()) { const m = $('#desk'), y = m ? m.scrollTop : 0, dm2 = $('#dCardMain'), y2 = dm2 ? dm2.scrollTop : 0; mountSrc($('#dCardMain'), true); if (dm2) dm2.scrollTop = y2; } else { const e3 = $('#s-card'), y = e3.scrollTop; mountSrc(e3, false); e3.scrollTop = y; } };
   ACT.srcSort = el => { V.srcSort = el.dataset.k; repaintCard(V.card); };
@@ -814,8 +1014,8 @@
     asking.add(c.id); repaintSay(c);
     const data = { kind: d.kind, title: d.title, sub: d.sub, kpis: d.kpis, items: (d.items || []).slice(0, 15).map(x => ({ title: x.title, date: x.date, value: x.value })), events: (d.events || []).slice(0, 8), series: d.series ? d.series.points.slice(-30) : null, computed: insights(c, d).map(x => x.t), today: T() };
     let o;
-    try { const r = await fetch(srcBase() + '/ask', { method: 'POST', headers: { 'content-type': 'text/plain', 'x-aurora-pin': cfg.pin }, body: JSON.stringify({ name: c.name, lang: lang(), model: cfg.model, effort: cfg.effort, data }) }); const j = await r.json().catch(() => null);
-      o = r.ok && j && j.lines ? { at: Date.now(), lines: j.lines, task: j.task, mk: cfg.model } : { at: Date.now(), err: j && j.error === 'pin' ? L('Wrong PIN, check it in Settings → Sources → Link reader.', 'Špatný PIN, zkontroluj ho v Settings → Sources → Čtečka odkazů.') : j && j.error === 'noai' ? L('Claude is not set up on the reader yet.', 'Na čtečce ještě není nastavený Claude.') : (j && j.message) || L('Aurora could not answer.', 'Aurora neodpověděla.') }; }
+    try { const r = await fetch(srcBase() + '/ask', { method: 'POST', headers: { 'content-type': 'text/plain', 'x-aurora-pin': cfg.pin, 'x-aurora-user': aiUser() }, body: JSON.stringify({ name: c.name, lang: lang(), model: cfg.model, effort: cfg.effort, data }) }); const j = await r.json().catch(() => null); aiSeen(j);
+      o = r.ok && j && j.lines ? { at: Date.now(), lines: j.lines, task: j.task, mk: cfg.model } : { at: Date.now(), err: j && j.error === 'pin' ? L('Wrong PIN, check it in Settings → Sources → Link reader.', 'Špatný PIN, zkontroluj ho v Settings → Sources → Čtečka odkazů.') : j && j.error === 'noai' ? L('Claude is not set up on the reader yet.', 'Na čtečce ještě není nastavený Claude.') : j && j.error === 'limit' ? L('Today’s AI limit is used up (' + j.limit + '). It resets tomorrow.', 'Dnešní AI limit je vyčerpaný (' + j.limit + '). Zítra se obnoví.') : (j && j.message) || L('Aurora could not answer.', 'Aurora neodpověděla.') }; }
     catch (e) { o = { at: Date.now(), err: L('The link reader is not reachable.', 'Čtečka odkazů není dostupná.') }; }
     try { localStorage.setItem('srca:' + c.id, JSON.stringify(o)); } catch (e) {}
     asking.delete(c.id); repaintSay(c);
@@ -865,8 +1065,11 @@
       right: L('Save', 'Uložit'), onSave: () => { const v = $('#srcUrl').value.trim(); try { if (!v || v === SRC_DEFAULT) localStorage.removeItem('srcServer'); else localStorage.setItem('srcServer', v); localStorage.setItem('srcAskPin', $('#srcPin').value.trim()); const m = $('#srcModel .on'), e2 = $('#srcEffort .on'); if (m) localStorage.setItem('srcAskModel', m.dataset.k); if (e2) localStorage.setItem('srcAskEffort', e2.dataset.k); } catch (e) {} closeSheet(true); S.cards.filter(c => c.src).forEach(c => srcRefresh(c, true)); if (V.settingsOpen) renderSettings(); },
       mount: el => { el.querySelectorAll('#srcModel button,#srcEffort button').forEach(b => b.onclick = () => { b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
         el.querySelector('#srcTest').onclick = async () => { const st = el.querySelector('#srcSt'), base = el.querySelector('#srcUrl').value.trim().replace(/\/+$/, ''); st.innerHTML = '<span class="rnl">' + esc(L('Testing…', 'Testuju…')) + '</span>';
-        try { const j = await (await fetch(base + '/ping', { cache: 'no-store' })).json(); st.innerHTML = j && j.ok ? '<span class="rnl"><i style="background:#8be0b0"></i><b>' + esc(L('Works', 'Funguje')) + '</b> · v' + j.v + ' · ' + esc(j.ask ? L('Claude ready', 'Claude připravený') : L('Claude not set up', 'Claude nenastavený')) + '</span>' : '<span class="rnl"><i style="background:#ff8a8a"></i><b>' + esc(L('Not a reader', 'Tohle není čtečka')) + '</b></span>'; }
+        try { const j = await (await fetch(base + '/ping', { cache: 'no-store' })).json(); st.innerHTML = j && j.ok ? '<span class="rnl"><i style="background:#8be0b0"></i><b>' + esc(L('Works', 'Funguje')) + '</b> · v' + j.v + ' · ' + esc(j.ask ? L('Claude ready', 'Claude připravený') : L('Claude not set up', 'Claude nenastavený')) + '</span>' : '<span class="rnl"><i style="background:#ff8a8a"></i><b>' + esc(L('Not a reader', 'Tohle není čtečka')) + '</b></span>'; 
+          if (j && j.ok && j.v >= 4) { try { const q = await (await fetch(base + '/quota', { headers: { 'x-aurora-pin': el.querySelector('#srcPin').value.trim(), 'x-aurora-user': aiUser() } })).json(); if (q && q.limit) { aiSeen(q); st.insertAdjacentHTML('beforeend', '<span class="rnl"><i style="background:#b18cff"></i>' + esc(q.left == null ? L('AI limit: no counter yet (bind ASK_KV)', 'AI limit: zatím bez počítadla (chybí ASK_KV)') : L('AI today: ' + q.left + ' of ' + q.limit + ' left', 'AI dnes: zbývá ' + q.left + ' z ' + q.limit)) + '</span>'); } } catch (e) {} } }
         catch (e) { st.innerHTML = '<span class="rnl"><i style="background:#ff8a8a"></i><b>' + esc(L('Not reachable', 'Nedostupné')) + '</b> · ' + esc(L('check the address and that you pressed Deploy', 'zkontroluj adresu a že jsi dal Deploy')) + '</span>'; } }; } });
   }
   ACT.srcSetup = () => { if (SH.open) after(srcSetupSheet); else srcSetupSheet(); };
+  /* v2033 · what the AI orb needs from here */
+  window.LABX = { srcGet, srcBase, askCfg, insights, evsOf, untilTxt, BLK, viewOf, LASTB, repaintCard, aiUser, aiSeen, aiLeft, isDeskV };
 })();
