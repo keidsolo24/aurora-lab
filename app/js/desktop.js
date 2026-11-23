@@ -9,7 +9,12 @@ function deskWant() {
   if (!S) return false;
   if (S.layout === 'desk') return window.innerWidth >= 700;
   if (S.layout === 'mobile') return false;
-  return DESK.wide.matches || (DESK.mq.matches && DESK.fine.matches);
+  return DESK.wide.matches || (DESK.mq.matches && DESK.fine.matches) || deskTablet();
+}
+/* iPad and other tablets: touch screen, big enough on its short side, window at least 760 px wide (Split View narrower stays phone) */
+function deskTablet() {
+  const touch = (navigator.maxTouchPoints || 0) > 1; const short = Math.min(screen.width || 0, screen.height || 0);
+  return touch && short >= 700 && window.innerWidth >= 760;
 }
 function layoutLabel() { const cs = lang() === 'cs'; return S.layout === 'desk' ? (cs ? 'Vždy počítač' : 'Always computer') : S.layout === 'mobile' ? (cs ? 'Vždy telefon' : 'Always phone') : (cs ? 'Automaticky' : 'Automatic'); }
 ACT.layoutSheet = () => {
