@@ -427,8 +427,25 @@
   ACT.srcAdv = () => { closeSheet(true); if (!V.settingsOpen) openSettings(); ACT.keiroSettings(); };
   document.addEventListener('DOMContentLoaded', () => { ACT.newCard = el => { if (el && el._suppress && Date.now() - el._suppress < 500) return; newCardChooser(); }; });
 
-  /* Notifications in the Lab: only Keiro (release times). Normal reminders stay with the beta, so nothing comes twice. */
-  reminderList = function () { return window.KR && KCFG().on ? KR.pushList() : []; };
+  /* Notifications in the Lab (v2056): the Lab is the main app now, so it sends everything: plan reminders + Keiro release times. */
+  const _rl0 = reminderList;
+  reminderList = function () { const a = _rl0(); const k = window.KR && KCFG().on ? KR.pushList() : []; return a.concat(k).sort((x, y) => x.at - y.at).slice(0, 250); };
+  /* The Lab gets its own notification identity. A beta backup brought the beta's one along, so both apps
+     wrote over each other's reminder list on the server. One time: new id, then register this device under it. */
+  const _pb = pushBoot;
+  pushBoot = async function () {
+    if (S && S.push && !S.push.labOwn) {
+      const had = !!S.push.id; S.push.labOwn = 1;
+      if (had) { S.push.id = uid() + uid(); S.push.secret = b64u.enc(crypto.getRandomValues(new Uint8Array(24))); S.push.last = ''; S.push.needSub = 1; }
+      save();
+    }
+    if (S && S.push && S.push.needSub && S.push.on && pushSupport() === 'ok') {
+      try { const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription();
+        if (sub) { await pushApi('/sub', { id: S.push.id, secret: S.push.secret, sub: sub.toJSON(), lang: S.lang }); delete S.push.needSub; save(); }
+      } catch (e) { S.push.err = String(e && e.message || e); }
+    }
+    return _pb.apply(this, arguments);
+  };
   const _dl = openDeepLink;
   openDeepLink = function (href) {
     let k = null; try { k = new URL(href, location.href).searchParams.get('keiro'); } catch (e) {}
