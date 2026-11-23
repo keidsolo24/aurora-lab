@@ -742,7 +742,7 @@
   const chev = '<span class="a2-t2">›</span>';
   function motionSeg() { const l = S.a2motion || 'full'; return '<div class="a2-seg a3mseg">' + [['full', L('Full', 'Plný')], ['calm', L('Calm', 'Klidný')], ['off', L('Off', 'Vypnuto')]].map(([k, x]) => '<button class="' + (l === k ? 'on' : '') + '" data-a="a3Motion" data-k="' + k + '">' + esc(x) + '</button>').join('') + '</div>'; }
   ACT.a3Motion = el => { if (ACT.a2Motion) ACT.a2Motion(el); else { S.a2motion = el.dataset.k; save(); } renderSettings(); };
-  ACT.a3Wall = el => { const k = el.dataset.k; if (k === 'photo') { S.a3wall = 'photo'; save(); if (!S.wallKey) { $('#wallIn').click(); return; } S.wall = 'photo'; applyLook(); wall(); renderSettings(); return; } S.a3wall = k; save(); wall(); renderSettings(); };
+  ACT.a3Wall = el => { const k = el.dataset.k; if (k === 'photo') { const again = S.a3wall === 'photo'; S.a3wall = 'photo'; save(); if (!S.wallKey || again) { $('#wallIn').click(); return; } S.wall = 'photo'; applyLook(); wall(); renderSettings(); return; } S.a3wall = k; if (S.wall === 'photo') S.wall = 'aurora'; save(); applyLook(); wall(); renderSettings(); };
   ACT.a3Still = () => { S.a3still = !S.a3still; save(); wall(); renderSettings(); };
   ACT.a3Set = el => { V.a3set = el.dataset.k; V.settingsPage = 'main'; renderSettings(); };
   ACT.a3LabPage = () => { V.settingsPage = 'a3lab'; renderSettings(); $('#s-settings').scrollTop = 0; };
@@ -776,7 +776,7 @@
       ['notif', L('Notifications', 'Notifikace'), srow2('notifPage', esc(L('Reminders for plans', 'Připomínky k plánům')), '<span class="a2-t2">' + esc(S.push && S.push.on ? L('On', 'Zap') : L('Off', 'Vyp')) + ' ›</span>') + srow2('toggleNudges', esc(t('nudges')), tg(S.nudges)) + srow2('toggleWeekly', esc(L('Sunday: your week', 'Neděle: tvůj týden')), tg(S.weekly))],
       ['tools', L('Tools', 'Nástroje'), srow2('srcSetup', esc(L('Sources', 'Zdroje')), '<span class="a2-t2">' + esc(srcN ? srcN + ' ' + L('connected', plural(srcN, 'připojený', 'připojené', 'připojených')) : L('Link reader', 'Čtečka odkazů')) + ' ›</span>') + srow2('keiroSettings', esc(L('Automation', 'Automatizace')), '<span style="color:' + (kOn ? '#7fe3ad' : 'var(--t2)') + '">' + esc(kOn ? L('On', 'Zap') : L('Off', 'Vyp')) + ' ›</span>')
         + (st && st.daily ? '<div class="a3sr col"><div class="a3srh"><span class="a3srl">Studio · ' + esc(L('videos today', 'videa dnes')) + '</span><span class="a2-t2 a2-num"><b style="color:var(--cream)">' + (st.used || 0) + '</b> / ' + st.daily + '</span></div><span class="a3bar2"><span class="a2-grow" style="width:' + Math.min(100, (st.used || 0) / st.daily * 100).toFixed(0) + '%"></span></span></div>' : '')],
-      ['help', L('Help', 'Pomoc'), srow2('feedback', esc(L('Send feedback', 'Napsat feedback')), chev) + srow2('tutorial', esc(L('How Aurora works', 'Jak Aurora funguje')), '<span class="a2-t2">1 min ›</span>') + srow2('pickLang', esc(t('language')), '<span class="a2-t2">' + esc(t('lang_' + S.lang)) + ' ›</span>') + srow2('exportData', esc(t('backup')), chev) + srow2('restoreData', esc(t('restore')), chev)]
+      ['help', L('Help', 'Pomoc'), srow2('a3Check', esc(L('Connection check', 'Kontrola spojení')), chev) + srow2('feedback', esc(L('Send feedback', 'Napsat feedback')), chev) + srow2('tutorial', esc(L('How Aurora works', 'Jak Aurora funguje')), '<span class="a2-t2">1 min ›</span>') + srow2('pickLang', esc(t('language')), '<span class="a2-t2">' + esc(t('lang_' + S.lang)) + ' ›</span>') + srow2('exportData', esc(t('backup')), chev) + srow2('restoreData', esc(t('restore')), chev)]
     ];
   }
   function settingsPhone() {
@@ -858,6 +858,26 @@
     window.A3S && A3S.paint();
   }
   ACT.a3StDiag = () => { studioDiag(true); };
+  /* one tap: is every connection alive? Read-only checks, nothing is written anywhere */
+  ACT.a3Check = () => {
+    const R = {}; const rows = [['srv', L('Aurora server', 'Server Aurory')], ['beta', L('Your beta account', 'Tvůj účet z bety')], ['lab', L('Phone and computer', 'Telefon a počítač')], ['notif', L('Notifications', 'Notifikace')], ['studio', 'Studio']];
+    const paint = el => { const b = el.querySelector('#a3ck'); if (!b) return; b.innerHTML = rows.map(([k, lab]) => { const x = R[k]; const ic = !x ? '<span class="a3ckw"></span>' : x[0] === 1 ? '<span class="a3cko">✓</span>' : x[0] === 0 ? '<span class="a3ckx">!</span>' : '<span class="a3ckn">–</span>';
+      return '<div class="a3ckr">' + ic + '<span class="a3ckt"><b>' + esc(lab) + '</b><span class="a2-t2">' + esc(x ? x[1] : L('checking…', 'kontroluju…')) + '</span></span></div>'; }).join(''); };
+    const errTxt = e => (e && e.status ? e.status + ' · ' : '') + ((e && e.message) || String(e)).slice(0, 90);
+    const pull = cr => syncApi('/s/pull', { sp: cr.sp, secret: cr.secret, since: Number.MAX_SAFE_INTEGER, sinceK: '' });
+    openSheet({ title: L('Connection check', 'Kontrola spojení'), right: L('Again', 'Znovu'), cls: 'a3cksheet',
+      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2055 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
+      mount: el => { paint(el); const run = async () => {
+        const set = (k, v) => { R[k] = v; paint(el); };
+        try { const r = await fetch(pushBase() + '/', { cache: 'no-store' }); const j = await r.json().catch(() => null); set('srv', r.ok && j && j.sync ? [1, L('running', 'běží')] : [0, 'http ' + r.status]); } catch (e) { set('srv', [0, L('not reachable', 'nedostupný') + ' · ' + errTxt(e)]); }
+        if (!S.sync || !S.sync.sp) set('beta', [2, L('not signed in', 'nepřihlášeno')]); else { try { await pull(S.sync); set('beta', [1, L('accepted', 'přijatý')]); } catch (e) { set('beta', [0, (e.status === 403 ? L('server does not know this account', 'server tenhle účet nezná') + ' · ' : '') + errTxt(e)]); } }
+        if (!S.labSync || !S.labSync.sp) set('lab', [2, L('not linked yet', 'zatím nepropojeno')]); else { try { await pull(S.labSync); const ago = S.labSync.last ? Math.round((Date.now() - S.labSync.last) / 60000) : null; set('lab', [1, L('linked', 'propojeno') + (ago != null ? ' · ' + L('last ', 'naposled ') + (ago < 1 ? L('now', 'teď') : ago + ' min') : '')]); } catch (e) { set('lab', [0, (e.status === 403 ? L('link no longer valid', 'propojení už neplatí') + ' · ' : '') + errTxt(e)]); } }
+        try { const sup = typeof pushSupport === 'function' ? pushSupport() : 'no'; const perm = 'Notification' in window ? Notification.permission : 'none'; let sub = false; try { const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((_, no) => setTimeout(() => no(new Error('sw')), 3000))]); sub = !!(await reg.pushManager.getSubscription()); } catch (e) {}
+          const p = S.push || {}; set('notif', sup !== 'ok' ? [0, sup === 'install' ? L('add Aurora to the Home Screen first', 'nejdřív přidej Auroru na plochu') : L('not supported in this browser', 'tenhle prohlížeč je neumí')] : !p.on ? [2, L('off', 'vypnuté') + ' · ' + L('permission ', 'povolení ') + perm] : perm !== 'granted' ? [0, L('blocked in system settings', 'zablokované v nastavení systému')] : !sub ? [0, L('this device is not subscribed', 'zařízení není přihlášené k odběru')] : p.err ? [0, p.err] : [1, L('on', 'zapnuté') + (p.synced ? ' · ' + L('plan sent ', 'plán odeslaný ') + Math.round((Date.now() - p.synced) / 60000) + ' min' : '')]); } catch (e) { set('notif', [0, errTxt(e)]); }
+        const st = STD(); if (!st) set('studio', [2, L('off', 'vypnuté')]); else { try { const r = await fetch(st.base() + '/ping', { cache: 'no-store' }); const j = await r.json(); if (!j.ok) throw new Error('ping ' + r.status); if (!S.sync || !S.sync.sp) set('studio', [2, L('server runs · sign in first', 'server běží · nejdřív se přihlas')]); else { try { await st.api('/jobs'); set('studio', [1, L('server and account OK', 'server i účet OK')]); } catch (e) { set('studio', [0, errTxt(e) + (j.acct && j.acct.indexOf('ok') !== 0 ? ' · ' + L('server cannot reach accounts: ', 'server se nedovolá k účtům: ') + j.acct : '')]); } } } catch (e) { set('studio', [0, L('server not reachable', 'server nedostupný') + ' · ' + errTxt(e)]); } }
+      }; run(); el._run = () => { Object.keys(R).forEach(k => delete R[k]); paint(el); run(); }; },
+      onSave: () => { const el = document.querySelector('.a3cksheet'); el && el._run ? el._run() : 0; } });
+  };
   function diagRow() {
     if (DIAG.srv === null && !DIAG.at) return '';
     const ok = DIAG.srv && DIAG.acc; const wait = DIAG.srv === null || (DIAG.srv && DIAG.acc === null);
@@ -965,6 +985,8 @@
     el.innerHTML = settingsDesk(OLDG[pg]); const pn = el.querySelector('.a3oldp'); pn && pn.append(...nodes);
   }
   function install() {
+    /* own photo: after a new photo lands, switch the canvas wallpaper off at once */
+    try { const _al = applyLook; applyLook = function () { const r = _al.apply(this, arguments); try { if (S && S.wall === 'photo' && S.wallKey) S.a3wall = 'photo'; wall(); } catch (e) {} return r; }; } catch (e) {}
     /* old settings pages fill in late (Automation loads first): wrap them whenever they land */
     try { const se = $('#s-settings'); se && new MutationObserver(() => { if (V.settingsOpen && (V.settingsPage || 'main') in OLDG) wrapOld(se); }).observe(se, { childList: true }); } catch (e) {}
     document.body.classList.add('a3');

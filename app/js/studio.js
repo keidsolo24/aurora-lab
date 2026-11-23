@@ -24,7 +24,7 @@
   async function load(quiet) {
     if (!signed()) return; ST.loading = !quiet;
     try { const j = await api('/jobs'); ST.jobs = j.jobs || []; ST.daily = j.daily; ST.used = j.used; ST.err = ''; ST.at = Date.now(); }
-    catch (e) { ST.err = e.status === 401 ? L('Sign in again to use Studio.', 'Pro Studio se znovu přihlas.') : L('Studio server is not reachable.', 'Server Studia není dostupný.'); }
+    catch (e) { ST.err = e.status === 401 ? L('Studio could not verify your account. Settings → Connection check shows why.', 'Studio neověřilo tvůj účet. Nastavení → Kontrola spojení ukáže proč.') : L('Studio server is not reachable.', 'Server Studia není dostupný.'); }
     ST.loading = false; paintAll(); schedule();
   }
   function schedule() {
