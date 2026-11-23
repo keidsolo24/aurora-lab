@@ -281,9 +281,9 @@ function planHover(ev, st) {
   const cs = lang() === 'cs';
   if (col) {
     const r = col.getBoundingClientRect(); const dur = st.info.dur || 45;
-    let m = snap15(360 + (ev.clientY - r.top) / r.height * 1080 - (st.info.grabOff || 0)); m = clamp(m, 360, 1440 - 15);
+    let m = snap15((ev.clientY - r.top) / r.height * 1440 - (st.info.grabOff || 0)); m = clamp(m, 0, 1440 - 15);
     st.target = { d: col.dataset.d, time: mtime(m) };
-    const pv = document.createElement('div'); pv.className = 'dprev'; pv.style.top = ((m - 360) / 1080 * 100) + '%'; pv.style.height = (Math.min(dur, 1440 - m) / 1080 * 100) + '%';
+    const pv = document.createElement('div'); pv.className = 'dprev'; pv.style.top = (m / 1440 * 100) + '%'; pv.style.height = (Math.min(dur, 1440 - m) / 1440 * 100) + '%';
     pv.innerHTML = '<b>' + esc(dayShort(col.dataset.d) + ' · ' + mtime(m) + ' · ' + durLabel(dur)) + '</b>'; col.appendChild(pv);
   } else if (all) {
     st.target = { d: all.dataset.d, time: null }; all.classList.add('over');
@@ -321,7 +321,7 @@ function resizeStart(e, id, d, rzEl) {
   e.stopPropagation(); e.preventDefault();
   const i = itemById(id); if (!i) return; const blk = rzEl.closest('.wb'); const col = blk.closest('.wgc'); const r = col.getBoundingClientRect();
   const start = tmin(i.time); let dur = i.dur || 45; const lab = blk.querySelector('small');
-  const move = ev => { const m = 360 + (ev.clientY - r.top) / r.height * 1080; dur = clamp(snap15(m - start), 15, 1440 - start); blk.style.height = (dur / 1080 * 100) + '%'; if (lab) lab.textContent = i.time + ' · ' + durLabel(dur); };
+  const move = ev => { const m = (ev.clientY - r.top) / r.height * 1440; dur = clamp(snap15(m - start), 15, 1440 - start); blk.style.height = (dur / 1440 * 100) + '%'; if (lab) lab.textContent = i.time + ' · ' + durLabel(dur); };
   const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); const old = i.dur; i.dur = dur; save(); render(); toast(esc((lang() === 'cs' ? 'Délka ' : 'Length ') + durLabel(dur)), { label: t('undo'), fn: () => { i.dur = old; save(); render(); } }); };
   window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
 }
@@ -333,7 +333,7 @@ document.addEventListener('pointerdown', e => {
   if (kind === 'idea') { const m = S.moments.find(x => x.id === id); if (!m) return; dragStart(e, { kind, id, title: ((m.title || m.note || '').split('\n')[0] || momName(m)).slice(0, 60), color: cardColor(m.card), dur: 45, click: () => openViewer(id) }); return; }
   const i = itemById(id); if (!i) return;
   const isBlock = src.classList.contains('wb');
-  let grabOff = 0; if (isBlock) { const col = src.closest('.wgc').getBoundingClientRect(); grabOff = (e.clientY - src.getBoundingClientRect().top) / col.height * 1080; }
+  let grabOff = 0; if (isBlock) { const col = src.closest('.wgc').getBoundingClientRect(); grabOff = (e.clientY - src.getBoundingClientRect().top) / col.height * 1440; }
   dragStart(e, { kind: 'item', id, title: i.t, color: itemColor(i), dur: i.dur || 45, from: src.dataset.d, blockEl: isBlock ? src : null, grabOff, click: () => openItem(id) });
 });
 
@@ -368,12 +368,12 @@ function deskPlan() {
   const allday = days.map(d => '<div class="wad" data-d="' + d + '">' + wacList(d, 3) + '</div>').join('');
   const cols = days.map(d => {
     const bl = lanes(itemsOn(d).filter(i => i.time).map(i => ({ i, s: tmin(i.time), e: tmin(i.time) + (i.dur || 45) })));
-    let h = bl.map(b => { const i = b.i; const on = isDone(i, d); const top = (Math.max(360, b.s) - 360) / 1080 * 100, ht = (Math.min(1440, b.e) - Math.max(360, b.s)) / 1080 * 100; const w = 100 / b.n;
+    let h = bl.map(b => { const i = b.i; const on = isDone(i, d); const top = Math.max(0, b.s) / 1440 * 100, ht = (Math.min(1440, b.e) - Math.max(0, b.s)) / 1440 * 100; /* v2054 · the whole day, 00–24 */ const w = 100 / b.n;
       return '<div class="wb' + (on ? ' done' : '') + (i.repeat ? ' rep' : '') + '" data-drag="item:' + i.id + '" data-id="' + i.id + '" data-d="' + d + '" style="--c:' + itemColor(i) + ';top:' + top + '%;height:' + Math.max(1.6, ht) + '%;left:calc(' + (b.lane * w) + '% + 2px);width:calc(' + w + '% - 4px)" title="' + esc(i.time + ' ' + i.t) + '">' + ((i.dur || 45) <= 30 ? '<span><em>' + i.time + '</em> ' + esc(i.t) + '</span>' : '<span>' + esc(i.t) + '</span><small>' + i.time + ' · ' + durLabel(i.dur || 45) + '</small>') + checkBtn(i, d) + '<i class="rz" aria-hidden="true"></i></div>'; }).join('');
-    if (d === T() && nm >= 360) h += '<span class="wnow" style="top:' + ((nm - 360) / 1080 * 100) + '%"></span>';
+    if (d === T()) h += '<span class="wnow" style="top:' + ((nm) / 1440 * 100) + '%"></span>';
     return '<div class="wgc' + (d === T() ? ' tdy' : '') + '" data-d="' + d + '">' + h + '</div>';
   }).join('');
-  const lines = Array.from({ length: 19 }, (_, k) => k + 6).map(h => '<span class="whl' + (h % 3 ? ' minor' : '') + '" style="top:' + ((h - 6) / 18 * 100) + '%"><b>' + pad(h) + '</b></span>').join('');
+  const lines = Array.from({ length: 25 }, (_, k) => k).map(h => '<span class="whl' + (h % 3 ? ' minor' : '') + '" style="top:' + (h / 24 * 100) + '%"><b>' + pad(h) + '</b></span>').join('');
   const grid = '<section class="pn frost solid wgp" style="grid-column:4/13"><div class="wgrid2"><span></span>' + head + '</div><div class="wgrid2 wadrow"><span class="cap" style="font-size:9.5px;align-self:center">' + esc(cs ? 'celý den' : 'all day') + '</span>' + allday + '</div><div class="wbody" id="wBody"><div class="wcan"><div class="wlines">' + lines + '</div><div class="wcols">' + cols + '</div></div></div></section>';
   return '<main class="dmain g12 rows">' + hdr + side + grid + '</main>';
 }

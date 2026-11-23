@@ -276,7 +276,9 @@ function occurs(i, d) {
     const a = mKey(i, d); const on = (i.mDone || {})[a];
     if (on) return on === d;
     if ((i.doneDates || []).includes(a)) return false;
-    return d >= (start > a && start.slice(0, 7) === d.slice(0, 7) ? start : a);
+    /* v2054 · it shows in its window; once the window is over it is only carried on today (late), not on every later day */
+    if (d < (start > a && start.slice(0, 7) === d.slice(0, 7) ? start : a)) return false;
+    return d <= mRange(i, d)[1] || d === T();
   }
   if (i.repeat === 'weekdays') return dow(d) < 5;
   if (i.repeat === 'weekly') return dow(d) === dow(start);

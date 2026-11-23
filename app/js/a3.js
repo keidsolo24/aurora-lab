@@ -7,6 +7,9 @@
   const desk = () => typeof DESK !== 'undefined' && DESK.on;
   const KX = () => (window.KR && KR.x ? KR.x() : null);
   const pct = f => Math.max(0, Math.min(1, f || 0));
+  /* v2054 · an item's colour: its card's, else its own; only a plain item stays neutral */
+  const hasCol = i => !!(i && ((i.card && cardById(i.card)) || i.color));
+  const icol = (i, dflt) => hasCol(i) ? itemColor(i) : dflt;
   const plural = (n, one, few, many) => n === 1 ? one : n > 1 && n < 5 ? few : many;
 
   /* ---------------- shared pieces (canvas markup) ---------------- */
@@ -73,7 +76,7 @@
     if (nx) {
       const fs = bigSize(nx.i.t, 46);
       mid = '<div class="a3cen" style="top:' + (isDesk ? 62 : 50) + 'px"><span class="a2-lab">' + esc(nx.lab) + '</span><button class="a2-d a3big" style="font-size:' + fs + 'px" data-a="openItem" data-id="' + nx.i.id + '">' + esc(nx.i.t) + '</button>'
-        + (isDesk ? '<span class="a2-t2" style="font-size:13px">' + esc(nx.sub) + '</span>' : '<span class="a2-chip" style="height:26px;font-size:12px">' + (nx.i.card ? '<span class="a2-dot" style="--c:' + itemColor(nx.i) + '"></span>' : '') + esc(nx.sub) + '</span>') + '</div>';
+        + (isDesk ? '<span class="a2-t2" style="font-size:13px">' + esc(nx.sub) + '</span>' : '<span class="a2-chip" style="height:26px;font-size:12px">' + (hasCol(nx.i) ? '<span class="a2-dot" style="--c:' + itemColor(nx.i) + '"></span>' : '') + esc(nx.sub) + '</span>') + '</div>';
     } else {
       mid = '<div class="a3cen" style="top:' + (isDesk ? 62 : 50) + 'px"><span class="a2-lab">' + esc(n ? L('All done', 'Vše hotovo') : L('Free day', 'Volný den')) + '</span><b class="a2-d" style="font-size:46px">' + (n ? '✓' : mtime(M.nm)) + '</b><span class="a2-t2" style="font-size:13px">' + esc(n ? L('Nothing left for today', 'Na dnešek nic nezbývá') : L('Nothing planned', 'Nic naplánovaného')) + '</span></div>';
     }
@@ -148,11 +151,12 @@
     return '<div class="a3wp"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(L('New ideas', 'Nové nápady')) + ' · ' + ni + '</span><button class="a2-t2" data-a="tab" data-k="board">Board ›</button></div><div class="a3wid">'
       + ideas.slice(0, 3).map(m => '<button class="a3widt" data-a="viewMoment" data-id="' + m.id + '"><span class="a3widi" style="' + ideaBg(m) + '">' + (m.kind === 'note' ? '<span class="a3idn">' + esc(m.note || '') + '</span>' : '') + '</span><span class="a3idc2">' + esc(ideaTitle(m)) + '</span></button>').join('') + '</div></div>';
   }
-  function widgetStack(M) {
+  function widgetStack(M, isDesk) {
     const pages = [];
+    const sf = S.studioOn ? studioFacts() : null;
+    if (sf && (sf.ups.length || sf.busy.length || sf.ready.length)) pages.push(['a3st', '<div class="a3wp" role="button" data-a="a3StOpen"><span class="a2-lab a3wpl" style="color:#9ff0ec"><span class="a2-dot a2-pulse" style="--c:' + STC + '"></span><span>Aurora Studio</span></span><b class="a2-d a3wpt">' + esc(sf.ready.length && !sf.busy.length && !sf.ups.length ? L('Your cut is ready', 'Střih je hotový') : L('Cutting your video…', 'Stříhám tvoje video…')) + '</b><span class="a2-t2 a3wps">' + esc(studioNext(sf)) + '</span><span class="a3lbar" style="margin-top:6px"><i style="width:' + (sf.ready.length && !sf.busy.length ? 100 : Math.max(8, sf.ups[0] ? sf.ups[0].pct || 0 : Math.round((Math.max(0, ST_ORDER.indexOf(sf.busy[0].stage || 'start')) + .5) / ST_ORDER.length * 100))) + '%"></i></span><button class="a2-btn a3wpb" data-a="a3StOpen">' + esc(sf.ready.length && !sf.busy.length ? L('Pick the opening', 'Vybrat začátek') : L('Open Studio', 'Otevřít Studio')) + '</button></div>']);
     const n = nowPage(); if (n) pages.push(['a3now', n]);
-    pages.push(['a3cards', cardsPage()]);
-    const i = ideasPage(); if (i) pages.push(['a3ideas', i]);
+    if (!isDesk) { pages.push(['a3cards', cardsPage()]); const i = ideasPage(); if (i) pages.push(['a3ideas', i]); }
     /* the app's own widgets stay in the stack after the canvas ones (news from shared cards, evening, the week, tips) */
     let own = { order: [], html: [] }; try { own = stackCards(M); } catch (e) {}
     own.order.forEach((k, j) => { if (k === 'board' || k === 'keiro') return; pages.push([k, own.html[j]]); });
@@ -170,9 +174,9 @@
 
   /* ================= HOME · computer ================= */
   function dayRow(i, d, nextId) {
-    const on = isDone(i, d); const c = i.card ? itemColor(i) : 'rgba(255,255,255,.4)';
+    const on = isDone(i, d); const c = hasCol(i) ? itemColor(i) : 'rgba(255,255,255,.4)';
     const sub = [i.date && i.date < d && !i.repeat ? dayShort(i.date) : (i.time || L('any time', 'kdykoli')), cardName(i)].filter(Boolean).join(' · ');
-    return '<div class="a3dr' + (on ? ' done' : '') + '" role="button" data-a="openItem" data-id="' + i.id + '"><span class="a3bar" style="background:' + c + (i.id === nextId ? ';box-shadow:0 0 10px ' + c : '') + '"></span><div class="a3dt"><span' + (i.id === nextId ? ' style="font-weight:600"' : '') + '>' + esc(i.t) + '</span><span class="a2-t3">' + esc(sub) + '</span></div>' + check(i, d, i.card ? itemColor(i) : '#f4ecdc') + '</div>';
+    return '<div class="a3dr' + (on ? ' done' : '') + '" role="button" data-a="openItem" data-id="' + i.id + '"><span class="a3bar" style="background:' + c + (i.id === nextId ? ';box-shadow:0 0 10px ' + c : '') + '"></span><div class="a3dt"><span' + (i.id === nextId ? ' style="font-weight:600"' : '') + '>' + esc(i.t) + '</span><span class="a2-t3">' + esc(sub) + '</span></div>' + check(i, d, hasCol(i) ? itemColor(i) : '#f4ecdc') + '</div>';
   }
   function groupRow(g, d) {
     const all = g.all || monthItems(g.card.id); const dn = all.filter(i => isDone(i, d)).length;
@@ -195,7 +199,7 @@
   function homeDesk() {
     const M = homeModel(); const day = V.deskDay || T(); const nx = M.nextAny;
     const greet = (() => { const h = new Date().getHours(); return h < 11 ? L('Good morning', 'Dobré ráno') : h < 18 ? L('Good afternoon', 'Dobrý den') : L('Good evening', 'Dobrý večer'); })();
-    const col1 = '<div class="a3col">' + todayCard(M, true) + nowRow(3) + '</div>';
+    const col1 = '<div class="a3col a3c1">' + todayCard(M, true) + widgetStack(M, true) + '</div>';
     const col2 = '<div class="a2-glass a2-in a3col2" style="--i:4"><div class="a3wk">' + weekPills(day, 'dHomeDay') + '</div><div class="a3list">' + dayList(M, day, nx && nx.id) + '</div>'
       + '<button class="a2-btn ghost a3w" data-a="add" data-date="' + day + '">+ ' + esc(day === T() ? L('Add to Today', 'Přidat na dnešek') : L('Add to ', 'Přidat na ') + dayName(day).toLowerCase()) + '</button></div>';
     const ks = keiroCards().map(k => '<button class="a3kr" data-a="krOpen" data-k="' + esc(k.k) + '">' + ring(30, k.f, k.color, 5) + '<b>' + esc(k.name) + '</b><span class="a2-t2 a2-num"><b class="a2-d">' + k.n + '</b> ' + esc(L('wait', 'čeká')) + '</span></button>');
@@ -357,7 +361,7 @@
     const av = mem.length > 1 && typeof avStack === 'function' ? avStack(mem, isDesk ? 40 : 34) : '';
     const kt = k + (c.sh ? ' · ' + L('Together', 'Spolu') : '');
     if (isDesk) return '<div class="a2-in a3ctit" style="--i:1"><b class="a2-d">' + esc(c.name) + '</b>' + kick(kt, c.color) + (av ? '<span class="a3av">' + av + '</span>' : '') + '</div>';
-    return '<div class="a3hd a2-in" style="--i:0;padding:0 4px"><button class="a2-icon" data-a="closeCard" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span class="a3hdr">' + (c.sh ? '<button class="a2-chip" style="height:44px" data-a="spInvite" data-id="' + c.id + '">' + ico('users', 16, 2) + esc(L('Invite', 'Pozvat')) + '</button>' : '') + '<button class="a2-icon" data-a="editCard" aria-label="' + esc(t('editCard')) + '">' + ico('more', 20, 2) + '</button></span></div>'
+    return '<div class="a3hd a2-in" style="--i:0;padding:0 4px"><button class="a2-icon" data-a="closeCard" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span class="a3hdr">' + (c.sh ? '<button class="a2-chip" style="height:44px" data-a="spInvite" data-id="' + c.id + '">' + ico('users', 16, 2) + esc(L('Invite', 'Pozvat')) + '</button>' : '') + '<button class="a2-icon" data-a="a3Blocks" aria-label="' + esc(L('Blocks', 'Bloky')) + '">' + ico('board', 18, 2) + '</button><button class="a2-icon" data-a="editCard" aria-label="' + esc(t('editCard')) + '">' + ico('more', 20, 2) + '</button></span></div>'
       + '<div class="a2-in a3cti" style="--i:1">' + kick(kt, c.color) + '<div class="a3ctn"><b class="a2-d" style="font-size:' + (c.name.length > 12 ? 40 : 56) + 'px">' + esc(c.name) + '</b>' + av + '</div></div>';
   }
   function weekCard(c, isDesk) {
@@ -407,50 +411,112 @@
   }
   /* together cards: only the people (no news feed on the card) */
   const together = c => c.sh ? '<div class="a3sp2">' + (typeof spoluPeople === 'function' ? spoluPeople(c) : '') + '</div>' : '';
-  function cardPhone(c) {
-    const d = T(), ps = projectStats(c.id), mc = cardMoments(c.id).length; const L2 = cardLists(c);
-    let h = '<div class="a2 a3p a3card" style="--cc:' + c.color + '">' + cardHead(c, false);
-    if (c.type === 'habit') {
-      h += weekCard(c, false);
-      const rows = L2.todays.concat(L2.open);
-      h += '<div class="a2-glass a2-in a3tl" style="--i:3">' + rows.map(i => taskRow(i, d, c)).join('') + addLine(c, L('Add a task', 'Přidat úkol')) + '</div>';
-      h += rhythmCard(c, false);
-      h += '<div class="a2-in a3st3" style="--i:5">' + statTile(t('streak'), streakOf(c.id), L('days', 'dní')) + statTile(L('Best', 'Nejlepší'), bestStreak(c.id), L('days', 'dní')) + statTile(t('moments'), mc) + '</div>';
-    } else if (c.type === 'month') {
-      const ms = monthStats(c, d);
-      h += '<div class="a2-glass a2-tint a2-in a3wkc" style="--i:2;--c:' + c.color + '"><div class="a3wkh"><div class="a3wkn"><span class="a2-lab">' + esc(L('This month', 'Tento měsíc')) + '</span><div><b class="a2-d a2-num">' + ms.done + '</b><span class="a2-t2">/ ' + ms.total + '</span></div><span class="a2-t2 a3sm">' + esc(monthLine(ms)) + '</span></div>' + ring(112, ms.total ? ms.done / ms.total : 0, c.color, 2) + '</div></div>';
-      h += '<div class="a2-glass a2-in a3tl" style="--i:3">' + L2.todays.map(i => taskRow(i, d, c)).join('') + addLine(c, L('Add an item, e.g. Rent', 'Přidat položku, např. Nájem')) + '</div>';
-    } else {
-      h += projNext(c, false);
-      h += '<div class="a2-in a3st3" style="--i:3">' + statTile(L('Open', 'Otevřené'), ps.open, L('of ', 'z ') + ps.total) + (c.deadline ? statTile(t('deadline'), Math.max(0, daysBetween(d, c.deadline)), L('days', 'dní')) : '<button class="a2-glass a3st" data-a="editCard"><span class="a2-lab">' + esc(t('deadline')) + '</span><div><b class="a3set">' + esc(L('Set', 'Nastavit')) + '</b></div></button>') + statTile(t('moments'), mc) + '</div>';
-      const rows = L2.doneToday.concat(L2.todays, L2.open);
-      h += '<div class="a2-glass a2-in a3tl" style="--i:4">' + rows.map(i => taskRow(i, d, c)).join('') + addLine(c, L('Add a task', 'Přidat úkol')) + '</div>';
-      h += noDayRow(c, false) + '<i class="a3slot"></i>' + toolTiles(c, false);
+  /* ================= CARD BLOCKS · every card type has its blocks; you switch on what you want to see (kept per card) ================= */
+  const MONF = () => cs() ? ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'] : ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const BL = () => ({
+    habit: [['week', 'L', 1, L('This week', 'Tento týden')], ['tasks', 'R', 1, L('Today & tasks', 'Dnes a úkoly')], ['rhythm', 'L', 1, L('Rhythm · 4 weeks', 'Rytmus · 4 týdny')], ['monthcal', 'L', 0, L('Month in the calendar', 'Měsíc v kalendáři')], ['stats', 'R', 1, L('Streak & records', 'Série a rekordy')], ['moments', 'R', 1, t('moments')], ['note', 'R', 0, L('Note', 'Poznámka')]],
+    project: [['next', 'L', 1, t('nextStep')], ['nums', 'L', 1, L('Numbers', 'Čísla')], ['tasks', 'R', 1, t('tasks')], ['noday', 'L', 1, L('Tasks without a day', 'Úkoly bez dne')], ['timeline', 'L', 0, L('Timeline to the deadline', 'Časová osa do termínu')], ['tools', 'L', 1, L('Source', 'Zdroj')], ['moments', 'R', 1, t('moments')], ['note', 'R', 0, L('Note', 'Poznámka')]],
+    month: [['month', 'L', 1, L('This month', 'Tento měsíc')], ['items', 'R', 1, L('Items', 'Položky')], ['window', 'L', 1, L('Payment window', 'Okno plateb')], ['history', 'L', 0, L('Last 6 months', 'Posledních 6 měsíců')], ['nextm', 'R', 0, L('Next month', 'Další měsíc')], ['moments', 'R', 0, t('moments')], ['note', 'R', 0, L('Note', 'Poznámka')]]
+  });
+  function blocksOf(c) { const list = (BL()[c.type] || BL().project).slice(); if (c.sh) list.push(['people', 'R', 1, L('People', 'Lidé')]); return list; }
+  const blkOn = (c, b) => c.blocks && b[0] in c.blocks ? !!c.blocks[b[0]] : !!b[2];
+  ACT.a3Blocks = () => {
+    const c = cardById(V.card); if (!c) return;
+    const paint = el => { el.querySelector('#a3bl').innerHTML = blocksOf(c).map(b => '<button class="a3blr" data-k="' + b[0] + '"><span>' + esc(b[3]) + '</span>' + '<span class="a3tg' + (blkOn(c, b) ? ' on' : '') + '"><i></i></span></button>').join(''); };
+    openSheet({ title: L('Blocks', 'Bloky'), right: L('Done', 'Hotovo'), cls: 'a3blsheet', left: false,
+      body: '<p class="a3blp">' + esc(L('Choose what this card shows. It is kept just for this card.', 'Vyber, co karta ukazuje. Platí jen pro tuhle kartu.')) + '</p><div id="a3bl" class="a3bll"></div>',
+      mount: el => { paint(el); el.querySelector('#a3bl').addEventListener('click', e => { const r = e.target.closest('.a3blr'); if (!r) return; const b = blocksOf(c).find(x => x[0] === r.dataset.k); c.blocks = Object.assign({}, c.blocks || {}); c.blocks[b[0]] = !blkOn(c, b); save(); haptic(); paint(el); render(); }); },
+      onSave: () => closeSheet(true) });
+  };
+  /* new blocks */
+  function monthCal(c, isDesk) {
+    const d = T(), ym = d.slice(0, 7), n = dimOf(ym), set = cardDaySet(c.id), first = dow(ym + '-01'); let cells = '', got = 0;
+    for (let k = 0; k < first; k++) cells += '<span></span>';
+    for (let k = 1; k <= n; k++) { const x = ym + '-' + pad(k); const on = set.has(x); if (on) got++; cells += '<span class="a2-pop" style="--i:' + k + ';' + (on ? 'background:' + c.color + ';color:#0b1a12' : 'background:rgba(255,255,255,.08)') + (x === d ? ';box-shadow:inset 0 0 0 2px var(--cream)' : '') + (x > d ? ';opacity:.45' : '') + '">' + k + '</span>'; }
+    return '<div class="a2-glass a2-in a3mcal' + (isDesk ? ' d' : '') + '"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(MONF()[+ym.slice(5) - 1]) + '</span><span class="a2-t2 a2-num"><b style="color:var(--cream)">' + got + '</b> ' + esc(L('good days', 'dobrých dní')) + '</span></div><div class="a3mcg">' + WD1[lang()].map(w => '<i>' + w + '</i>').join('') + cells + '</div></div>';
+  }
+  function noteBlk(c) {
+    return '<div class="a2-glass a2-in a3noteb"><span class="a2-lab">' + esc(L('Note', 'Poznámka')) + '</span><textarea id="a3note" class="a3ntx" data-card="' + c.id + '" rows="3" placeholder="' + esc(L('Anything to remember for this card…', 'Cokoli, co si chceš u karty pamatovat…')) + '">' + esc(c.note || '') + '</textarea></div>';
+  }
+  function bindNotes(root) {
+    (root || document).querySelectorAll('.a3ntx:not([data-b])').forEach(x => { x.dataset.b = 1; const fit = () => { x.style.height = 'auto'; x.style.height = Math.max(72, x.scrollHeight) + 'px'; }; fit(); let tm = 0;
+      x.addEventListener('input', () => { fit(); clearTimeout(tm); tm = setTimeout(() => { const c = cardById(x.dataset.card); if (c) { c.note = x.value; save(); } }, 400); }); });
+  }
+  function timelineBlk(c) {
+    if (!c.deadline) return '<div class="a2-glass a2-in a3ndr"><span>' + esc(L('No deadline yet. Set one and the timeline appears.', 'Zatím bez termínu. Nastav ho a objeví se časová osa.')) + '</span><button class="a2-btn" style="height:38px;padding:0 14px;font-size:14px" data-a="editCard">' + esc(L('Set', 'Nastavit')) + '</button></div>';
+    const a = c.created || T(), b = c.deadline, span = Math.max(1, daysBetween(a, b)); const pos = x => Math.max(0, Math.min(100, daysBetween(a, x) / span * 100));
+    const its = cardItems(c.id).filter(i => !i.repeat && i.date);
+    const dots = its.map(i => '<i style="left:' + pos(i.date).toFixed(1) + '%;background:' + (i.done ? c.color : 'transparent') + ';box-shadow:inset 0 0 0 2px ' + c.color + '" title="' + esc(i.t) + '"></i>').join('');
+    const left = daysBetween(T(), b);
+    return '<div class="a2-glass a2-in a3tln"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(L('Timeline', 'Časová osa')) + '</span><span class="a2-t2">' + esc(left < 0 ? L('past the deadline', 'po termínu') : left + ' ' + L('days left', plural(left, 'den zbývá', 'dny zbývají', 'dní zbývá'))) + '</span></div>'
+      + '<div class="a3tlb"><span class="a3tlf" style="width:' + pos(T()).toFixed(1) + '%;background:' + c.color + '"></span>' + dots + '<b style="left:' + pos(T()).toFixed(1) + '%"></b></div><div class="a3tld a2-t3"><span>' + esc(dayShort(a)) + '</span><span>' + esc(dayShort(b)) + '</span></div></div>';
+  }
+  function monthHero(c, isDesk) {
+    const ms = monthStats(c, T());
+    return '<div class="a2-glass a2-tint a2-in a3wkc' + (isDesk ? ' d' : '') + '" style="--i:2;--c:' + c.color + '"><div class="a3wkh"><div class="a3wkn"><span class="a2-lab">' + esc(L('This month', 'Tento měsíc')) + '</span><div><b class="a2-d a2-num">' + ms.done + '</b><span class="a2-t2">/ ' + ms.total + '</span></div><span class="a2-t2 a3sm">' + esc(monthLine(ms)) + '</span></div>' + ring(isDesk ? 150 : 112, ms.total ? ms.done / ms.total : 0, c.color, 2) + '</div>' + (isDesk ? squares(c, true) : '') + '</div>';
+  }
+  function windowBlk(c) {
+    const d = T(), ym = d.slice(0, 7), n = dimOf(ym); const w = c.win || { from: 1, to: n }; const its = monthItems(c.id);
+    const doneOn = {}; its.forEach(i => { const on = mDoneOn(i, d); if (on && on.slice(0, 7) === ym) doneOn[on] = (doneOn[on] || 0) + 1; });
+    const a = w.last ? n : Math.min(w.from || 1, n), b = w.last ? n : Math.min(w.to || w.from || 1, n);
+    let cells = ''; for (let k = 1; k <= n; k++) { const x = ym + '-' + pad(k); const inW = k >= a && k <= b; cells += '<span class="' + (inW ? 'w' : '') + (x === d ? ' td' : '') + '" style="' + (inW ? '--c:' + c.color : '') + '">' + (doneOn[x] ? '<em style="background:' + c.color + '">' + doneOn[x] + '</em>' : '') + '<small>' + k + '</small></span>'; }
+    return '<div class="a2-glass a2-in a3win"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(L('Payment window · ', 'Okno plateb · ') + winText(w)) + '</span><span class="a2-t2">' + esc(MONF()[+ym.slice(5) - 1]) + '</span></div><div class="a3wing">' + cells + '</div><span class="a2-t3" style="font-size:12px">' + esc(L('Number = how many items you finished that day.', 'Číslo = kolik položek jsi ten den odškrtl.')) + '</span></div>';
+  }
+  function historyBlk(c) {
+    const its = monthItems(c.id); const now = dOf(T()); let cols = '';
+    for (let k = 5; k >= 0; k--) { const dt = new Date(now.getFullYear(), now.getMonth() - k, 15); const ym = dt.getFullYear() + '-' + pad(dt.getMonth() + 1); const dd = ym + '-15';
+      const act = its.filter(i => (i.date || i.created || '2000-01-01').slice(0, 7) <= ym); let dn = 0, ok = 0;
+      act.forEach(i => { const key = mKey(i, dd); const on = (i.mDone || {})[key] || ((i.doneDates || []).includes(key) ? key : null); if (on) { dn++; if (on <= mRange(i, dd)[1]) ok++; } });
+      const tot = act.length; const h = tot ? dn / tot : 0;
+      cols += '<div class="a3hc2"><span class="a2-t3 a2-num">' + (tot ? dn + '/' + tot : '–') + '</span><div class="a3hbar"><i class="a2-grow" style="--i:' + (5 - k) + ';height:' + Math.max(4, h * 100).toFixed(0) + '%;background:' + (tot && ok === tot ? c.color : tot && dn ? 'color-mix(in oklab,' + c.color + ' 55%,#f2a541)' : 'rgba(255,255,255,.18)') + '"></i></div><span class="a2-t2">' + esc(MONF()[dt.getMonth()].slice(0, 3)) + '</span></div>'; }
+    return '<div class="a2-glass a2-in a3hist"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(L('Last 6 months', 'Posledních 6 měsíců')) + '</span><span class="a2-t3" style="font-size:12px">' + esc(L('full colour = all on time', 'plná barva = vše včas')) + '</span></div><div class="a3hg">' + cols + '</div></div>';
+  }
+  function nextMonthBlk(c) {
+    const now = dOf(T()); const nx = new Date(now.getFullYear(), now.getMonth() + 1, 15); const its = monthItems(c.id);
+    return '<div class="a2-glass a2-in a3nxm"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(L('Next month · ', 'Další měsíc · ') + MONF()[nx.getMonth()]) + '</span><span class="a2-t2">' + its.length + ' ' + esc(L('items', plural(its.length, 'položka', 'položky', 'položek'))) + '</span></div><span class="a2-t2" style="font-size:14px">' + esc(L('Window ', 'Okno ') + winText(c.win || { from: 1, to: 31 })) + '</span><div class="a3pch">' + its.slice(0, 8).map(i => '<span class="a2-chip" style="height:30px;font-size:13px">' + esc(i.t) + '</span>').join('') + '</div></div>';
+  }
+  const momBlk = (c, isDesk) => { const mc = cardMoments(c.id); return '<div class="a2-glass a2-in a3moc">' + '<span class="a2-lab">' + esc(t('moments')) + ' · ' + mc.length + '</span>' + (mc.length ? '<div class="a3mog">' + momGrid(c, isDesk ? 3 : 3) + '</div>' : '<span class="a2-t3" style="font-size:14px">' + esc(L('Drop a photo, a link or a thought on the orb and pick this card.', 'Pusť fotku, odkaz nebo myšlenku na orb a vyber tuhle kartu.')) + '</span>') + '</div>'; };
+  function blockHTML(c, id, isDesk) {
+    const d = T(), L2 = cardLists(c), ps = projectStats(c.id), mc = cardMoments(c.id).length;
+    switch (id) {
+      case 'week': return weekCard(c, isDesk);
+      case 'rhythm': return rhythmCard(c, isDesk);
+      case 'monthcal': return monthCal(c, isDesk);
+      case 'note': return noteBlk(c);
+      case 'moments': return momBlk(c, isDesk);
+      case 'people': return together(c);
+      case 'stats': return '<div class="a2-in a3st3">' + statTile(t('streak'), streakOf(c.id), L('days', 'dní'), isDesk) + statTile(L('Best', 'Nejlepší'), bestStreak(c.id), L('days', 'dní'), isDesk) + statTile(isDesk ? MON[lang()][new Date().getMonth()] : t('moments'), isDesk ? monthCount(c.id) : mc, isDesk ? L('days', 'dní') : '', isDesk) + '</div>';
+      case 'tasks':
+        if (c.type === 'habit') return '<div class="a2-glass a2-in a3tl' + (isDesk ? ' d' : '') + '">' + (isDesk ? '<span class="a2-lab a3tlh">' + esc(L('Today', 'Dnes')) + '</span>' + (L2.todays.length ? L2.todays.map(i => taskRow(i, d, c)).join('') : '<div class="a3tr"><span class="a2-t3">' + esc(t('noTodayCard')) + '</span></div>') + '<span class="a2-lab a3tlh">' + esc(t('tasks')) + '</span>' + L2.open.map(i => taskRow(i, d, c)).join('') : L2.todays.concat(L2.open).map(i => taskRow(i, d, c)).join('')) + addLine(c, isDesk ? L('Add a task, e.g. quiz fri 2pm', 'Přidat úkol, např. test pá 14:00') : L('Add a task', 'Přidat úkol')) + '</div>';
+        { const rows = L2.doneToday.concat(L2.todays, L2.open); const sd = V.showDone[c.id];
+          return '<div class="a2-glass a2-in a3tl' + (isDesk ? ' d' : '') + '"><div class="a3tlh2"><span class="a2-lab">' + esc(t('tasks') + ' · ' + ps.open + ' ' + L('open', plural(ps.open, 'otevřený', 'otevřené', 'otevřených'))) + '</span>' + (L2.doneOld.length ? '<button class="a2-t2" data-a="toggleShowDone">' + ps.done + ' ' + esc(L('done', 'hotovo')) + '</button>' : '') + '</div>'
+            + rows.map(i => taskRow(i, d, c)).join('') + (sd ? L2.doneOld.map(i => taskRow(i, d, c)).join('') : '') + addLine(c, isDesk ? L('Add a task, e.g. palette fri 2pm', 'Přidat úkol, např. paleta pá 14:00') : L('Add a task', 'Přidat úkol')) + '</div>'; }
+      case 'next': return projNext(c, isDesk) || '<div class="a2-glass a2-in a3ndr"><span>' + esc(L('No next step. Add a task and it shows here.', 'Žádný další krok. Přidej úkol a objeví se tady.')) + '</span></div>';
+      case 'nums': return '<div class="a2-in a3st3">' + statTile(L('Open', 'Otevřené'), ps.open, L('of ', 'z ') + ps.total, isDesk) + (c.deadline ? statTile(t('deadline'), Math.max(0, daysBetween(d, c.deadline)), L('days', 'dní'), isDesk) : '<button class="a2-glass a3st' + (isDesk ? ' d' : '') + '" data-a="editCard"><span class="a2-lab">' + esc(t('deadline')) + '</span><div><b class="a3set">' + esc(L('Set', 'Nastavit')) + '</b></div></button>') + statTile(t('moments'), mc, '', isDesk) + '</div>';
+      case 'noday': return noDayRow(c, isDesk);
+      case 'timeline': return timelineBlk(c);
+      case 'tools': return '<div class="a2-in a3tools0"><i class="a3slot"></i>' + toolTiles(c, isDesk) + '</div>';
+      case 'month': return monthHero(c, isDesk);
+      case 'items': return '<div class="a2-glass a2-in a3tl' + (isDesk ? ' d' : '') + '">' + (isDesk ? '<span class="a2-lab a3tlh">' + esc(L('Items', 'Položky')) + '</span>' : '') + L2.todays.map(i => taskRow(i, d, c)).join('') + addLine(c, L('Add an item, e.g. Rent', 'Přidat položku, např. Nájem')) + '</div>';
+      case 'window': return windowBlk(c);
+      case 'history': return historyBlk(c);
+      case 'nextm': return nextMonthBlk(c);
     }
-    return h + together(c) + '</div>';
+    return '';
+  }
+  const tagBlk = (html, id, i) => html.replace(/^(\s*<\w+)([^>]*)>/, (m, a, attrs) => { const at = /style="/.test(attrs) ? attrs.replace(/style="([^"]*)"/, (q, st) => 'style="--i:' + i + ';' + st.replace(/--i:\d+;?/g, '') + '"') : attrs + ' style="--i:' + i + '"'; return a + ' data-blk="' + id + '"' + at + '>'; });
+  function cardPhone(c) {
+    const bl = blocksOf(c).filter(b => blkOn(c, b));
+    let h = '<div class="a2 a3p a3card" style="--cc:' + c.color + '">' + cardHead(c, false);
+    bl.forEach((b, k) => { h += tagBlk(blockHTML(c, b[0], false), b[0], Math.min(8, k + 2)); });
+    if (!bl.length) h += '<button class="a2-glass a3ndr" data-a="a3Blocks"><span>' + esc(L('All blocks are off.', 'Všechny bloky jsou vypnuté.')) + '</span><span class="a2-t2">' + esc(L('Blocks', 'Bloky')) + ' ›</span></button>';
+    return h + '</div>';
   }
   function cardDesk(c) {
-    const d = T(), ps = projectStats(c.id), mc = cardMoments(c.id); const L2 = cardLists(c);
-    const top = '<div class="a2-in a3cbar" style="--i:0"></div>';
-    let left = '', right = '';
-    const momCard = (i) => mc.length ? '<div class="a2-glass a2-in a3moc" style="--i:' + i + '"><span class="a2-lab">' + esc(t('moments')) + ' · ' + mc.length + '</span><div class="a3mog">' + momGrid(c, 3) + '</div></div>' : '';
-    if (c.type === 'habit') {
-      left = weekCard(c, true) + rhythmCard(c, true);
-      right = '<div class="a2-glass a2-in a3tl d" style="--i:4"><span class="a2-lab a3tlh">' + esc(L('Today', 'Dnes')) + '</span>' + (L2.todays.length ? L2.todays.map(i => taskRow(i, d, c)).join('') : '<div class="a3tr"><span class="a2-t3">' + esc(t('noTodayCard')) + '</span></div>')
-        + '<span class="a2-lab a3tlh">' + esc(t('tasks')) + '</span>' + L2.open.map(i => taskRow(i, d, c)).join('') + addLine(c, L('Add a task, e.g. quiz fri 2pm', 'Přidat úkol, např. test pá 14:00')) + '</div>'
-        + '<div class="a2-in a3st3" style="--i:5">' + statTile(t('streak'), streakOf(c.id), L('days', 'dní'), 1) + statTile(L('Best', 'Nejlepší'), bestStreak(c.id), L('days', 'dní'), 1) + statTile(MON[lang()][new Date().getMonth()], monthCount(c.id), L('days', 'dní'), 1) + '</div>' + momCard(6);
-    } else if (c.type === 'month') {
-      const ms = monthStats(c, d);
-      left = '<div class="a2-glass a2-tint a2-in a3wkc d" style="--i:2;--c:' + c.color + '"><div class="a3wkh"><div class="a3wkn"><span class="a2-lab">' + esc(L('This month', 'Tento měsíc')) + '</span><div><b class="a2-d a2-num">' + ms.done + '</b><span class="a2-t2">/ ' + ms.total + '</span></div><span class="a2-t2 a3sm">' + esc(monthLine(ms)) + '</span></div>' + ring(150, ms.total ? ms.done / ms.total : 0, c.color, 2) + '</div>' + squares(c, true) + '</div>' + momCard(3);
-      right = '<div class="a2-glass a2-in a3tl d" style="--i:4"><span class="a2-lab a3tlh">' + esc(L('This month', 'Tento měsíc')) + '</span>' + L2.todays.map(i => taskRow(i, d, c)).join('') + addLine(c, L('Add an item, e.g. Rent', 'Přidat položku, např. Nájem')) + '</div>';
-    } else {
-      left = projNext(c, true) + '<div class="a2-in a3st3" style="--i:3">' + statTile(L('Open', 'Otevřené'), ps.open, L('of ', 'z ') + ps.total, 1) + (c.deadline ? statTile(t('deadline'), Math.max(0, daysBetween(d, c.deadline)), L('days', 'dní'), 1) : '<button class="a2-glass a3st d" data-a="editCard"><span class="a2-lab">' + esc(t('deadline')) + '</span><div><b class="a3set">' + esc(L('Set', 'Nastavit')) + '</b></div></button>') + statTile(t('moments'), mc.length, '', 1) + '</div>'
-        + noDayRow(c, true) + '<i class="a3slot"></i>' + toolTiles(c, true);
-      const rows = L2.doneToday.concat(L2.todays, L2.open); const sd = V.showDone[c.id];
-      right = '<div class="a2-glass a2-in a3tl d" style="--i:6"><div class="a3tlh2"><span class="a2-lab">' + esc(t('tasks') + ' · ' + ps.open + ' ' + L('open', plural(ps.open, 'otevřený', 'otevřené', 'otevřených'))) + '</span>' + (L2.doneOld.length || L2.doneToday.length ? '<button class="a2-t2" data-a="toggleShowDone">' + (ps.done) + ' ' + esc(L('done', 'hotovo')) + '</button>' : '') + '</div>'
-        + rows.map(i => taskRow(i, d, c)).join('') + (sd ? L2.doneOld.map(i => taskRow(i, d, c)).join('') : '') + addLine(c, L('Add a task, e.g. palette fri 2pm', 'Přidat úkol, např. paleta pá 14:00')) + '</div>' + momCard(7);
-    }
-    return '<main class="dmain a2 a3d a3dcard scr2" id="dCardMain" style="--cc:' + c.color + '">' + cardHead(c, true) + '<div class="a3g2"><div class="a3col">' + left + '</div><div class="a3col">' + right + together(c) + '</div></div><i id="dCardTitle" hidden></i></main>';
+    const bl = blocksOf(c).filter(b => blkOn(c, b)); let left = '', right = '', k = 2;
+    bl.forEach(b => { const x = tagBlk(blockHTML(c, b[0], true), b[0], Math.min(9, k++)); if (b[1] === 'L') left += x; else right += x; });
+    if (!left && right) { left = right; right = ''; }
+    return '<main class="dmain a2 a3d a3dcard scr2" id="dCardMain" style="--cc:' + c.color + '">' + cardHead(c, true) + '<div class="a3g2' + (right ? '' : ' one') + '"><div class="a3col">' + (left || '<button class="a2-glass a3ndr" data-a="a3Blocks"><span>' + esc(L('All blocks are off.', 'Všechny bloky jsou vypnuté.')) + '</span><span class="a2-t2">' + esc(L('Blocks', 'Bloky')) + ' ›</span></button>') + '</div>' + (right ? '<div class="a3col">' + right + '</div>' : '') + '</div><i id="dCardTitle" hidden></i></main>';
   }
   /* the source / Studio panels other modules mount: keep the real ones, put them in our slot */
   function adoptPanels(root) {
@@ -467,8 +533,11 @@
 
   /* ================= KEIRO PROJECT (Lacy, Kai Cenat) · the canvas page on top, the working lists under it ================= */
   const PF = { instagram: 'IG', youtube: 'YT', tiktok: 'TT' };
+  /* v2054 · the numbers belong to the project on screen: data loaded for another project is not used */
+  const kKey = kx => { const pk = (kx.cur() || {}).name || ''; const d = kx.C.range || 7; return (kx.live() ? 'l' : 'demo') + d + pk; };
+  const kData = kx => kx.ST().key === kKey(kx) ? kx.ST().data : null;
   function kStats(kx) {
-    const D = kx.ST().data; const all = kx.clips(); const sentN = all.filter(g => g.sent).length, goneN = all.filter(g => g.gone).length;
+    const D = kData(kx); const all = kx.clips(); const sentN = all.filter(g => g.sent).length, goneN = all.filter(g => g.gone).length;
     const pctS = (a, b) => b > 0 ? Math.round(a / b * 100) : null; const dec = v => v == null ? '–' : (Math.round(v * 10) / 10).toString().replace('.', cs() ? ',' : '.');
     const o = { views: null, vsub: '', appr: null, asub: '', ontime: null, osub: '', exp: 0, score: '–', ssub: '', days: [] };
     if (D) {
@@ -487,14 +556,14 @@
   function keiroPhone(el) {
     const kx = KX(); if (!kx || !el) return; const pr = kx.cur(); const col = kx.KC();
     const f = kx.F(), p = kx.parts(), rv = (f.review || []).length; const o = kStats(kx);
-    if (!kx.ST().data && !kx.ST().busy) kx.loadStats().then(() => { if (V.keiro && !V.card) { const e = $('#s-card'); e && keiroPhone(e); } });
+    if (kx.ST().key !== kKey(kx) && !kx.ST().busy) { const want = kKey(kx); kx.loadStats(true).then(() => { const k2 = KX(); if (V.keiro && !V.card && k2) { const e = $('#s-card'); if (e) k2.page(() => { if (kKey(k2) === want) keiroPhone(e); }); } }); }
     const mins = p.left != null ? Math.max(1, Math.ceil(p.left / 60000)) : null;
     const hero = p.todo.length ? '<div class="a2-glass a2-tint a2-in a3ks" style="--i:2;--c:#ee5a85"><div class="a3ksh"><span class="a2-lab" style="color:#ffb3c6">' + esc(L('Send to campaign · ', 'Odeslat do kampaně · ') + p.todo.length) + '</span>' + (mins != null ? '<span class="a3ksm">' + esc(L(mins + ' min left', 'zbývá ' + mins + ' min')) + '</span>' : '') + '</div><b class="a2-d">' + esc(p.first.hook || '') + '</b>'
       + '<div class="a3ksp">' + [...new Set((p.first.posts || []).map(x => x.platform))].map(k => '<span class="a2-chip" style="height:30px;font-size:12px">' + (PF[k] || k) + '</span>').join('') + '<button class="a2-btn" data-a="a3kSend">' + esc(L('Send now', 'Odeslat')) + '</button></div></div>' : '';
     const two = '<div class="a2-in a3k2" style="--i:3"><div class="a2-glass a3kb"><span class="a2-lab">' + esc(L('To review', 'Ke schválení')) + '</span><b class="a2-d a2-num">' + rv + '</b>' + (rv ? '<button class="a2-btn ghost" data-a="krReview">' + esc(L('Review ', 'Schválit ') + rv) + '</button>' : '<span class="a2-t2">' + esc(L('nothing waiting', 'nic nečeká')) + '</span>') + '</div>'
       + '<div class="a2-glass a3kb"><span class="a2-lab">' + esc(L('Releases', 'Vydání')) + '</span><b class="a2-d a2-num">' + p.rl.length + '</b><span class="a2-t2">' + esc(p.rl[0] ? L('next ', 'další ') + kx.hm(p.rl[0].when) : L('nothing scheduled', 'nic naplánovaného')) + '</span></div></div>';
     const days = o.days.slice(-7); const mx = Math.max(1, ...days.map(d => (d.instagram || 0) + (d.youtube || 0) + (d.tiktok || 0)));
-    const bars = days.length ? days.map((d, k) => { const v = (d.instagram || 0) + (d.youtube || 0) + (d.tiktok || 0); const last = k === days.length - 1; return '<span class="a2-grow" style="--i:' + k + ';height:' + Math.max(4, v / mx * 100).toFixed(0) + '%;background:linear-gradient(180deg,' + (last ? '#bdf0ff,#ee5a85);box-shadow:0 0 18px rgba(238,90,133,.5)' : '#9ad8e8,#c9537a)') + '"></span>'; }).join('') : '<span class="a2-t3" style="align-self:center;font-size:13px">' + esc(kx.ST().busy ? L('Loading…', 'Načítám…') : L('Views are not in yet', 'Zhlédnutí zatím nejsou')) + '</span>';
+    const bars = days.length ? days.map((d, k) => { const v = (d.instagram || 0) + (d.youtube || 0) + (d.tiktok || 0); const last = k === days.length - 1; return '<span class="a2-grow" style="--i:' + k + ';height:' + Math.max(4, v / mx * 100).toFixed(0) + '%;background:linear-gradient(180deg,' + (last ? '#bdf0ff,#ee5a85);box-shadow:0 0 18px rgba(238,90,133,.5)' : '#9ad8e8,#c9537a)') + '"></span>'; }).join('') : '<span class="a2-t3" style="align-self:center;font-size:13px">' + esc(kx.ST().busy || kx.ST().key !== kKey(kx) ? L('Loading…', 'Načítám…') : L('Views are not in yet', 'Zhlédnutí zatím nejsou')) + '</span>';
     const views = '<div class="a2-glass a2-in a3kv" style="--i:4"><div class="a3kvh"><span class="a2-lab">' + esc(L('Views · 7 days', 'Zhlédnutí · 7 dní')) + '</span><b class="a2-d a2-num">' + (o.views != null ? kx.kfmt(o.views) : '–') + '</b></div><div class="a3kbars">' + bars + '</div>'
       + '<div class="a3w3">' + [[o.appr != null ? o.appr + '%' : '–', L('approved', 'schváleno')], [o.ontime != null ? o.ontime + '%' : '–', L('on time', 'včas')], [o.score, L('avg score', 'prům. skóre')]].map(([n, l]) => '<div class="a2-well"><b class="a2-num" style="font:700 18px/1 Inter">' + esc(String(n)) + '</b><div class="a2-t2">' + esc(l) + '</div></div>').join('') + '</div></div>';
     const top = '<div class="a3hd a2-in" style="--i:0;padding:0 4px"><button class="a2-icon" data-a="krClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span class="a3hdr">' + kHead(kx) + '<button class="a2-icon" data-a="krSettings" aria-label="' + esc(L('Settings', 'Nastavení')) + '">' + ico('gear', 18, 2) + '</button></span></div>'
@@ -510,6 +579,7 @@
     const b = document.querySelector('#s-card .kblk[data-k="send"], #s-card [data-kb="send"]'); if (b) { if (!b.classList.contains('open')) { const h = b.querySelector('[data-a="krBlk"]'); h && h.click(); } setTimeout(() => { const b2 = document.querySelector('#s-card .kblk[data-k="send"], #s-card [data-kb="send"]') || b; b2.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 80); } };
   function keiroDesk(m) {
     const kx = KX(); if (!kx || !m) return; const pr = kx.cur(); const f = kx.F(), p = kx.parts(), rv = (f.review || []).length; const o = kStats(kx); const d = kx.C.range || 7;
+    if (kx.ST().key !== kKey(kx) && !kx.ST().busy) setTimeout(() => kx.loadStats(true), 0);
     const lists = m.querySelector('.kd2.even'); const mins = p.left != null ? Math.max(1, Math.ceil(p.left / 60000)) : null;
     const kpi = (lab, big, unit, sub, red, i) => '<div class="a2-glass a2-in a3kk4" style="--i:' + i + '"><span class="a2-lab">' + esc(lab) + '</span><div class="a3kkn"><b class="a2-d a2-num">' + esc(big) + '</b>' + (unit ? '<b class="a2-d" style="font-size:30px">' + unit + '</b>' : '') + '</div><span class="' + (red ? '' : 'a2-t2') + '" style="font-size:13px' + (red ? ';color:#ffb3c6' : '') + '">' + esc(sub) + '</span></div>';
     const rng = d === 1 ? L('today', 'dnes') : d + ' ' + L('days', 'dní');
@@ -518,7 +588,7 @@
     const days = o.days.length > 14 ? o.days.slice(-14) : o.days; const mx = Math.max(1, ...days.map(x => (x.instagram || 0) + (x.youtube || 0) + (x.tiktok || 0)));
     const chart = days.length ? '<div class="a3kch" style="grid-template-columns:repeat(' + days.length + ',minmax(0,1fr))">' + days.map((x, k) => { const v = (x.instagram || 0) + (x.youtube || 0) + (x.tiktok || 0); const last = k === days.length - 1; const dd = x.date ? WD[lang()][dow(x.date)] : '';
         return '<div class="a3kcc"><' + (last ? 'b' : 'span class="a2-t2"') + ' class="a2-num" style="font-size:12px">' + kx.kfmt(v) + '</' + (last ? 'b' : 'span') + '><div class="a2-grow a3kcb" style="--i:' + k + ';height:' + Math.max(3, v / mx * 100).toFixed(0) + '%' + (last ? ';filter:drop-shadow(0 0 14px rgba(238,90,133,.5))' : '') + '"><span style="flex:' + (x.tiktok || 0) + ';background:' + (last ? '#bdf0ff' : '#9ad8e8') + '"></span><span style="flex:' + (x.youtube || 0) + ';background:' + (last ? '#f2c46e' : '#e0b05a') + '"></span><span style="flex:' + (x.instagram || 0) + ';background:' + (last ? '#ff6a92' : '#ee5a85') + '"></span></div><span class="a2-t2" style="font-size:12px">' + esc(dd) + '</span></div>'; }).join('') + '</div>'
-      : '<div class="a3kwait"><b>' + esc(kx.ST().busy ? L('Loading…', 'Načítám…') : L('No views yet', 'Zatím žádná zhlédnutí')) + '</b><span class="a2-t2">' + esc(L('The automat fetches views every 30 minutes.', 'Automat stahuje zhlédnutí každých 30 minut.')) + '</span></div>';
+      : '<div class="a3kwait"><b>' + esc(kx.ST().busy || kx.ST().key !== kKey(kx) ? L('Loading…', 'Načítám…') : L('No views yet', 'Zatím žádná zhlédnutí')) + '</b><span class="a2-t2">' + esc(L('The automat fetches views every 30 minutes.', 'Automat stahuje zhlédnutí každých 30 minut.')) + '</span></div>';
     const oldest = (f.review || []).map(x => x.created_at).filter(Boolean).sort()[0];
     const nrow = (n, t2, sub, btn, act, k, red, ghost) => '<div class="a3knr"><b class="a2-d a2-num"' + (red ? ' style="color:#ff8fad"' : '') + '>' + n + '</b><div><b>' + esc(t2) + '</b><span' + (red ? ' style="color:#ffb3c6"' : ' class="a2-t2"') + '>' + esc(sub) + '</span></div><button class="a2-btn' + (ghost ? ' ghost' : '') + '" data-a="' + act + '"' + (k ? ' data-k="' + k + '"' : '') + '>' + esc(btn) + '</button></div>';
     const now = nrow(p.todo.length, L('Send to campaign', 'Odeslat do kampaně'), p.todo.length ? (p.hot ? L('urgent · ', 'hoří · ') : '') + (mins != null ? L(mins + ' min left', 'zbývá ' + mins + ' min') : L('links waiting', 'odkazy čekají')) : L('nothing to send', 'nic k odeslání'), L('Send ', 'Odeslat ') + (p.todo.length || ''), 'krGoto', 'send', p.hot, !p.todo.length)
@@ -553,8 +623,7 @@
     else { u = thumb(m); const r = Math.max(.55, Math.min(1.8, +m.r || 1)); h = Math.max(.9, Math.min(1.9, 1 / r * 1.15)); }
     const isV = m.kind === 'video';
     const cap = m.kind === 'link' ? (m.title || m.url || '') : (m.note || '');
-    const ht = Math.round(h * 150);
-    return { h: h + (cap ? .25 : 0), html: '<div class="a2-in a3bt" style="--i:' + i + '"><button class="a3bimg" style="height:' + ht + 'px;' + (u ? 'background:#14202a url(' + esc(u) + ') center/cover' : 'background:linear-gradient(160deg,#1f3a5f,#0e1b2e)') + '" data-a="viewMoment" data-id="' + m.id + '">' + inner
+        return { h: h + (cap ? .25 : 0), html: '<div class="a2-in a3bt" style="--i:' + i + '"><button class="a3bimg" style="aspect-ratio:1/' + h.toFixed(2) + ';' + (u ? 'background:#14202a url(' + esc(u) + ') center/cover' : 'background:linear-gradient(160deg,#1f3a5f,#0e1b2e)') + '" data-a="viewMoment" data-id="' + m.id + '">' + inner
       + (isV && m.dur ? '<span class="a3bdur">' + Math.floor(m.dur / 60) + ':' + String(Math.round(m.dur % 60)).padStart(2, '0') + '</span>' : '') + (isV ? '<span class="a2-icon a3bplay">' + ico('play', 16, 2) + '</span><span class="a3bcut" role="button" data-a="stNew" data-mom="' + m.id + '" data-id="studio">' + ico('spark', 12, 2.2) + esc(L('Cut', 'Střih')) + '</span>' : '') + plan + (m.pin ? '<span class="a3bpin">' + ico('pin', 13, 2) + '</span>' : '') + '</button>'
       + (cap ? '<span class="a3bcap">' + dot + '<span>' + esc(cap.split('\n')[0]) + '</span></span>' : '') + '</div>' };
   }
@@ -577,7 +646,7 @@
       + '<div class="a2-in a3chips" style="--i:1">' + boardChips() + '</div><div id="a3bg">' + (ms.length ? boardCols(ms, 2) : boardEmpty()) + '</div></div>';
   }
   function boardDesk() {
-    const ms = deskBoardList(); const ty = V.boardType || 'all'; const w = innerWidth; const n = w >= 1500 ? 5 : w >= 1100 ? 4 : 3;
+    const ms = deskBoardList(); const ty = V.boardType || 'all'; const w = innerWidth; const n = Math.max(2, Math.min(4, Math.floor((w - 120) / 330)));
     const seg = '<div class="a2-seg" style="margin-left:auto;flex:none">' + [['all', L('All types', 'Všechno')], ['img', L('Images', 'Obrázky')], ['link', L('Links', 'Odkazy')], ['note', L('Notes', 'Poznámky')]].map(([k, l]) => '<button class="' + (ty === k ? 'on' : '') + '" data-a="a3BType" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div>';
     return '<main class="dmain a2 a3d a3dboard scr2"><div class="a2-in a3btit" style="--i:1"><b class="a2-d">Board</b><div class="a3chips">' + boardChips() + '</div>' + seg + '</div>'
       + (V.boardSearch ? '<div class="a2-glass a3srch" style="max-width:520px">' + ico('search', 17, 2) + '<input id="a3boardQ" type="search" placeholder="' + esc(t('searchPh')) + '" value="' + esc(V.boardQ || '') + '" autocomplete="off"></div>' : '')
@@ -587,7 +656,7 @@
   ACT.a3BType = el => { V.boardType = el.dataset.k; deskRender(); };
   function bindBoard(root, isDesk) {
     const q = root.querySelector('#a3boardQ'); if (!q || q.dataset.b) return; q.dataset.b = 1;
-    q.addEventListener('input', () => { V.boardQ = q.value; const ms = isDesk ? deskBoardList() : boardList(); const g = root.querySelector('#a3bg'); if (g) g.innerHTML = ms.length ? boardCols(ms, isDesk ? (innerWidth >= 1500 ? 5 : innerWidth >= 1100 ? 4 : 3) : 2) : boardEmpty(); });
+    q.addEventListener('input', () => { V.boardQ = q.value; const ms = isDesk ? deskBoardList() : boardList(); const g = root.querySelector('#a3bg'); if (g) g.innerHTML = ms.length ? boardCols(ms, isDesk ? Math.max(2, Math.min(4, Math.floor((innerWidth - 120) / 330))) : 2) : boardEmpty(); });
     if (V.boardSearch && !q.value) setTimeout(() => q.focus(), 50);
   }
 
@@ -608,8 +677,8 @@
   }
   function planRow(i, d, nextId, timeCol) {
     if (!timeCol) return dayRow(i, d, nextId);
-    const on = isDone(i, d); const c = i.card ? itemColor(i) : 'rgba(255,255,255,.4)'; const late = !i.repeat && i.date && i.date < d;
-    return '<div class="a3dr a3pr' + (on ? ' done' : '') + '" role="button" data-a="openItem" data-id="' + i.id + '"><span class="a3ptm a2-num"' + (late ? ' style="color:#ffb08a"' : '') + '>' + esc(late ? WD[lang()][dow(i.date)] : i.time || L('any', 'kdy.')) + '</span><span class="a3bar" style="background:' + c + (i.id === nextId ? ';box-shadow:0 0 10px ' + c : '') + '"></span><div class="a3dt"><span' + (i.id === nextId ? ' style="font-weight:600"' : '') + '>' + esc(i.t) + (cardName(i) ? ' <span class="a2-t3 a3pts">· ' + esc(cardName(i)) + '</span>' : '') + '</span></div>' + check(i, d, i.card ? itemColor(i) : '#f4ecdc', 26) + '</div>';
+    const on = isDone(i, d); const c = hasCol(i) ? itemColor(i) : 'rgba(255,255,255,.4)'; const late = !i.repeat && i.date && i.date < d;
+    return '<div class="a3dr a3pr' + (on ? ' done' : '') + '" role="button" data-a="openItem" data-id="' + i.id + '"><span class="a3ptm a2-num"' + (late ? ' style="color:#ffb08a"' : '') + '>' + esc(late ? WD[lang()][dow(i.date)] : i.time || L('any', 'kdy.')) + '</span><span class="a3bar" style="background:' + c + (i.id === nextId ? ';box-shadow:0 0 10px ' + c : '') + '"></span><div class="a3dt"><span' + (i.id === nextId ? ' style="font-weight:600"' : '') + '>' + esc(i.t) + (cardName(i) ? ' <span class="a2-t3 a3pts">· ' + esc(cardName(i)) + '</span>' : '') + '</span></div>' + check(i, d, hasCol(i) ? itemColor(i) : '#f4ecdc', 26) + '</div>';
   }
   function planDayList(day, timeCol) {
     const M = homeModel(); const its = itemsOn(day); const od = day === T() ? overdueItems() : []; const nextId = day === T() && M.nextAny ? M.nextAny.id : null;
@@ -628,24 +697,31 @@
   const planSeg = (cur, act) => '<div class="a2-seg">' + [['list', t('list')], ['week', t('week')], ['month', L('Month', 'Měsíc')]].map(([k, l]) => '<button class="' + (cur === k ? 'on' : '') + '" data-a="' + act + '" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div>';
   function planPhone() {
     const day = V.planDay || T(); const ws = weekStart(day);
-    const strip = [0, 1, 2, 3, 4, 5, 6].map(k => { const d = addD(ws, k); const on = d === day; const cols = [...new Set(itemsOn(d).map(i => i.card ? itemColor(i) : 'rgba(255,255,255,.5)'))].slice(0, 3);
+    const strip = [0, 1, 2, 3, 4, 5, 6].map(k => { const d = addD(ws, k); const on = d === day; const cols = [...new Set(itemsOn(d).map(i => hasCol(i) ? itemColor(i) : 'rgba(255,255,255,.5)'))].slice(0, 3);
       return '<button class="a3ps' + (on ? ' on a2-pop' : '') + (d === T() && !on ? ' td' : '') + '" data-a="planDay" data-d="' + d + '"><span>' + esc(WD[lang()][k]) + '</span><b class="a2-num">' + dOf(d).getDate() + '</b><i>' + cols.map(c => '<em style="background:' + c + '"></em>').join('') + '</i></button>'; }).join('');
     const L1 = planDayList(day, false); const nd = undatedItems();
     return '<div class="a2 a3p a3plan">' + pHead('<b class="a2-d" style="font-size:44px">Plan</b>', planSeg('list', 'planMode'))
       + '<div class="a2-glass a2-in a3pstrip" style="--i:1"><button class="a3pw" data-a="a3Week" data-k="-1" aria-label="' + esc(L('Previous week', 'Předchozí týden')) + '">' + ico('chevL', 14, 2.4) + '</button>' + strip + '<button class="a3pw r" data-a="a3Week" data-k="1" aria-label="' + esc(L('Next week', 'Další týden')) + '">' + ico('chev', 14, 2.4) + '</button></div>'
       + '<div class="a2-glass a2-in a3pday" style="--i:2"><div class="a3pdh"><b class="a2-d">' + esc(dayTitle(day)) + '</b><span class="a2-t2 a2-num"><b style="color:var(--cream)">' + L1.left + '</b> ' + esc(L('left', 'zbývá')) + '</span></div>' + L1.rows
       + '<button class="a2-btn ghost a3w" style="margin-top:8px" data-a="add" data-date="' + day + '">+ ' + esc(day === T() ? L('Add to Today', 'Přidat na dnešek') : L('Add to ', 'Přidat na ') + dayName(day).toLowerCase()) + '</button></div>'
-      + (nd.length ? '<div class="a2-glass a2-in a3pnd" style="--i:3"><span class="a2-lab">' + esc(L('No day yet · ', 'Bez dne · ') + nd.length + L(' · tap to give it a day', ' · ťukni a dej mu den')) + '</span><div class="a3pch">' + nd.map(i => '<button class="a2-chip" data-a="when" data-id="' + i.id + '">' + (i.card ? '<span class="a2-dot" style="--c:' + itemColor(i) + '"></span>' : '') + esc(i.t) + '</button>').join('') + '</div></div>' : '')
+      + (nd.length ? '<div class="a2-glass a2-in a3pnd" style="--i:3"><span class="a2-lab">' + esc(L('No day yet · ', 'Bez dne · ') + nd.length + L(' · tap to give it a day', ' · ťukni a dej mu den')) + '</span><div class="a3pch">' + nd.map(i => '<button class="a2-chip" data-a="when" data-id="' + i.id + '">' + (hasCol(i) ? '<span class="a2-dot" style="--c:' + itemColor(i) + '"></span>' : '') + esc(i.t) + '</button>').join('') + '</div></div>' : '')
       + '</div>';
   }
   ACT.a3Week = el => { const k = +el.dataset.k; if (desk()) { V.a3pday = addD(V.a3pday || T(), 7 * k); deskRender(); } else { V.planDay = addD(V.planDay || T(), 7 * k); V.planWeek = weekStart(V.planDay); renderPlan(); } };
   ACT.a3PDay = el => { V.a3pday = el.dataset.d === T() ? null : el.dataset.d; deskRender(); };
   ACT.a3PMode = el => { const k = el.dataset.k; if (k === 'list') DESK.mode = 'list'; else { DESK.mode = k; } deskRender(true); };
+  function weekBlk(ws) {
+    let tot = 0, dn = 0; const per = {};
+    for (let k = 0; k < 7; k++) { const d = addD(ws, k); itemsOn(d).forEach(i => { const ok = isDone(i, d); tot++; if (ok) dn++; const key = i.card && cardById(i.card) ? i.card : '_'; const x = per[key] || (per[key] = { t: 0, d: 0 }); x.t++; if (ok) x.d++; }); }
+    const rows = Object.keys(per).sort((a, b) => per[b].t - per[a].t).slice(0, 5).map(k => { const c = k === '_' ? null : cardById(k); const x = per[k]; const col = c ? c.color : '#c3d3da';
+      return '<div class="a3wbr"><span class="a2-dot" style="--c:' + col + '"></span><b>' + esc(c ? c.name : L('Other', 'Ostatní')) + '</b><span class="a3wbt"><i style="width:' + Math.round(x.d / x.t * 100) + '%;background:' + col + '"></i></span><span class="a2-t2 a2-num">' + x.d + '/' + x.t + '</span></div>'; }).join('');
+    return '<div class="a2-glass a2-in a3wblk" style="--i:3"><div class="a3wbh"><div><span class="a2-lab">' + esc(L('This week', 'Tento týden')) + '</span><div class="a3wbn"><b class="a2-d a2-num">' + dn + '</b><span class="a2-t2">/ ' + tot + ' ' + esc(L('done', 'hotovo')) + '</span></div></div>' + ring(84, tot ? dn / tot : 0, '#f4ecdc', 3) + '</div>' + (rows || '<span class="a2-t3">' + esc(L('Nothing planned this week yet.', 'Na tenhle týden zatím nic.')) + '</span>') + '</div>';
+  }
   function planDesk() {
     const day = V.a3pday || T(); const ws = weekStart(day), we = addD(ws, 6);
     const rng = dOf(ws).getDate() + (dOf(ws).getMonth() === dOf(we).getMonth() ? '' : ' ' + MON[lang()][dOf(ws).getMonth()].toLowerCase()) + ' – ' + dOf(we).getDate() + ' ' + (cs() ? ['ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'][dOf(we).getMonth()] : MON.en[dOf(we).getMonth()]);
     const strip = [0, 1, 2, 3, 4, 5, 6].map(k => { const d = addD(ws, k); const on = d === day; const its = itemsOn(d); const dn = its.filter(i => isDone(i, d)).length; const lf = its.length - dn;
-      const bars = its.slice(0, 4).map(i => '<em style="background:' + (isDone(i, d) || d >= T() ? (i.card ? itemColor(i) : (on ? 'rgba(27,34,40,.35)' : 'rgba(255,255,255,.45)')) : 'color-mix(in oklab,' + (i.card ? itemColor(i) : '#fff') + ' 35%,transparent)') + (on && !isDone(i, d) && d === T() ? ';opacity:.35' : '') + '"></em>').join('');
+      const bars = its.slice(0, 4).map(i => '<em style="background:' + (isDone(i, d) || d >= T() ? (hasCol(i) ? itemColor(i) : (on ? 'rgba(27,34,40,.35)' : 'rgba(255,255,255,.45)')) : 'color-mix(in oklab,' + (hasCol(i) ? itemColor(i) : '#fff') + ' 35%,transparent)') + (on && !isDone(i, d) && d === T() ? ';opacity:.35' : '') + '"></em>').join('');
       const st = !its.length ? '' : d === T() ? dn + ' ' + L('of ', 'z ') + its.length : d < T() ? (lf ? lf + ' ' + L('left', 'zbývá') : dn + ' ' + L('done', 'hotovo')) : its.length + ' ' + L('planned', 'v plánu');
       return '<button class="a3pd' + (on ? ' on' : '') + (d === T() && !on ? ' td' : '') + '" data-a="a3PDay" data-d="' + d + '"><span>' + esc(WD[lang()][k] + ' ' + dOf(d).getDate()) + '</span><i>' + bars + '</i><small' + (d < T() && lf ? ' style="color:#ffb08a"' : '') + '>' + esc(st) + '</small></button>'; }).join('');
     const L1 = planDayList(day, true); const nd = undatedItems(); const tm = addD(day, 1); const tmi = itemsOn(tm);
@@ -653,8 +729,8 @@
       + '<div class="a2-glass a2-in a3pdstrip" style="--i:2"><button class="a3pw" data-a="a3Week" data-k="-1">' + ico('chevL', 14, 2.4) + '</button>' + strip + '<button class="a3pw r" data-a="a3Week" data-k="1">' + ico('chev', 14, 2.4) + '</button></div>'
       + '<div class="a3pg"><div class="a2-glass a2-in a3pday d" style="--i:3"><div class="a3pdh"><b class="a2-d">' + esc(dayTitle(day)) + '</b><span class="a2-t2 a2-num"><b style="color:var(--cream)">' + L1.left + '</b> ' + esc(L('left', 'zbývá')) + '</span></div><div class="a3list">' + L1.rows + '</div>'
       + '<button class="a2-btn ghost a3w" style="margin-top:auto;flex:none" data-a="add" data-date="' + day + '">+ ' + esc(day === T() ? L('Add to Today', 'Přidat na dnešek') : L('Add to ', 'Přidat na ') + dayName(day).toLowerCase()) + '</button></div>'
-      + '<div class="a3col"><div class="a2-glass a2-in a3pnd d" style="--i:4"><span class="a2-lab">' + esc(L('No day yet · ', 'Bez dne · ') + nd.length) + '</span>' + (nd.length ? '<div class="a3pch v">' + nd.slice(0, 8).map(i => '<button class="a2-chip" data-a="when" data-id="' + i.id + '">' + (i.card ? '<span class="a2-dot" style="--c:' + itemColor(i) + '"></span>' : '') + '<span>' + esc(i.t) + '</span></button>').join('') + '</div><span class="a2-t3" style="font-size:13px">' + esc(L('Tap one to give it a day', 'Ťukni a dej mu den')) + '</span>' : '<span class="a2-t3" style="font-size:14px">' + esc(L('Everything has a day.', 'Všechno má svůj den.')) + '</span>') + '</div>'
-      + '<div class="a2-glass a2-in a3ptm2" style="--i:5"><span class="a2-lab" style="padding-bottom:8px">' + esc(dayTitle(tm)) + '</span>' + (tmi.length ? tmi.slice(0, 7).map(i => '<div class="a3dr" role="button" data-a="openItem" data-id="' + i.id + '"><span class="a3bar" style="height:26px;background:' + (i.card ? itemColor(i) : 'rgba(255,255,255,.4)') + '"></span><span class="a3dt"><span style="font-size:15px">' + esc(i.t) + '</span></span><span class="a2-t3" style="font-size:13px">' + esc(i.time || (i.repeat === 'daily' ? L('daily', 'denně') : L('any', 'kdykoli'))) + '</span></div>').join('') : '<span class="a2-t3" style="font-size:14px">' + esc(t('emptyDay')) + '</span>') + '</div></div></div></main>';
+      + '<div class="a3col">' + weekBlk(ws) + '<div class="a2-glass a2-in a3pnd d" style="--i:4"><span class="a2-lab">' + esc(L('No day yet · ', 'Bez dne · ') + nd.length) + '</span>' + (nd.length ? '<div class="a3pch v">' + nd.slice(0, 8).map(i => '<button class="a2-chip" data-a="when" data-id="' + i.id + '">' + (hasCol(i) ? '<span class="a2-dot" style="--c:' + itemColor(i) + '"></span>' : '') + '<span>' + esc(i.t) + '</span></button>').join('') + '</div><span class="a2-t3" style="font-size:13px">' + esc(L('Tap one to give it a day', 'Ťukni a dej mu den')) + '</span>' : '<span class="a2-t3" style="font-size:14px">' + esc(L('Everything has a day.', 'Všechno má svůj den.')) + '</span>') + '</div>'
+      + '<div class="a2-glass a2-in a3ptm2" style="--i:5"><span class="a2-lab" style="padding-bottom:8px">' + esc(dayTitle(tm)) + '</span>' + (tmi.length ? tmi.slice(0, 7).map(i => '<div class="a3dr" role="button" data-a="openItem" data-id="' + i.id + '"><span class="a3bar" style="height:26px;background:' + (hasCol(i) ? itemColor(i) : 'rgba(255,255,255,.4)') + '"></span><span class="a3dt"><span style="font-size:15px">' + esc(i.t) + '</span></span><span class="a2-t3" style="font-size:13px">' + esc(i.time || (i.repeat === 'daily' ? L('daily', 'denně') : L('any', 'kdykoli'))) + '</span></div>').join('') : '<span class="a2-t3" style="font-size:14px">' + esc(t('emptyDay')) + '</span>') + '</div></div></div></main>';
   }
 
 
@@ -668,7 +744,7 @@
   ACT.a3Motion = el => { if (ACT.a2Motion) ACT.a2Motion(el); else { S.a2motion = el.dataset.k; save(); } renderSettings(); };
   ACT.a3Wall = el => { const k = el.dataset.k; if (k === 'photo') { S.a3wall = 'photo'; save(); if (!S.wallKey) { $('#wallIn').click(); return; } S.wall = 'photo'; applyLook(); wall(); renderSettings(); return; } S.a3wall = k; save(); wall(); renderSettings(); };
   ACT.a3Still = () => { S.a3still = !S.a3still; save(); wall(); renderSettings(); };
-  ACT.a3Set = el => { V.a3set = el.dataset.k; renderSettings(); };
+  ACT.a3Set = el => { V.a3set = el.dataset.k; V.settingsPage = 'main'; renderSettings(); };
   ACT.a3LabPage = () => { V.settingsPage = 'a3lab'; renderSettings(); $('#s-settings').scrollTop = 0; };
   function accRow(big) {
     const init = ((S.name || '').trim() || (typeof accOn === 'function' && accOn() && S.acc && S.acc.login) || 'A').charAt(0).toUpperCase();
@@ -708,11 +784,11 @@
     g.forEach(([k, lab, rows], i) => { h += '<span class="a2-lab a3sl2">' + esc(lab) + '</span><div class="a2-glass a2-in a3grp" style="--i:' + (2 + i) + '">' + (k === 'look' ? lookRows(false) : rows) + '</div>'; });
     return h + '<button class="a2-in a3foot" style="--i:8" data-a="a3LabPage">Aurora 2.0 · Lab ' + esc(L('tools', 'nástroje')) + ' ›</button></div>';
   }
-  function settingsDesk() {
-    const g = setGroups(); const cur = V.a3set || 'look'; const grp = g.find(x => x[0] === cur) || g[1];
+  function settingsDesk(oldGrp) {
+    const g = setGroups(); const cur = oldGrp || V.a3set || 'look'; const grp = g.find(x => x[0] === cur) || g[1];
     const st = window.STUDIO && STUDIO.ST;
     const menu = '<div class="a2-glass a2-in a3smenu" style="--i:2">' + accRow(true).replace('a3acc"', 'a3acc d"') + g.map(([k, lab]) => '<button class="a3mi' + (k === cur ? ' on' : '') + '" data-a="a3Set" data-k="' + k + '"><span>' + esc(lab) + '</span>' + (k === 'tools' && st && st.daily ? '<span class="a2-t3 a2-num">Studio ' + (st.used || 0) + '/' + st.daily + '</span>' : '') + '</button>').join('') + '<button class="a3mi foot" data-a="a3LabPage">Aurora 2.0 · Lab ' + esc(L('tools', 'nástroje')) + ' ›</button></div>';
-    const panel = '<div class="a2-glass a2-in a3spanel" style="--i:3"><b class="a2-d" style="font-size:32px">' + esc(grp[1]) + '</b>' + (grp[0] === 'look' ? lookPanel() : '<div class="a3grp d">' + grp[2] + '</div>') + '</div>';
+    const panel = oldGrp ? '<div class="a2-glass a3spanel a3oldp"></div>' : '<div class="a2-glass a2-in a3spanel" style="--i:3"><b class="a2-d" style="font-size:32px">' + esc(grp[1]) + '</b>' + (grp[0] === 'look' ? lookPanel() : '<div class="a3grp d">' + grp[2] + '</div>') + '</div>';
     return '<div class="a2 a3dset"><div class="a3dsh a2-in" style="--i:1"><b class="a2-d">' + esc(t('settings')) + '</b><button class="a2-icon" data-a="closeSettings" aria-label="' + esc(L('Close', 'Zavřít')) + '">' + ico('x', 18, 2.2) + '</button></div><div class="a3dsg">' + menu + panel + '</div></div>';
   }
   function labPage() {
@@ -739,7 +815,7 @@
   }
   function studioNext(f) {
     if (!f.signed) return L('Sign in to cut videos', 'Přihlas se a stříhej');
-    if (f.ups.length) return L('Uploading ', 'Nahrávám ') + (f.ups[0].pct || 0) + ' %';
+    if (f.ups.length) return f.ups[0].state === 'error' ? L('Upload stopped · tap to see why', 'Nahrávání se zastavilo · ťukni pro detail') : L('Uploading ', 'Nahrávám ') + (f.ups[0].pct || 0) + ' %';
     if (f.busy.length) return L('Cutting ', 'Stříhám ') + (f.busy[0].prompt || f.busy[0].name || '');
     if (f.ready.length) return L('Pick an opening · ', 'Vyber začátek · ') + (f.ready[0].prompt || f.ready[0].name || '');
     return L('Upload a video, say what you want', 'Nahraj video, řekni co chceš');
@@ -751,6 +827,43 @@
       + '<div class="a3w3">' + [[f.ups.length + f.busy.length, L('in progress', 'rozpracováno')], [f.ready.length, L('to pick', 'k výběru')], [f.done.length, L('done', 'hotovo')]].map(([n, l]) => '<div class="a2-well"><b class="a2-d a2-num">' + n + '</b><div class="a2-t2">' + esc(l) + '</div></div>').join('') + '</div>'
       + '<div class="a3nxs"><span class="a2-lab" style="color:#9ff0ec">' + esc(t('nextStep')) + '</span><span>' + esc(studioNext(f)) + '</span></div></div>';
   }
+
+  /* what is happening right now, so you can see it works: steps, a moving bar, time running */
+  const ST_ORDER = ['start', 'download', 'transcript', 'plan', 'cut', 'render', 'upload'];
+  const ST_TXT = { start: ['Waking up the cutter', 'Startuju střižnu'], download: ['Getting your video', 'Beru tvoje video'], transcript: ['Listening to what is said', 'Poslouchám, co se říká'], plan: ['Reading what you want', 'Čtu, co chceš'], cut: ['Cutting the pauses', 'Stříhám pauzy'], render: ['Rendering the video', 'Renderuju video'], upload: ['Almost done', 'Skoro hotovo'] };
+  const mmss = ms => { const s2 = Math.max(0, Math.round(ms / 1000)); return Math.floor(s2 / 60) + ':' + String(s2 % 60).padStart(2, '0'); };
+  function liveRow(j) {
+    const k = Math.max(0, ST_ORDER.indexOf(j.stage || (j.status === 'queued' ? '' : 'start')));
+    const queued = j.status === 'queued' || j.status === 'final-queued';
+    const pc = queued ? 4 : Math.max(j.pct || 0, Math.round((k + .5) / ST_ORDER.length * 100));
+    const txt = queued ? L('In the queue · starts in a moment', 'Ve frontě · za chvíli začne') : L(...(ST_TXT[j.stage] || ST_TXT.start));
+    const since = j.created ? Date.now() - (+j.created || Date.parse(j.created)) : 0;
+    return '<button class="a3live" data-a="stOpen" data-id="' + j.id + '"><span class="a3lorb"><i></i></span><span class="a3lt"><b>' + esc(j.prompt || j.name || 'Video') + '</b><span class="a2-t2">' + esc(txt) + (queued ? '' : ' · ' + L('step ', 'krok ') + (k + 1) + '/' + ST_ORDER.length) + '</span>'
+      + '<span class="a3lbar"><i style="width:' + pc + '%"></i></span><span class="a2-t3 a3lmeta">' + (since > 0 ? esc(L('running ', 'běží ') + mmss(since)) + ' · ' : '') + esc(L('usually 1–3 min', 'obvykle 1–3 min')) + '</span></span></button>';
+  }
+  function upRow(u) {
+    const err = u.state === 'error';
+    return '<button class="a3live' + (err ? ' err' : '') + '" data-a="stUp" data-id="' + u.id + '"><span class="a3lorb up"><i></i></span><span class="a3lt"><b>' + esc(u.prompt || u.name) + '</b><span class="a2-t2">' + esc(err ? u.err : u.state === 'offline' ? L('Waiting for the internet…', 'Čekám na internet…') : L('Uploading ', 'Nahrávám ') + (u.pct || 0) + ' %') + '</span>'
+      + (err ? '' : '<span class="a3lbar"><i style="width:' + Math.max(3, u.pct || 0) + '%"></i></span><span class="a2-t3 a3lmeta">' + esc(L('keep the app open while it uploads', 'nech appku otevřenou, než se nahraje')) + '</span>') + '</span></button>';
+  }
+  setInterval(() => { if ((V.studio || V.stv) && document.querySelector('.a3live')) { try { window.A3S && A3S.paint(); } catch (e) {} } }, 1000);
+
+
+  /* a quick check of the way to the cutter: is the server there, does it know your account */
+  const DIAG = { at: 0, srv: null, acc: null, msg: '' };
+  async function studioDiag(force) {
+    const st = STD(); if (!st || (!force && Date.now() - DIAG.at < 60000)) return; DIAG.at = Date.now(); DIAG.srv = DIAG.acc = null; DIAG.msg = '';
+    try { const r = await fetch(st.base() + '/ping', { cache: 'no-store' }); const j = await r.json().catch(() => null); DIAG.srv = r.ok && j && j.ok; if (!DIAG.srv) DIAG.msg = 'ping ' + r.status; } catch (e) { DIAG.srv = false; DIAG.msg = L('server not reachable', 'server nedostupný') + ' · ' + st.base().replace(/^https?:\/\//, ''); }
+    if (DIAG.srv) { try { await st.api('/jobs'); DIAG.acc = true; } catch (e) { DIAG.acc = false; DIAG.msg = (e.status || '') + ' ' + (e.message || ''); } }
+    window.A3S && A3S.paint();
+  }
+  ACT.a3StDiag = () => { studioDiag(true); };
+  function diagRow() {
+    if (DIAG.srv === null && !DIAG.at) return '';
+    const ok = DIAG.srv && DIAG.acc; const wait = DIAG.srv === null || (DIAG.srv && DIAG.acc === null);
+    return '<button class="a2-glass a2-in a3ndr a3diag" style="--i:5" data-a="a3StDiag"><span>' + (wait ? esc(L('Checking the connection…', 'Kontroluju spojení…')) : ok ? '✓ ' + esc(L('Server and account OK', 'Server i účet v pořádku')) : '⚠︎ ' + esc((DIAG.srv ? L('Server OK, account not accepted', 'Server běží, účet nepřijal') : L('Studio server not reachable', 'Studio server neodpovídá')) + (DIAG.msg ? ' · ' + DIAG.msg : ''))) + '</span><span class="a2-t2">' + esc(L('Check again', 'Znovu')) + '</span></button>';
+  }
+
   function studioPage(isDesk) {
     const f = studioFacts();
     const head = isDesk ? '<div class="a2-in a3ctit" style="--i:1"><b class="a2-d">Aurora Studio</b>' + kick(L('Studio · video cut', 'Studio · střih videa'), STC) + '</div>'
@@ -759,17 +872,17 @@
       ? '<div class="a2-glass a2-tint a2-in a3sth" style="--i:2;--c:' + STC + '"><div class="a3wkh"><div class="a3wkn"><span class="a2-lab">' + esc(L('Today', 'Dnes')) + '</span><div><b class="a2-d a2-num">' + f.left + '</b><span class="a2-t2">/ ' + f.daily + ' ' + esc(L('videos left', 'videí zbývá')) + '</span></div></div>' + ring(isDesk ? 120 : 96, f.used / f.daily, STC, 2) + '</div>'
         + '<button class="a2-btn a3w" data-a="stNew" data-id="studio">' + ico('plus', 16, 2.4) + esc(L('New video', 'Nové video')) + '</button><span class="a2-t2 a3sts">' + esc(L('Upload it and write what you want. Aurora cuts it, you pick the opening. Nothing goes out without you.', 'Nahraj ho a napiš, co z něj chceš. Aurora ho sestříhá, ty vybereš začátek. Nic nejde ven bez tebe.')) + '</span></div>'
       : '<div class="a2-glass a2-tint a2-in a3sth" style="--i:2;--c:' + STC + '"><b class="a2-d" style="font-size:28px">' + esc(L('Sign in first', 'Nejdřív se přihlas')) + '</b><span class="a2-t2 a3sts">' + esc(L('Studio cuts on the server, so it needs your Aurora account.', 'Studio stříhá na serveru, potřebuje tvůj účet v Auroře.')) + '</span><button class="a2-btn a3w" data-a="a3StLogin">' + esc(L('Sign in', 'Přihlásit se')) + '</button></div>';
-    const st = f.st; const rowsA = f.ups.map(u => st.rowUp(u)).concat(f.busy.map(j => st.rowJob(j)), f.ready.map(j => st.rowJob(j)));
+    const st = f.st; const rowsA = f.ups.map(u => upRow(u)).concat(f.busy.map(j => liveRow(j)), f.ready.map(j => st.rowJob(j)));
     const rowsB = f.jobs.filter(j => !st.busy(j) && j.status !== 'ready').slice(0, 12).map(j => st.rowJob(j));
     const listA = '<div class="a2-glass a2-in a3stl" style="--i:3"><span class="a2-lab a3tlh">' + esc(L('In progress', 'Rozpracované')) + (rowsA.length ? ' · ' + rowsA.length : '') + '</span>' + (rowsA.length ? rowsA.join('') : '<span class="a2-t3 a3ste">' + esc(L('Nothing being cut right now.', 'Teď se nic nestříhá.')) + '</span>') + '</div>';
     const listB = '<div class="a2-glass a2-in a3stl" style="--i:4"><span class="a2-lab a3tlh">' + esc(L('Done', 'Hotové')) + (rowsB.length ? ' · ' + rowsB.length : '') + '</span>' + (rowsB.length ? rowsB.join('') : '<span class="a2-t3 a3ste">' + esc(L('Your finished cuts land here.', 'Hotové střihy se objeví tady.')) + '</span>') + '</div>';
     const tip = '<button class="a2-glass a2-in a3ndr" style="--i:5" data-a="tab" data-k="board"><span>' + esc(L('A video already on Board? Tap Cut on it.', 'Video už máš na Boardu? Ťukni u něj na Střih.')) + '</span><span class="a2-t2">Board ›</span></button>';
-    if (isDesk) return '<main class="dmain a2 a3d a3dcard scr2 a3dstudio">' + head + '<div class="a3g2"><div class="a3col">' + hero + tip + '</div><div class="a3col">' + listA + listB + '</div></div></main>';
-    return '<div class="a2 a3p a3studio">' + head + hero + listA + listB + tip + '</div>';
+    if (isDesk) return '<main class="dmain a2 a3d a3dcard scr2 a3dstudio">' + head + '<div class="a3g2"><div class="a3col">' + hero + tip + diagRow() + '</div><div class="a3col">' + listA + listB + '</div></div></main>';
+    return '<div class="a2 a3p a3studio">' + head + hero + listA + listB + tip + diagRow() + '</div>';
   }
   function openStudio() {
     S.studioOn = true; save();
-    const st = STD(); if (st && st.signed()) st.load(true);
+    const st = STD(); if (st && st.signed()) { st.load(true); studioDiag(true); }
     if (desk()) { V.stv = true; V.card = null; V.kd = false; V.tab = 'spaces'; deskRender(true); return; }
     const el = $('#s-card'); V.studio = true; el.classList.add('a3s'); el.classList.remove('out'); el.classList.add('on'); el.scrollTop = 0;
     $('#nav').classList.add('away'); document.body.classList.add('navless'); el.innerHTML = studioPage(false); if (window.FX) FX.enter(el);
@@ -784,9 +897,9 @@
   ACT.a3StLogin = () => { if (V.studio) closeStudio(); openSettings(); ACT.accPage && ACT.accPage(); };
   window.A3S = { paint: () => {
     try {
-      if (V.studio && !desk()) { const el = $('#s-card'); const y = el.scrollTop; el.innerHTML = studioPage(false); el.scrollTop = y; }
-      else if (V.stv && desk()) { const m = $('#desk main.a3dstudio'); if (m) { const y = m.scrollTop; m.outerHTML = studioPage(true); const m2 = $('#desk main.a3dstudio'); if (m2) m2.scrollTop = y; } }
-      else if (V.tab === 'spaces' && !V.card && !V.keiro && !V.kd && S.studioOn) { if (desk()) deskRender(); else renderSpaces(); }
+      if (V.studio && !desk()) { const el = $('#s-card'); const y = el.scrollTop; el.innerHTML = studioPage(false); el.firstElementChild && el.firstElementChild.classList.add('a3noanim'); el.scrollTop = y; }
+      else if (V.stv && desk()) { const m = $('#desk main.a3dstudio'); if (m) { const y = m.scrollTop; m.outerHTML = studioPage(true); const m2 = $('#desk main.a3dstudio'); if (m2) { m2.classList.add('a3noanim'); m2.scrollTop = y; } } }
+      else if ((V.tab === 'spaces' || V.tab === 'home') && !V.card && !V.keiro && !V.kd && S.studioOn && !(typeof SH !== 'undefined' && SH.open)) { if (desk()) deskRender(); else RENDER[V.tab](); }
     } catch (e) {}
   }, open: openStudio };
 
@@ -801,7 +914,7 @@
       + '<div class="a3tr">' + right() + '</div></header>';
     function right() {
       const set = '<button class="a2-icon" data-a="openSettings" aria-label="' + esc(t('settings')) + '"><span id="syncDot" class="sdot"></span>' + SUN + '</button>';
-      if (cardR) return (shR ? '<button class="a2-chip" style="height:44px" data-a="spInvite" data-id="' + cardR.id + '">' + ico('users', 16, 2) + esc(L('Invite', 'Pozvat')) + '</button>' : '') + '<button class="a2-icon" data-a="editCard" aria-label="' + esc(t('editCard')) + '">' + ico('more', 20, 2) + '</button>';
+      if (cardR) return '<button class="a2-chip" style="height:44px" data-a="a3Blocks">' + ico('board', 16, 2) + esc(L('Blocks', 'Bloky')) + '</button>' + (shR ? '<button class="a2-chip" style="height:44px" data-a="spInvite" data-id="' + cardR.id + '">' + ico('users', 16, 2) + esc(L('Invite', 'Pozvat')) + '</button>' : '') + '<button class="a2-icon" data-a="editCard" aria-label="' + esc(t('editCard')) + '">' + ico('more', 20, 2) + '</button>';
       if (V.stv) return STD() && STD().signed() ? '<button class="a2-btn" data-a="stNew" data-id="studio">+ ' + esc(L('New video', 'Nové video')) + '</button>' : '';
       if (V.kd) { const kx = KX(); const n = kx ? kx.page(() => (kx.F().review || []).length) : 0; return '<button class="a2-btn" data-a="krReview"' + (n ? '' : ' disabled') + '>' + esc(L('Review ', 'Schválit ') + n) + '</button>'; }
       if (V.tab === 'board' && !V.card) return '<button class="a2-icon" data-a="boardSearch" aria-label="' + esc(t('search')) + '">' + ico(V.boardSearch ? 'x' : 'search', 19, 2) + '</button>' + set;
@@ -839,39 +952,54 @@
   }
   A3.wall = wall;
 
+  /* animate a page only when you arrive on it, never on a re-render of the same page */
+  let NAV = 0, CNAV = 0;
+  function settle(el, key) { if (!el) return; const same = el.dataset.a3k === key; el.classList.toggle('a3noanim', same); el.dataset.a3k = key; }
+  const OLDG = { notif: 'notif', acc: 'acc', sync: 'acc', labsync: 'acc', keiro: 'tools' };
+  function wrapOld(el) {
+    const pg = V.settingsPage || 'main'; if (!(pg in OLDG) || !V.settingsOpen) return;
+    if (!desk()) { el.classList.remove('a3s'); el.classList.add('a3old'); return; }
+    if (el.querySelector(':scope > .a3dset')) return;
+    const nodes = [...el.childNodes]; if (!nodes.length) return;
+    el.classList.add('a3s', 'a3noanim'); el.classList.remove('a3old'); document.body.classList.add('a3setbig');
+    el.innerHTML = settingsDesk(OLDG[pg]); const pn = el.querySelector('.a3oldp'); pn && pn.append(...nodes);
+  }
   function install() {
+    /* old settings pages fill in late (Automation loads first): wrap them whenever they land */
+    try { const se = $('#s-settings'); se && new MutationObserver(() => { if (V.settingsOpen && (V.settingsPage || 'main') in OLDG) wrapOld(se); }).observe(se, { childList: true }); } catch (e) {}
     document.body.classList.add('a3');
     /* phone pages */
     const _home = renderHome;
     renderHome = function () {
       if (desk()) return _home.apply(this, arguments);
-      const el = $('#s-home'); el.classList.add('a3s'); el.innerHTML = homePhone(); bindSliders(el); try { h19Mount(el, true); } catch (e) {} auraFromCards && auraFromCards(null);
+      const el = $('#s-home'); el.classList.add('a3s'); settle(el, 'home' + NAV); el.innerHTML = homePhone(); bindSliders(el); try { h19Mount(el, true); } catch (e) {} auraFromCards && auraFromCards(null);
     };
     RENDER.home = renderHome;
     const _sp = renderSpaces;
     renderSpaces = function () {
       if (desk()) return _sp.apply(this, arguments);
-      const el = $('#s-spaces'); el.classList.add('a3s'); el.innerHTML = spacesPhone(); bindDeck(el); auraFromCards && auraFromCards(null);
+      const el = $('#s-spaces'); el.classList.add('a3s'); settle(el, 'spaces' + NAV); el.innerHTML = spacesPhone(); bindDeck(el); auraFromCards && auraFromCards(null);
     };
     RENDER.spaces = renderSpaces;
     const _rb = renderBoard;
     renderBoard = function () {
       if (desk()) return _rb.apply(this, arguments);
-      const el = $('#s-board'); el.classList.add('a3s'); el.innerHTML = boardPhone(); bindBoard(el, false); auraFromCards && auraFromCards(null);
+      const el = $('#s-board'); el.classList.add('a3s'); settle(el, 'board' + NAV); el.innerHTML = boardPhone(); bindBoard(el, false); auraFromCards && auraFromCards(null);
     };
     RENDER.board = renderBoard;
     const _rp = renderPlan;
     renderPlan = function () {
       const el = $('#s-plan');
       if (desk() || V.planMode !== 'list') { el && el.classList.remove('a3s'); return _rp.apply(this, arguments); }
-      el.classList.add('a3s'); el.innerHTML = planPhone(); auraFromCards && auraFromCards(null);
+      el.classList.add('a3s'); settle(el, 'plan' + NAV); el.innerHTML = planPhone(); auraFromCards && auraFromCards(null);
     };
     RENDER.plan = renderPlan;
     const _rs = renderSettings;
     renderSettings = function () {
       const el = $('#s-settings'); const pg = V.settingsPage || 'main';
       document.body.classList.toggle('a3setbig', desk() && (pg === 'main' || pg === 'look'));
-      if (pg !== 'main' && pg !== 'look' && pg !== 'a3lab') { el.classList.remove('a3s'); return _rs.apply(this, arguments); }
+      if (pg !== 'main' && pg !== 'look' && pg !== 'a3lab') { const r = _rs.apply(this, arguments); wrapOld(el); return r; }
+      el.classList.remove('a3old'); settle(el, 's:' + pg + (V.a3set || '') + NAV);
       if (pg === 'look' && desk()) { V.settingsPage = 'main'; V.a3set = 'look'; }
       el.classList.add('a3s'); el.innerHTML = pg === 'a3lab' ? labPage() : pg === 'look' && !desk() ? lookPhone() : desk() ? settingsDesk() : settingsPhone(); bindSettings(el);
     };
@@ -882,8 +1010,8 @@
       if (desk()) return r;
       const c = V.card && cardById(V.card); const el = $('#s-card'); if (!c || !el) { el && el.classList.remove('a3s'); return r; }
       const keep = [...el.querySelectorAll('.srcp, .stud')];
-      el.classList.add('a3s'); el.innerHTML = cardPhone(c);
-      const slot = el.querySelector('.a3slot'); keep.forEach(p => slot ? slot.before(p) : null); adoptPanels(el); bindAdd(el);
+      el.classList.add('a3s'); settle(el, 'c:' + c.id + CNAV); el.innerHTML = cardPhone(c);
+      const slot = el.querySelector('.a3slot'); keep.forEach(p => slot ? slot.before(p) : null); adoptPanels(el); bindAdd(el); bindNotes(el);
       return r;
     };
     /* computer pages */
@@ -898,10 +1026,11 @@
     deskCard = function () { const c = cardById(V.card); return c ? cardDesk(c) : _dc(); };
     deskCardMount = function () { const c = cardById(V.card); if (c) return; return _dcm(); };
     const _dr = deskRender;
-    deskRender = function (a) { _dr.apply(this, arguments); const d = $('#desk'); if (d && DESK.on) { d.classList.add('a3desk'); bindSliders(d); bindAdd(d); if (V.tab === 'board' && !V.card) bindBoard(d, true); if (V.card) adoptPanels(d.querySelector('#dCardMain')); } };
-    const _go = go; go = function (tab) { if (V.studio && !desk()) { V.studio = false; $('#nav').classList.remove('away'); document.body.classList.remove('navless'); const el = $('#s-card'); if (!V.card) { el.classList.remove('on', 'out'); el.innerHTML = ''; } } V.stv = false; return _go.apply(this, arguments); };
-    const _oc = openCard; openCard = function () { V.stv = false; if (V.studio) { V.studio = false; } return _oc.apply(this, arguments); };
+    deskRender = function (a) { _dr.apply(this, arguments); const d = $('#desk'); if (d && DESK.on) { d.classList.add('a3desk'); const dk = [V.card || '', V.tab, V.kd || '', V.stv ? 's' : '', DESK.mode, NAV, CNAV].join('|'); const mn = d.querySelector('main'); mn && mn.classList.toggle('a3noanim', d.dataset.a3k === dk); d.dataset.a3k = dk; const hd = d.querySelector('.a3top'); hd && d.dataset.seen && hd.classList.add('a3noanim'); d.dataset.seen = 1; bindNotes(d); bindSliders(d); bindAdd(d); if (V.tab === 'board' && !V.card) bindBoard(d, true); if (V.card) adoptPanels(d.querySelector('#dCardMain')); } };
+    const _go = go; go = function (tab) { if (tab !== V.tab) NAV++; if (V.studio && !desk()) { V.studio = false; $('#nav').classList.remove('away'); document.body.classList.remove('navless'); const el = $('#s-card'); if (!V.card) { el.classList.remove('on', 'out'); el.innerHTML = ''; } } V.stv = false; return _go.apply(this, arguments); };
+    const _oc = openCard; openCard = function () { CNAV++; V.stv = false; if (V.studio) { V.studio = false; } return _oc.apply(this, arguments); };
     if (ACT.stNew && !ACT.stNew._a3) { const _sn = ACT.stNew; ACT.stNew = function (el) { S.studioOn = true; save(); return _sn.apply(this, arguments); }; ACT.stNew._a3 = 1; }
+    setTimeout(() => { const st = STD(); if (st && S && S.studioOn && st.signed()) st.load(true); }, 1500);
     wall();
     if (S && S.onboarded) { if (desk()) deskRender(); else render(); }
   }

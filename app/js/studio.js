@@ -29,9 +29,10 @@
   }
   function schedule() {
     clearTimeout(ST.poll); const any = ST.jobs.some(busy) || Object.keys(ST.ups).length;
-    if (any && V.card) ST.poll = setTimeout(() => load(true), document.hidden ? 30000 : 5000);
+    /* v2052 · keep checking wherever the Studio shows: a card, the Studio page, Spaces or Home */
+    if (any) ST.poll = setTimeout(() => load(true), document.hidden ? 30000 : 4000);
   }
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && V.card && signed()) load(true); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && signed() && (V.card || V.studio || V.stv || ST.jobs.some(busy) || Object.keys(ST.ups).length)) load(true); });
 
   /* ---------- upload in parts, resumable ---------- */
   const upKey = id => 'studio:up:' + id;
@@ -63,7 +64,7 @@
       ST.jobs.unshift(j.job); ST.used = (ST.used || 0) + 1; await dropUp(u);
       toast(esc(L('Uploaded · Aurora is cutting it', 'Nahráno · Aurora stříhá')) + (p.on ? '' : ' · ' + esc(L('turn on notifications to hear when it is done', 'zapni notifikace, ať víš, kdy je hotovo'))));
     } catch (e) {
-      u.running = false; u.state = 'error'; u.err = e.code === 'limit' ? L('Today’s limit is used up (' + (e.j && e.j.limit) + ' videos). The video waits, try tomorrow.', 'Dnešní limit je vyčerpaný (' + (e.j && e.j.limit) + ' videí). Video počká, zkus to zítra.') : e.code === 'big' || e.code === 'type' ? e.message : L('Upload paused. It continues where it stopped.', 'Nahrávání se zastavilo. Pokračuje tam, kde skončilo.');
+      u.running = false; u.state = 'error'; u.err = e.code === 'limit' ? L('Today’s limit is used up (' + (e.j && e.j.limit) + ' videos). The video waits, try tomorrow.', 'Dnešní limit je vyčerpaný (' + (e.j && e.j.limit) + ' videí). Video počká, zkus to zítra.') : e.code === 'big' || e.code === 'type' ? e.message : L('Upload stopped', 'Nahrávání se zastavilo') + ' (' + (e.status ? e.status + ' · ' : '') + (e.message || 'network') + '). ' + L('Tap to try again.', 'Ťukni a zkusí to znova.');
       if (e.code === 'big' || e.code === 'type') await dropUp(u); else await saveUp(u);
       paintAll(); return;
     }
@@ -177,5 +178,5 @@
     if (typeof deskRender === 'function') { const _d = deskRender; deskRender = function (a) { _d(a); if (desk() && V.card) mount($('#dCardMain'), true); }; }
     restoreUps();
   });
-  window.STUDIO = { load, base, ST, rowJob, rowUp, signed, busy: j => busy(j), paintAll };
+  window.STUDIO = { api, load, base, ST, rowJob, rowUp, signed, busy: j => busy(j), paintAll, STAGE };
 })();
