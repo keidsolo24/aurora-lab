@@ -316,6 +316,79 @@
       + '<div class="a2-in" style="--i:1;padding:0 2px 4px">' + spacesSeg('deckFilter') + '</div>'
       + '<div class="a3deck" id="a3deck">' + cards.join('') + '</div><div class="a3dots" id="a3dots">' + cards.map((_, k) => '<i class="' + (k === (V.deckIdx || 0) ? 'on' : '') + '"></i>').join('') + '</div></div>';
   }
+  /* v2061 · Spaces on the phone as a Wallet: strips on top, the card that needs you open at the bottom,
+     the rest peeking under it. Scrolling walks through the deck; done cards sit at the very top, dimmed. */
+  function urg(x) {
+    try {
+      if (x.s) { const f = studioFacts(); return f.ready.length ? 0 : f.busy.length || f.ups.length ? 1 : 2; }
+      if (x.k) { const fa = keiroFacts(x.k); return fa.send || fa.rv ? 0 : 2; }
+      const c = x.c, d = T();
+      if (c.type === 'month' && monthDone(c)) return 3;
+      if (c.type === 'project') { const ps = projectStats(c.id); if (ps.total && ps.done >= ps.total) return 3; if (c.deadline && daysBetween(d, c.deadline) <= 3) return 0; }
+      if (c.type === 'habit') { const v = cardVal(c); if (v.f >= 1) return 3; }
+      const its = typeof cardItems === 'function' ? cardItems(c.id) : []; if (its.some(i => occurs(i, d) && !isDone(i, d))) return 0;
+      return nextOf(c) ? 1 : 2;
+    } catch (e) { return 2; }
+  }
+  const URG = () => [L('Waiting for you', 'Čeká na tebe'), L('Running', 'Běží'), L('Calm', 'V klidu'), L('Done', 'Hotovo')];
+  function walletCard(x, r) {
+    const tag = '<span class="a3wbg">' + esc(URG()[r]) + '</span>';
+    const nxl = (txt, w) => '<div class="a3wnx"><span class="a2-lab">' + esc(t('nextStep')) + '</span><span>' + esc(txt) + (w ? ' · ' + esc(w) : '') + '</span></div>';
+    if (x.s) { const f = studioFacts();
+      return '<div class="a3wc u' + r + '" style="--c:' + STC + '" data-a="a3StOpen"><div class="a3wch"><b>Aurora Studio</b><span class="a2-num">' + f.left + '/' + f.daily + '</span></div><div class="a3wcb">' + tag + '<b class="a2-d a3wbig">' + (f.ups.length + f.busy.length) + ' <small>' + esc(L('in progress', 'rozpracováno')) + '</small></b>' + nxl(studioNext(f)) + '</div></div>'; }
+    if (x.k) { const k = x.k, fa = keiroFacts(k);
+      return '<div class="a3wc u' + r + '" style="--c:' + k.color + '" data-a="krOpen" data-k="' + esc(k.k) + '"><div class="a3wch"><b>' + esc(k.name) + '</b><span class="a2-num">' + (fa.rv ? fa.rv + ' ' + esc(L('to review', 'k review')) : esc(fa.out)) + '</span></div><div class="a3wcb">' + tag + '<b class="a2-d a3wbig">' + fa.rv + ' <small>' + esc(L(fa.rv === 1 ? 'clip to review' : 'clips to review', plural(fa.rv, 'klip ke schválení', 'klipy ke schválení', 'klipů ke schválení'))) + '</small></b>'
+        + '<div class="a3w3">' + [[fa.out, L('out today', 'dnes venku')], [fa.sch, L('scheduled', 'naplánováno')], [fa.send, L('to send', 'k odeslání')]].map(([n, l]) => '<div class="a2-well"><b class="a2-d a2-num">' + esc(String(n)) + '</b><div>' + esc(l) + '</div></div>').join('') + '</div></div></div>'; }
+    const c = x.c, v = cardVal(c), nx = nextOf(c);
+    const bigv = '<b class="a2-d a3wbig">' + esc(v.v) + ' <small>' + esc(c.type === 'habit' ? L('this week', 'tento týden') : c.type === 'month' ? L('this month', 'tento měsíc') : L('open', 'otevřené')) + '</small></b>';
+    let mid = c.type === 'habit' || c.type === 'month' ? bigv + squares(c, true) : c.deadline ? '<b class="a2-d a3wbig">' + Math.max(0, daysBetween(T(), c.deadline)) + ' <small>' + esc(L('days to deadline', 'dní do termínu')) + '</small></b>' : bigv + segs(c, true);
+    mid = mid.split('background:' + c.color).join('background:#fff').split('rgba(var(--wr),.12)').join('rgba(255,255,255,.24)').split('rgba(var(--wr),.14)').join('rgba(255,255,255,.24)');
+    const bg = c.bgImg ? ';--img:url(' + c.bgImg + ')' : '';
+    return '<div class="a3wc u' + r + (c.bgImg ? ' img' : '') + '" style="--c:' + c.color + bg + '" data-a="openCard" data-id="' + c.id + '"><div class="a3wch"><b>' + esc(c.name) + '</b><span class="a2-num">' + esc(v.v) + '</span></div><div class="a3wcb">' + tag + mid + (nx ? nxl(nx.t, nx.w) : '') + '</div></div>';
+  }
+  function spacesPhone() {
+    const list = spaceList().map((x, i) => ({ x, r: urg(x), i }));
+    /* most urgent last (it opens at the bottom), done first (top, dimmed) */
+    list.sort((a, b) => b.r - a.r || b.i - a.i);
+    const cards = list.map(o => walletCard(o.x, o.r)).join('');
+    return '<div class="a2 a3p a3spaces a3wal-p">' + pHead('<b class="a2-d" style="font-size:44px">Spaces</b>', '<button class="a2-icon" data-a="newCard" aria-label="' + esc(t('newCard')) + '">' + ico('plus', 20, 2) + '</button>')
+      + '<div class="a3wal" id="a3wal"><div class="a3wst"><div class="a3wseg">' + spacesSeg('deckFilter') + '</div><div class="a3wdeck">' + (cards || '<button class="a2-glass a3ndr" data-a="newCard"><span>' + esc(t('newCard')) + '</span><span class="a2-t2">+</span></button>') + '</div></div></div></div>';
+  }
+  function bindWallet(scr) {
+    const wal = scr.querySelector('#a3wal'); if (!wal) return; const st = wal.querySelector('.a3wst'), deck = wal.querySelector('.a3wdeck'); const cs = [...deck.querySelectorAll('.a3wc')]; const n = cs.length; if (!n) return;
+    const STEP = 96; let H = 0, T0 = 0, sH = 44, PK = 7;
+    const size = () => {
+      const segH = st.querySelector('.a3wseg').offsetHeight + 10;
+      const top = parseFloat(getComputedStyle(st).top) || 0; T0 = top;
+      H = Math.max(300, scr.clientHeight - top - segH - (parseFloat(getComputedStyle(scr.querySelector('.a3p')).paddingBottom) || 92));
+      deck.style.height = H + 'px'; wal.style.height = (H + segH + (n - 1) * STEP) + 'px';
+      sH = Math.max(14, Math.min(58, (H - 300 - 3 * PK) / Math.max(1, n - 1)));
+    };
+    const lay = A => { /* positions for an integer active index A (0 = top of the deck) */
+      const out = []; const pileN = n - 1 - A; const pile = Math.min(3, pileN) * PK; const E = H - A * sH - pile;
+      for (let i = 0; i < n; i++) {
+        if (i < A) out.push({ y: i * sH, h: E, s: 1, z: i + 1, ex: 0 });
+        else if (i === A) out.push({ y: A * sH, h: E, s: 1, z: 50, ex: 1 });
+        else { const k = Math.min(3, i - A); out.push({ y: A * sH + k * PK, h: E, s: 1 - k * .045, z: 40 - k, ex: 0, hide: i - A > 3 }); }
+      }
+      return out;
+    };
+    const paint = () => {
+      const p = Math.max(0, Math.min(n - 1, (scr.scrollTop - Math.max(0, wal.offsetTop - T0)) / STEP));
+      const a = (n - 1) - p; const A0 = Math.floor(a), A1 = Math.min(n - 1, A0 + 1), f = a - A0;
+      const L0 = lay(A0), L1 = lay(A1);
+      cs.forEach((el, i) => { const x = L0[i], y = L1[i]; const Y = x.y + (y.y - x.y) * f, Hh = x.h + (y.h - x.h) * f, Sc = x.s + (y.s - x.s) * f, ex = x.ex + (y.ex - x.ex) * f;
+        el.style.transform = 'translate3d(0,' + Y.toFixed(1) + 'px,0) scale(' + Sc.toFixed(3) + ')'; el.style.height = Hh.toFixed(0) + 'px'; el.style.zIndex = f < .5 ? x.z : y.z; el.style.setProperty('--ex', ex.toFixed(2)); el.style.opacity = (x.hide && y.hide) ? 0 : 1; el.classList.toggle('act', ex > .5); });
+    };
+    size(); paint(); requestAnimationFrame(() => { size(); paint(); });
+    let raf = 0; scr.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); }, { passive: true });
+    /* a strip is a way to get there; only the open card opens */
+    deck.addEventListener('click', e => { const el = e.target.closest('.a3wc'); if (!el || el.classList.contains('act')) return; e.stopPropagation(); e.preventDefault();
+      const i = cs.indexOf(el); const top = Math.max(0, wal.offsetTop - T0) + ((n - 1) - i) * STEP; scr.scrollTo({ top, behavior: RM ? 'auto' : 'smooth' }); haptic && haptic(); }, true);
+    /* settle on a card after a fling */
+    let st2 = 0; scr.addEventListener('scroll', () => { clearTimeout(st2); st2 = setTimeout(() => { const base = Math.max(0, wal.offsetTop - T0); const p = (scr.scrollTop - base) / STEP; if (p < -.2 || p > n - .8) return; const k = Math.round(p); if (Math.abs(p - k) > .02) scr.scrollTo({ top: base + k * STEP, behavior: RM ? 'auto' : 'smooth' }); }, 140); }, { passive: true });
+    if (!wal._ro) { try { wal._ro = new ResizeObserver(() => { size(); paint(); }); wal._ro.observe(scr); } catch (e) {} }
+  }
   function bindDeck(el) {
     const d = el.querySelector('#a3deck'), dots = el.querySelector('#a3dots'); if (!d) return;
     const n = d.children.length, i0 = Math.min(V.deckIdx || 0, n - 1);
@@ -384,7 +457,7 @@
     const av = mem.length > 1 && typeof avStack === 'function' ? avStack(mem, isDesk ? 40 : 34) : '';
     const kt = k + (c.sh ? ' · ' + L('Together', 'Spolu') : '');
     if (isDesk) return '<div class="a2-in a3ctit" style="--i:1"><b class="a2-d">' + esc(c.name) + '</b>' + kick(kt, c.color) + (av ? '<span class="a3av">' + av + '</span>' : '') + '</div>';
-    return '<div class="a3hd a2-in" style="--i:0;padding:0 4px"><button class="a2-icon" data-a="closeCard" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span class="a3hdr">' + (c.sh ? '<button class="a2-chip" style="height:44px" data-a="spInvite" data-id="' + c.id + '">' + ico('users', 16, 2) + esc(L('Invite', 'Pozvat')) + '</button>' : '') + '<button class="a2-icon" data-a="a3Blocks" aria-label="' + esc(L('Edit blocks', 'Upravit bloky')) + '"' + (V.blkEdit === c.id ? ' style="background:var(--cream);color:#1b2228"' : '') + '>' + (V.blkEdit === c.id ? TICK.replace('width="20" height="20"', 'width="18" height="18"') : ico('board', 18, 2)) + '</button><button class="a2-icon" data-a="editCard" aria-label="' + esc(t('editCard')) + '">' + ico('more', 20, 2) + '</button></span></div>'
+    return '<div class="a3hd a2-in" style="--i:0;padding:0 4px"><button class="a2-icon" data-a="closeCard" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button><span class="a3hdr">' + (c.sh ? '<button class="a2-chip" style="height:44px" data-a="spInvite" data-id="' + c.id + '">' + ico('users', 16, 2) + esc(L('Invite', 'Pozvat')) + '</button>' : '') + '<button class="a2-icon" data-a="a3Blocks" aria-label="' + esc(L('Edit blocks', 'Upravit bloky')) + '"' + (V.blkEdit === c.id ? ' style="background:var(--cream);color:var(--oncr)"' : '') + '>' + (V.blkEdit === c.id ? TICK.replace('width="20" height="20"', 'width="18" height="18"').replace('#1b2228', 'currentColor') : ico('board', 18, 2)) + '</button><button class="a2-icon" data-a="editCard" aria-label="' + esc(t('editCard')) + '">' + ico('more', 20, 2) + '</button></span></div>'
       + '<div class="a2-in a3cti" style="--i:1">' + kick(kt, c.color) + '<div class="a3ctn"><b class="a2-d" style="font-size:' + (c.name.length > 12 ? 40 : 56) + 'px">' + esc(c.name) + '</b>' + av + '</div></div>';
   }
   function weekCard(c, isDesk) {
@@ -460,13 +533,41 @@
     const hidden = ord.filter(b => !blkOn(c, b));
     const add = ed ? '<div class="a3bk sz-L a3bkadd"><span class="a2-lab">' + esc(L('Add a block', 'Přidat blok')) + '</span><div class="a3bka">' + (hidden.map(b => '<button class="a2-chip" data-a="a3BkOn" data-id="' + b[0] + '">+ ' + esc(b[3]) + '</button>').join('') || '<span class="a2-t3">' + esc(L('All blocks are on.', 'Všechny bloky jsou zapnuté.')) + '</span>') + '</div></div>' : '';
     const empty = !items && !ed ? '<button class="a2-glass a3ndr" data-a="a3Blocks"><span>' + esc(L('All blocks are off.', 'Všechny bloky jsou vypnuté.')) + '</span><span class="a2-t2">' + esc(L('Edit', 'Upravit')) + ' ›</span></button>' : '';
-    return '<div class="a3bg' + (isDesk ? ' d' : '') + (ed ? ' editing' : '') + '" data-card="' + c.id + '">' + items + add + empty + '</div>';
+    const bgo = ed ? bgOpt(c) : '';
+    if (!isDesk && ed) return bgo + phoneEdit(c, ord) + add.replace('a3bk sz-L a3bkadd', 'a3bkadd2 a2-glass');
+    return bgo + '<div class="a3bg' + (isDesk ? ' d' : '') + (ed ? ' editing' : '') + '" data-card="' + c.id + '">' + items + add + empty + '</div>';
   }
+  /* v2061 · phone edit mode like iOS widgets: blocks wiggle, "–" hides, one big bar at the bottom sets the size */
+  function phoneEdit(c, ord) {
+    const shown = ord.filter(b => blkOn(c, b)); if (!shown.length) return '<div class="a3bg editing" data-card="' + c.id + '"></div>';
+    const sel = shown.some(b => b[0] === V.blkSel) ? V.blkSel : shown[0][0]; let k = 2;
+    const items = shown.map(b => { let sz = bSize(c, b[0], false); if (sz === 'M') sz = 'L';
+      return '<div class="a3bk sz-' + sz + ' ed pe' + (b[0] === sel ? ' sel' : '') + '" data-bk="' + b[0] + '"><button class="a3bksel" data-a="a3BkSel" data-id="' + b[0] + '" aria-label="' + esc(b[3]) + '"></button><button class="a3bkm" data-a="a3BkOff" data-id="' + b[0] + '" aria-label="' + esc(L('Hide', 'Skrýt')) + '"><i></i></button><span class="a3grip a3grip2" data-grip="' + b[0] + '" aria-label="' + esc(L('Move', 'Přesunout')) + '">⋮⋮</span>' + tagBlk(blockHTML(c, b[0], false), b[0], Math.min(9, k++)) + '</div>'; }).join('');
+    const sb = shown.find(b => b[0] === sel); let ssz = bSize(c, sel, false); if (ssz === 'M') ssz = 'L';
+    const bar = '<div class="a3bkbar"><span class="a3bkbn">' + esc(sb[3]) + '</span><div class="a3szb">' + [['S', L('Small', 'Malý')], ['L', L('Large', 'Velký')]].map(([z, l]) => '<button class="' + (z === ssz ? 'on' : '') + '" data-a="a3BkSize" data-id="' + sel + '" data-k="' + z + '">' + esc(l) + '</button>').join('') + '</div><button class="a3bkd" data-a="a3BkOff" data-id="' + sel + '" aria-label="' + esc(L('Hide', 'Skrýt')) + '">' + ico('trash', 18, 2) + '</button></div>';
+    return '<div class="a3bg editing pe" data-card="' + c.id + '">' + items + '</div>' + bar;
+  }
+  ACT.a3BkSel = el => { V.blkSel = el.dataset.id; haptic(); render(); };
+  /* card background: its own colour (default) or a photo */
+  function bgOpt(c) {
+    const k = c.bgImg ? 'photo' : 'color';
+    return '<div class="a2-glass a3bgopt"><span class="a3bgsw" style="' + (c.bgImg ? 'background:url(' + c.bgImg + ') center/cover' : 'background:linear-gradient(160deg,' + c.color + ',color-mix(in oklab,' + c.color + ' 45%,#000))') + '"></span><b>' + esc(L('Card background', 'Pozadí karty')) + '</b><div class="a2-seg">' + [['color', L('Colour', 'Barva')], ['photo', L('Photo', 'Foto')]].map(([x, l]) => '<button class="' + (k === x ? 'on' : '') + '" data-a="a3CardBg" data-k="' + x + '">' + esc(l) + '</button>').join('') + '</div></div>';
+  }
+  ACT.a3CardBg = el => {
+    const c = cardById(V.card); if (!c) return;
+    if (el.dataset.k === 'color') { delete c.bgImg; save(); haptic(); render(); return; }
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = () => { const f = inp.files && inp.files[0]; if (!f) return; const img = new Image(); const u = URL.createObjectURL(f);
+      img.onload = () => { const W = 520, sc = Math.min(1, W / img.width); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(u); c.bgImg = cv.toDataURL('image/jpeg', .62); save(); haptic(); render(); };
+      img.src = u; };
+    inp.click();
+  };
   /* masonry: each block takes as many 4px rows as it is tall, so short blocks never leave holes */
   let masRO = null;
   function masonry(root) {
     const g = (root || document).querySelector('.a3bg'); if (!g) return; g.classList.add('mas');
-    const fit = () => { [...g.children].forEach(el => { const h = [...el.children].reduce((a, x) => a + x.getBoundingClientRect().height, 0) + Math.max(0, el.children.length - 1) * 8; el.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + 16) / 4)); }); };
+    const fit = () => { [...g.children].forEach(el => { const ch = [...el.children].filter(x => !x.matches('.a3bksel,.a3bkm,.a3grip2')); const h = ch.reduce((a, x) => a + x.getBoundingClientRect().height, 0) + Math.max(0, ch.length - 1) * 8; el.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + 16) / 4)); }); };
     fit(); if (masRO) masRO.disconnect();
     try { masRO = new ResizeObserver(() => requestAnimationFrame(fit)); [...g.querySelectorAll('.a3bk > *')].forEach(x => masRO.observe(x)); } catch (e) {}
   }
@@ -808,12 +909,12 @@
     const tiles = WL.map(([k, l, bg], i) => '<button class="a3wt" data-a="a3Wall" data-k="' + k + '"><span class="a2-pop" style="--i:' + i + ';background:' + bg + (wk === k ? ';box-shadow:0 0 0 3px var(--cream)' : '') + '"></span><span class="' + (wk === k ? '' : 'a2-t2') + '">' + esc(l) + '</span></button>').join('')
       + '<button class="a3wt" data-a="a3Wall" data-k="photo"><span class="a2-pop" style="--i:4;' + (S.wallKey ? 'background:url(' + mediaNow(S.wallKey) + ') center/cover' : 'background:rgba(var(--wr),.08)') + (wk === 'photo' ? ';box-shadow:0 0 0 3px var(--cream)' : '') + '">' + (S.wallKey ? '' : ico('plus', 20, 1.8)) + '</span><span class="' + (wk === 'photo' ? '' : 'a2-t2') + '">' + esc(L('Your photo', 'Vlastní fotka')) + '</span></button>';
     const bl = S.blur ?? 12, bk = bl <= 4 ? 0 : bl <= 24 ? 12 : 40;
-    const blurRow = wk === 'photo' ? '<div class="a2-well a3lw"><div><b>' + esc(L('Photo blur', 'Rozmazání fotky')) + '</b><span class="a2-t2">' + esc(L('How much the photo melts behind the glass.', 'Jak moc se fotka rozpije za sklem.')) + '</span></div><div class="a2-seg">' + [[0, L('Sharp', 'Ostré')], [12, L('Soft', 'Jemné')], [40, L('Strong', 'Silné')]].map(([k, l]) => '<button class="' + (bk === k ? 'on' : '') + '" data-a="a3Blur" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div></div>' : '';
+    const blurRow = wk === 'photo' ? '<div class="a2-well a3lw"><div><b>' + esc(L('Photo blur', 'Rozmazání fotky')) + '</b></div><div class="a2-seg">' + [[0, L('Sharp', 'Ostré')], [12, L('Soft', 'Jemné')], [40, L('Strong', 'Silné')]].map(([k, l]) => '<button class="' + (bk === k ? 'on' : '') + '" data-a="a3Blur" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div></div>' : '';
     return '<div class="a3lk"><span class="a2-lab">' + esc(t('wallpaper')) + '</span><div class="a3wts">' + tiles + '</div></div>' + blurRow
-      + '<div class="a2-well a3lw"><div><b>' + esc(L('Motion', 'Pohyb')) + '</b><span class="a2-t2">' + esc(L('Full: everything moves. Calm: only check-offs and numbers. Off: no movement.', 'Plný: hýbe se všechno. Klidný: jen odškrtnutí a čísla. Vypnuto: bez pohybu.')) + '</span></div>' + motionSeg() + '</div>'
-      + '<div class="a2-well a3lw"><div><b>' + esc(L('Mode', 'Režim')) + '</b><span class="a2-t2">' + esc(L('Dark glass or light paper.', 'Tmavé sklo, nebo světlý papír.')) + '</span></div><div class="a2-seg"><button class="' + (S.mode !== 'light' ? 'on' : '') + '" data-a="setMode" data-k="dark">' + esc(L('Dark', 'Tmavý')) + '</button><button class="' + (S.mode === 'light' ? 'on' : '') + '" data-a="setMode" data-k="light">' + esc(L('Light', 'Světlý')) + '</button></div></div>'
-      + '<button class="a2-well a3lw" data-a="a3Still"><div><b>' + esc(L('Living wallpaper', 'Živá tapeta')) + '</b><span class="a2-t2">' + esc(L('The light drifts slowly behind everything.', 'Světlo se pomalu přelévá za vším.')) + '</span></div>' + tg(!S.a3still) + '</button>'
-      + '<div class="a2-well a3lw"><div><b>' + esc(L('Grain', 'Zrno')) + '</b><span class="a2-t2">' + esc(L('A little texture, like paper.', 'Trochu struktury, jako papír.')) + '</span></div><input type="range" class="a3rng" id="a3grain" min="0" max="0.4" step="0.02" value="' + grain + '" aria-label="' + esc(L('Grain', 'Zrno')) + '"></div>' + orbPanel();
+      + '<div class="a2-well a3lw"><div><b>' + esc(L('Motion', 'Pohyb')) + '</b></div>' + motionSeg() + '</div>'
+      + '<div class="a2-well a3lw"><div><b>' + esc(L('Mode', 'Režim')) + '</b></div><div class="a2-seg"><button class="' + (S.mode !== 'light' ? 'on' : '') + '" data-a="setMode" data-k="dark">' + esc(L('Dark', 'Tmavý')) + '</button><button class="' + (S.mode === 'light' ? 'on' : '') + '" data-a="setMode" data-k="light">' + esc(L('Light', 'Světlý')) + '</button></div></div>'
+      + '<button class="a2-well a3lw" data-a="a3Still"><div><b>' + esc(L('Living wallpaper', 'Živá tapeta')) + '</b></div>' + tg(!S.a3still) + '</button>'
+      + '<div class="a2-well a3lw"><div><b>' + esc(L('Grain', 'Zrno')) + '</b></div><input type="range" class="a3rng" id="a3grain" min="0" max="0.4" step="0.02" value="' + grain + '" aria-label="' + esc(L('Grain', 'Zrno')) + '"></div>' + orbPanel();
   }
   function setGroups() {
     const k = typeof KCFG === 'function' ? KCFG() : (KX() ? KX().C : {}); const kOn = k && k.on;
@@ -823,7 +924,7 @@
       ['acc', L('Account', 'Účet'), srow2('syncPage', esc(L('Phone and computer', 'Telefon a počítač')), '<span class="a2-t2">' + esc(sync) + ' ›</span>') + srow2('joinCodeSheet', esc(L('Card invitation', 'Pozvánka do karty')), chev) + (innerWidth >= 700 ? srow2('layoutSheet', esc(L('Layout', 'Rozložení')), '<span class="a2-t2">' + esc(typeof layoutLabel === 'function' ? layoutLabel() : '') + ' ›</span>') : '')],
       ['look', L('Look', 'Vzhled'), null],
       ['notif', L('Notifications', 'Notifikace'), srow2('notifPage', esc(L('Reminders for plans', 'Připomínky k plánům')), '<span class="a2-t2">' + esc(S.push && S.push.on ? L('On', 'Zap') : L('Off', 'Vyp')) + ' ›</span>') + srow2('toggleNudges', esc(t('nudges')), tg(S.nudges)) + srow2('toggleWeekly', esc(L('Sunday: your week', 'Neděle: tvůj týden')), tg(S.weekly))],
-      ['tools', L('Tools', 'Nástroje'), srow2('srcSetup', esc(L('Sources', 'Zdroje')), '<span class="a2-t2">' + esc(srcN ? srcN + ' ' + L('connected', plural(srcN, 'připojený', 'připojené', 'připojených')) : L('Link reader', 'Čtečka odkazů')) + ' ›</span>') + srow2('keiroSettings', esc(L('Automation', 'Automatizace')), '<span style="color:' + (kOn ? '#7fe3ad' : 'var(--t2)') + '">' + esc(kOn ? L('On', 'Zap') : L('Off', 'Vyp')) + ' ›</span>')
+      ['tools', L('Tools', 'Nástroje'), srow2('srcSetup', esc(L('Sources', 'Zdroje')), '<span class="a2-t2">' + esc(srcN ? srcN + ' ' + L('connected', plural(srcN, 'připojený', 'připojené', 'připojených')) : L('Link reader', 'Čtečka odkazů')) + ' ›</span>') + srow2('keiroSettings', esc(L('Automation', 'Automatizace')), '<span style="color:' + (kOn ? 'var(--okc)' : 'var(--t2)') + '">' + esc(kOn ? L('On', 'Zap') : L('Off', 'Vyp')) + ' ›</span>')
         + (st && st.daily ? '<div class="a3sr col"><div class="a3srh"><span class="a3srl">Studio · ' + esc(L('videos today', 'videa dnes')) + '</span><span class="a2-t2 a2-num"><b style="color:var(--cream)">' + (st.used || 0) + '</b> / ' + st.daily + '</span></div><span class="a3bar2"><span class="a2-grow" style="width:' + Math.min(100, (st.used || 0) / st.daily * 100).toFixed(0) + '%"></span></span></div>' : '')],
       ['help', L('Help', 'Pomoc'), srow2('a3Check', esc(L('Connection check', 'Kontrola spojení')), chev) + srow2('feedback', esc(L('Send feedback', 'Napsat feedback')), chev) + srow2('tutorial', esc(L('How Aurora works', 'Jak Aurora funguje')), '<span class="a2-t2">1 min ›</span>') + srow2('pickLang', esc(t('language')), '<span class="a2-t2">' + esc(t('lang_' + S.lang)) + ' ›</span>') + srow2('exportData', esc(t('backup')), chev) + srow2('restoreData', esc(t('restore')), chev)]
     ];
@@ -880,6 +981,7 @@
   /* what is happening right now, so you can see it works: steps, a moving bar, time running */
   const ST_ORDER = ['start', 'download', 'transcript', 'plan', 'cut', 'render', 'upload'];
   const ST_TXT = { start: ['Waking up the cutter', 'Startuju střižnu'], download: ['Getting your video', 'Beru tvoje video'], transcript: ['Listening to what is said', 'Poslouchám, co se říká'], plan: ['Reading what you want', 'Čtu, co chceš'], cut: ['Cutting the pauses', 'Stříhám pauzy'], render: ['Rendering the video', 'Renderuju video'], upload: ['Almost done', 'Skoro hotovo'] };
+  const liq = (pc, cls) => '<span class="a3liq' + (cls ? ' ' + cls : '') + '" style="--h:' + Math.max(8, Math.min(100, pc)) + '%"><span class="a3lw">' + '<svg viewBox="0 0 240 16" preserveAspectRatio="none"><path d="M0 8 Q15 0 30 8 T60 8 T90 8 T120 8 T150 8 T180 8 T210 8 T240 8 V16 H0Z"/></svg>' + '<svg class="b" viewBox="0 0 240 16" preserveAspectRatio="none"><path d="M0 8 Q15 0 30 8 T60 8 T90 8 T120 8 T150 8 T180 8 T210 8 T240 8 V16 H0Z"/></svg>' + '</span></span>';
   const mmss = ms => { const s2 = Math.max(0, Math.round(ms / 1000)); return Math.floor(s2 / 60) + ':' + String(s2 % 60).padStart(2, '0'); };
   function liveRow(j) {
     const k = Math.max(0, ST_ORDER.indexOf(j.stage || (j.status === 'queued' ? '' : 'start')));
@@ -887,13 +989,11 @@
     const pc = queued ? 4 : Math.max(j.pct || 0, Math.round((k + .5) / ST_ORDER.length * 100));
     const txt = queued ? L('In the queue · starts in a moment', 'Ve frontě · za chvíli začne') : L(...(ST_TXT[j.stage] || ST_TXT.start));
     const since = j.created ? Date.now() - (+j.created || Date.parse(j.created)) : 0;
-    return '<button class="a3live" data-a="stOpen" data-id="' + j.id + '"><span class="a3lorb"><i></i></span><span class="a3lt"><b>' + esc(j.prompt || j.name || 'Video') + '</b><span class="a2-t2">' + esc(txt) + (queued ? '' : ' · ' + L('step ', 'krok ') + (k + 1) + '/' + ST_ORDER.length) + '</span>'
-      + '<span class="a3lbar"><i style="width:' + pc + '%"></i></span><span class="a2-t3 a3lmeta">' + (since > 0 ? esc(L('running ', 'běží ') + mmss(since)) + ' · ' : '') + esc(L('usually 1–3 min', 'obvykle 1–3 min')) + '</span></span></button>';
+    return '<button class="a3live a3vsl" data-a="stOpen" data-id="' + j.id + '">' + liq(pc) + '<span class="a3vtx"><b class="a2-d">' + esc(txt) + '</b><span class="a3vsub">' + esc(j.prompt || j.name || 'Video') + (queued ? '' : ' · ' + L('step ', 'krok ') + (k + 1) + '/' + ST_ORDER.length) + (since > 0 ? ' · ' + mmss(since) : '') + '</span></span></button>';
   }
   function upRow(u) {
     const err = u.state === 'error';
-    return '<button class="a3live' + (err ? ' err' : '') + '" data-a="stUp" data-id="' + u.id + '"><span class="a3lorb up"><i></i></span><span class="a3lt"><b>' + esc(u.prompt || u.name) + '</b><span class="a2-t2">' + esc(err ? u.err : u.state === 'offline' ? L('Waiting for the internet…', 'Čekám na internet…') : L('Uploading ', 'Nahrávám ') + (u.pct || 0) + ' %') + '</span>'
-      + (err ? '' : '<span class="a3lbar"><i style="width:' + Math.max(3, u.pct || 0) + '%"></i></span><span class="a2-t3 a3lmeta">' + esc(L('keep the app open while it uploads', 'nech appku otevřenou, než se nahraje')) + '</span>') + '</span></button>';
+    return '<button class="a3live a3vsl' + (err ? ' err' : '') + '" data-a="stUp" data-id="' + u.id + '">' + (err ? '' : liq(u.pct || 0, 'up')) + '<span class="a3vtx"><span class="a2-lab">' + esc(L('Uploading', 'Nahrávám')) + '</span><b class="a2-d">' + esc(err ? L('Upload stopped', 'Nahrávání se zastavilo') : u.state === 'offline' ? L('Waiting for internet', 'Čekám na internet') : (u.pct || 0) + ' %') + '</b><span class="a3vsub">' + esc(err ? u.err : (u.prompt || u.name)) + '</span></span></button>';
   }
   setInterval(() => { if ((V.studio || V.stv) && document.querySelector('.a3live')) { try { window.A3S && A3S.paint(); } catch (e) {} } }, 1000);
 
@@ -915,7 +1015,7 @@
     const errTxt = e => (e && e.status ? e.status + ' · ' : '') + ((e && e.message) || String(e)).slice(0, 90);
     const pull = cr => syncApi('/s/pull', { sp: cr.sp, secret: cr.secret, since: Number.MAX_SAFE_INTEGER, sinceK: '' });
     openSheet({ title: L('Connection check', 'Kontrola spojení'), right: L('Again', 'Znovu'), cls: 'a3cksheet',
-      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2059 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
+      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2061 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
       mount: el => { paint(el); const run = async () => {
         const set = (k, v) => { R[k] = v; paint(el); };
         try { const r = await fetch(pushBase() + '/', { cache: 'no-store' }); const j = await r.json().catch(() => null); set('srv', r.ok && j && j.sync ? [1, L('running', 'běží')] : [0, 'http ' + r.status]); } catch (e) { set('srv', [0, L('not reachable', 'nedostupný') + ' · ' + errTxt(e)]); }
@@ -939,19 +1039,19 @@
     const head = isDesk ? '<div class="a2-in a3ctit a3gh" style="--i:1"><div>' + kick('Aurora Studio', STC) + '<b class="a2-d">' + esc(L('Garage', 'Garáž')) + '</b></div></div>'
       : '<div class="a3hd a2-in" style="--i:0;padding:0 4px"><button class="a2-icon" data-a="a3StClose" aria-label="' + esc(L('Back', 'Zpět')) + '">' + ico('back', 20, 2.2) + '</button></div><div class="a2-in a3cti" style="--i:1">' + kick('Aurora Studio', STC) + '<b class="a2-d" style="font-size:52px">' + esc(L('Garage', 'Garáž')) + '</b></div>';
     if (!f.signed) return (isDesk ? '<main class="dmain a2 a3d a3dcard scr2 a3dstudio">' : '<div class="a2 a3p a3studio">') + head + '<div class="a2-glass a2-tint a2-in a3sth" style="--i:2;--c:' + STC + '"><b class="a2-d" style="font-size:28px">' + esc(L('Sign in first', 'Nejdřív se přihlas')) + '</b><span class="a2-t2 a3sts">' + esc(L('Studio cuts on the server, so it needs your Aurora account.', 'Studio stříhá na serveru, potřebuje tvůj účet v Auroře.')) + '</span><button class="a2-btn a3w" data-a="a3StLogin">' + esc(L('Sign in', 'Přihlásit se')) + '</button></div>' + diagRow() + (isDesk ? '</main>' : '</div>');
-    const today = '<div class="a2-glass a2-tint a2-in a3gtoday" style="--i:2;--c:' + STC + '"><div><span class="a2-lab">' + esc(L('Today', 'Dnes')) + '</span><div class="a3gnum"><b class="a2-d a2-num">' + f.left + '</b><span class="a2-t2">/ ' + f.daily + ' ' + esc(L('videos', 'videí')) + '</span></div><span class="a2-t3">' + esc(L('Finished cuts stay 7 days', 'Hotová videa drží 7 dní')) + '</span></div>' + ring(isDesk ? 86 : 72, f.used / f.daily, STC, 2) + (isDesk ? '' : '<button class="a2-btn a3w" data-a="stNew" data-id="studio">' + ico('plus', 16, 2.4) + esc(L('New video', 'Nové video')) + '</button>') + '</div>';
+    const today = '<div class="a2-glass a2-tint a2-in a3gtoday" style="--i:2;--c:' + STC + '"><div><span class="a2-lab">' + esc(L('Today', 'Dnes')) + '</span><div class="a3gnum"><b class="a2-d a2-num">' + f.left + '</b><span class="a2-t2">/ ' + f.daily + ' ' + esc(L('videos', 'videí')) + '</span></div><span class="a3pips">' + Array.from({ length: f.daily }, (_, k) => '<i class="' + (k < f.used ? 'u' : '') + '"></i>').join('') + '</span></div>' + (isDesk ? '' : '<button class="a2-btn a3w" data-a="stNew" data-id="studio">' + ico('plus', 16, 2.4) + esc(L('New video', 'Nové video')) + '</button>') + '</div>';
     const rowsA = f.ups.map(u => upRow(u)).concat(f.busy.map(j => liveRow(j)), f.ready.map(j => st.rowJob(j)));
-    const lift = '<div class="a2-glass a2-in a3glift" style="--i:3"><span class="a2-lab a3tlh">' + esc(L('On the lift', 'Na zvedáku')) + (rowsA.length ? ' · ' + rowsA.length : '') + '</span>' + (rowsA.length ? rowsA.join('') : '<div class="a3gempty"><span class="a3gjack"></span><span class="a2-t2">' + esc(L('The lift is empty. Bring a video and write what you want from it.', 'Zvedák je prázdný. Přivez video a napiš, co z něj chceš.')) + '</span></div>') + '</div>';
+    const lift = '<div class="a2-glass a2-in a3glift" style="--i:3"><span class="a2-lab a3tlh">' + esc(L('On the lift', 'Na zvedáku')) + (rowsA.length ? ' · ' + rowsA.length : '') + '</span>' + (rowsA.length ? rowsA.join('') : '<div class="a3gempty"><span class="a3gjack"></span><span class="a2-t2">' + esc(L('Empty', 'Prázdno')) + '</span></div>') + '</div>';
     const T2 = [['cut', L('Cut', 'Střih'), L('ready', 'připraveno'), 1, '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.5 8 20 18M8.5 16 20 6"/>'],
       ['cap', L('Captions', 'Titulky'), L('in every cut', 'v každém střihu'), 1, '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 15h4M13 15h4M7 11h10"/>'],
       ['cover', L('Cover', 'Cover'), L('soon', 'brzy'), 0, '<rect x="4" y="3" width="16" height="18" rx="3"/><path d="m8 15 3-3 5 5"/><circle cx="15" cy="8" r="1.5"/>'],
       ['music', L('Music', 'Hudba'), L('soon', 'brzy'), 0, '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>']];
-    const shelf = '<div class="a2-glass a2-in a3gshelf" style="--i:4"><span class="a2-lab a3tlh">' + esc(L('Tools', 'Nástroje')) + '</span><div class="a3gtools">' + T2.map(x => '<button class="a3gtool' + (x[3] ? ' on' : '') + '"' + (x[0] === 'cut' ? ' data-a="stNew" data-id="studio"' : ' disabled') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">' + x[4] + '</svg><span><b>' + esc(x[1]) + '</b><small>' + esc(x[2]) + '</small></span></button>').join('') + '</div></div>';
+    const shelf = '<div class="a2-glass a2-in a3gshelf" style="--i:4"><span class="a2-lab a3tlh">' + esc(L('Tools', 'Nástroje')) + '</span><div class="a3gtools">' + T2.map(x => x[3] ? '<button class="a3gtool on" data-a="stNew" data-id="studio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">' + x[4] + '</svg><span><b>' + esc(x[1]) + '</b></span></button>' : '<div class="a3gtool soon" aria-disabled="true"><span><small>' + esc(L('Soon', 'Brzy')) + '</small><b>' + esc(x[1]) + '</b></span></div>').join('') + '</div></div>';
     const rowsB = f.jobs.filter(j => !st.busy(j) && j.status !== 'ready').slice(0, 12).map(j => st.rowJob(j));
-    const done = '<div class="a2-glass a2-in a3stl" style="--i:5"><span class="a2-lab a3tlh">' + esc(L('Finished', 'Hotové')) + (rowsB.length ? ' · ' + rowsB.length : '') + '</span>' + (rowsB.length ? rowsB.join('') : '<span class="a2-t3 a3ste">' + esc(L('Your finished cuts park here.', 'Hotové střihy tu zaparkují.')) + '</span>') + '</div>';
-    const tip = '<button class="a2-glass a2-in a3ndr" style="--i:6" data-a="tab" data-k="board"><span>' + esc(L('A video already on Board? Tap Cut on it.', 'Video už máš na Boardu? Ťukni u něj na Střih.')) + '</span><span class="a2-t2">Board ›</span></button>';
-    if (isDesk) return '<main class="dmain a2 a3d a3dcard scr2 a3dstudio">' + head + '<div class="a3gg"><div class="a3col">' + lift + shelf + '</div><div class="a3col">' + today + done + tip + diagRow() + '</div></div></main>';
-    return '<div class="a2 a3p a3studio">' + head + today + lift + shelf + done + tip + diagRow() + '</div>';
+    const done = !rowsB.length ? '' : '<div class="a2-glass a2-in a3stl" style="--i:5"><span class="a2-lab a3tlh">' + esc(L('Finished', 'Hotové')) + (rowsB.length ? ' · ' + rowsB.length : '') + '</span>' + (rowsB.length ? rowsB.join('') : '<span class="a2-t3 a3ste">' + esc(L('Your finished cuts park here.', 'Hotové střihy tu zaparkují.')) + '</span>') + '</div>';
+    const tip = DIAG.srv === false || DIAG.acc === false ? diagRow() : '';
+    if (isDesk) return '<main class="dmain a2 a3d a3dcard scr2 a3dstudio">' + head + '<div class="a3gg"><div class="a3col">' + lift + shelf + '</div><div class="a3col">' + today + done + tip + '</div></div></main>';
+    return '<div class="a2 a3p a3studio">' + head + today + lift + shelf + done + tip + '</div>';
   }
 
   function openStudio() {
@@ -1069,7 +1169,7 @@
   ACT.a3OrbMove = el => { S.orbMove = el.dataset.k; save(); renderSettings(); };
   function orbPanel() {
     const c = orbCols(), mvk = (S && S.orbMove) || 'live';
-    return '<div class="a2-well a3lw a3orbp"><div style="flex:1;min-width:0"><b>' + esc(L('AI orb', 'AI orb')) + '</b><span class="a2-t2">' + esc(L('Up to 3 colours. Tap a circle to pick.', 'Až 3 barvy. Ťukni na kolečko a vyber.')) + '</span>'
+    return '<div class="a2-well a3lw a3orbp"><div style="flex:1;min-width:0"><b>' + esc(L('AI orb', 'AI orb')) + '</b>'
       + '<div class="a3ocs">' + c.map((x, i) => '<label class="a3oc" style="--sw:' + x + '"><input type="color" value="' + x + '" data-oc="' + i + '" aria-label="' + esc(L('Colour ', 'Barva ') + (i + 1)) + '"><span></span></label>').join('') + '<button class="a2-icon a3ocn" data-a="a3OrbN" aria-label="' + esc(c.length > 1 ? L('One colour less', 'O barvu méně') : L('More colours', 'Víc barev')) + '">' + (c.length > 1 ? '−' : '+') + '</button><span class="orbv a3oprev"></span></div>'
       + '<div class="a3opre">' + ORB_PRE.map(p => '<button class="a2-chip" data-a="a3OrbPre" data-k="' + p[0] + '"><span class="a3odot" style="background:linear-gradient(135deg,' + p[2].join(',') + ')"></span>' + esc(p[1]) + '</button>').join('') + '</div>'
       + '<div class="a2-seg" style="margin-top:10px">' + [['calm', L('Calm', 'Klidný')], ['live', L('Alive', 'Živý')], ['wild', L('Wild', 'Divoký')]].map(([k, l]) => '<button class="' + (mvk === k ? 'on' : '') + '" data-a="a3OrbMove" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div></div></div>';
@@ -1088,6 +1188,27 @@
     el.classList.add('a3s', 'a3noanim'); el.classList.remove('a3old'); document.body.classList.add('a3setbig');
     el.innerHTML = settingsDesk(OLDG[pg]); const pn = el.querySelector('.a3oldp'); pn && pn.append(...nodes);
   }
+  /* v2061 · header stays: back + actions float on top, the title folds into a small pill when you scroll */
+  function heads(root) {
+    if (desk()) return;
+    (root || document).querySelectorAll('.a3p:not(.a3home) > .a3hd:not(.a3fh)').forEach(hd => {
+      hd.classList.add('a3fh'); const p = hd.parentNode;
+      if (!p.querySelector(':scope > .a3edge')) p.insertAdjacentHTML('afterbegin', '<div class="a3edge" aria-hidden="true"></div>');
+      const own = hd.querySelector(':scope > b.a2-d'); const nxt = p.querySelector(':scope > .a3cti b.a2-d, :scope > .a3cti .a3ctn b.a2-d');
+      const txt = ((own || nxt || {}).textContent || '').trim(); if (!txt) return;
+      const back = hd.querySelector('[data-a="closeCard"],[data-a="closeSettings"],[data-a="settingsBack"],[data-a="a3StClose"],[data-a="krClose"]');
+      hd.insertAdjacentHTML('beforeend', '<span class="a3pill' + (back ? ' bk' : '') + '" aria-hidden="true">' + esc(txt) + '</span>');
+      const pill = hd.lastElementChild; const right = hd.querySelector(':scope > .a3hdr') || (hd.children.length > 2 ? hd.children[hd.children.length - 2] : null);
+      requestAnimationFrame(() => { const rw = right && right !== pill && right !== back && !right.matches('b') ? right.offsetWidth : 0; pill.style.maxWidth = Math.max(80, hd.clientWidth - (back ? 56 : 0) - rw - 14) + 'px'; });
+    });
+  }
+  document.addEventListener('scroll', e => { const s = e.target; if (!s || !s.classList || !s.classList.contains('scr')) return; const p = s.querySelector(':scope > .a3p'); if (!p) return; const y = s.scrollTop; p.classList.toggle('a3sc1', y > 4); p.classList.toggle('a3scd', y > 52); }, { capture: true, passive: true });
+  /* Home stack: the page that leaves shrinks and fades a little, so a half-way swipe still reads as one stack */
+  function stackFx(root) {
+    const sc = root.querySelector('#hst'); if (!sc || sc._fx) return; sc._fx = 1;
+    const go = () => { const h = sc.clientHeight + 12; [...sc.children].forEach((c, i) => { const d = (i * h - sc.scrollTop) / h; const a = Math.min(1, Math.abs(d)); c.style.transform = d < 0 ? 'scale(' + (1 - a * .08).toFixed(3) + ')' : ''; c.style.opacity = (1 - a * .55).toFixed(2); c.style.transformOrigin = '50% 100%'; }); };
+    let r = 0; sc.addEventListener('scroll', () => { cancelAnimationFrame(r); r = requestAnimationFrame(go); }, { passive: true }); requestAnimationFrame(go);
+  }
   function install() {
     orbPaint(); setTimeout(symScan, 300); try { new MutationObserver(() => { if (document.querySelector('.orbv:not(.sym)')) symScan(); }).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
     /* photo wallpaper: the computer no longer forces a heavy blur; old heavy blur values settle on "Soft" once */
@@ -1097,18 +1218,19 @@
     try { const _al = applyLook; applyLook = function () { const r = _al.apply(this, arguments); try { if (S && S.wall === 'photo' && S.wallKey) S.a3wall = 'photo'; wall(); } catch (e) {} return r; }; } catch (e) {}
     /* old settings pages fill in late (Automation loads first): wrap them whenever they land */
     try { const se = $('#s-settings'); se && new MutationObserver(() => { if (V.settingsOpen && (V.settingsPage || 'main') in OLDG) wrapOld(se); }).observe(se, { childList: true }); } catch (e) {}
-    document.body.classList.add('a3');
+    document.body.classList.add('a3', 'a3boot'); setTimeout(() => document.body.classList.remove('a3boot'), 1400);
+    let hq = 0; try { new MutationObserver(() => { if (hq) return; hq = requestAnimationFrame(() => { hq = 0; heads(); }); }).observe($('#app') || document.body, { childList: true, subtree: true }); } catch (e) {}
     /* phone pages */
     const _home = renderHome;
     renderHome = function () {
       if (desk()) return _home.apply(this, arguments);
-      const el = $('#s-home'); el.classList.add('a3s'); settle(el, 'home' + NAV); el.innerHTML = homePhone(); bindSliders(el); try { h19Mount(el, true); } catch (e) {} auraFromCards && auraFromCards(null);
+      const el = $('#s-home'); el.classList.add('a3s'); settle(el, 'home' + NAV); el.innerHTML = homePhone(); bindSliders(el); try { h19Mount(el, true); } catch (e) {} stackFx(el); auraFromCards && auraFromCards(null);
     };
     RENDER.home = renderHome;
     const _sp = renderSpaces;
     renderSpaces = function () {
       if (desk()) return _sp.apply(this, arguments);
-      const el = $('#s-spaces'); el.classList.add('a3s'); settle(el, 'spaces' + NAV); el.innerHTML = spacesPhone(); bindDeck(el); auraFromCards && auraFromCards(null);
+      const el = $('#s-spaces'); el.classList.add('a3s'); settle(el, 'spaces' + NAV); el.innerHTML = spacesPhone(); bindWallet(el); auraFromCards && auraFromCards(null);
     };
     RENDER.spaces = renderSpaces;
     const _rb = renderBoard;

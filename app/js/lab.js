@@ -62,7 +62,6 @@
           : '<button class="pbtn cr press" style="width:100%" data-a="labSyncCode">' + ico('plus', 18, 2.4) + esc(L('Show code', 'Ukázat kód')) + '</button>') + '</section></div>'
         + '<div class="sec"><section class="grp frost solid"><button class="srow" data-a="labSyncNow">' + esc(L('Sync now', 'Synchronizovat teď')) + '<span class="r">' + ico('sync', 15, 2) + '</span></button><button class="srow red" data-a="labSyncLeave">' + esc(L('Unlink this device', 'Odpojit toto zařízení')) + '</button></section></div>';
     }
-    h += '<div class="muted" style="font:400 12.5px/1.5 Inter;margin:14px 6px 0">' + esc(L('This link is only for your Lab. Your beta account is never changed; the Lab only reads from it (Lab → Pull data from the beta).', 'Tohle propojení je jen pro tvůj Lab. Účet z bety se nikdy nemění, Lab z něj jen čte (Lab → Stáhnout data z bety).')) + '</div>';
     return h;
   }
   ACT.labSyncCreate = async () => { try { toast(esc(L('Creating the link…', 'Vytvářím propojení…'))); await labCreate(); renderSettings(); } catch (e) { toast(esc(L('Server is not answering', 'Server neodpovídá'))); } };
