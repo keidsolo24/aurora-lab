@@ -299,7 +299,8 @@
     if (on) {
       if (!m) { m = document.createElement('div'); m.id = 'orbMood'; document.body.appendChild(m); }
       void goo; /* v2045 · thinking = the living orb in a small pill, nothing gets blurred */
-      m.innerHTML = '<div class="omp"><span class="omb">' + orbFace() + '</span><span class="omt"><b>' + esc(L('Aurora is thinking…', 'Aurora přemýšlí…')) + '</b><small>' + esc(label || '') + '</small></span></div>';
+      /* v2059 · like a voice assistant: the orb grows into the middle, the app melts behind it */
+      m.innerHTML = '<div class="omx"><span class="orbv big" aria-hidden="true"></span><b>' + esc(L('Aurora is thinking…', 'Aurora přemýšlí…')) + '</b><small>' + esc(label || '') + '</small></div>';
       document.body.classList.add('thinking'); requestAnimationFrame(() => m.classList.add('on'));
     } else if (m) { m.classList.add('out'); m.classList.remove('on'); document.body.classList.remove('thinking'); setTimeout(() => m && m.remove(), 700); }
   }

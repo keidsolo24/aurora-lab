@@ -286,9 +286,9 @@ function planHover(ev, st) {
   const cs = lang() === 'cs';
   if (col) {
     const r = col.getBoundingClientRect(); const dur = st.info.dur || 45;
-    let m = snap15((ev.clientY - r.top) / r.height * 1440 - (st.info.grabOff || 0)); m = clamp(m, 0, 1440 - 15);
+    let m = snap15(wm((ev.clientY - r.top) / r.height) - (st.info.grabOff || 0)); m = clamp(m, 0, 1440 - 15);
     st.target = { d: col.dataset.d, time: mtime(m) };
-    const pv = document.createElement('div'); pv.className = 'dprev'; pv.style.top = (m / 1440 * 100) + '%'; pv.style.height = (Math.min(dur, 1440 - m) / 1440 * 100) + '%';
+    const pv = document.createElement('div'); pv.className = 'dprev'; pv.style.top = wy(m) + '%'; pv.style.height = 'max(26px,' + (wy(Math.min(1440, m + dur)) - wy(m)) + '%)';
     pv.innerHTML = '<b>' + esc(dayShort(col.dataset.d) + ' · ' + mtime(m) + ' · ' + durLabel(dur)) + '</b>'; col.appendChild(pv);
   } else if (all) {
     st.target = { d: all.dataset.d, time: null }; all.classList.add('over');
@@ -326,7 +326,7 @@ function resizeStart(e, id, d, rzEl) {
   e.stopPropagation(); e.preventDefault();
   const i = itemById(id); if (!i) return; const blk = rzEl.closest('.wb'); const col = blk.closest('.wgc'); const r = col.getBoundingClientRect();
   const start = tmin(i.time); let dur = i.dur || 45; const lab = blk.querySelector('small');
-  const move = ev => { const m = (ev.clientY - r.top) / r.height * 1440; dur = clamp(snap15(m - start), 15, 1440 - start); blk.style.height = (dur / 1440 * 100) + '%'; if (lab) lab.textContent = i.time + ' · ' + durLabel(dur); };
+  const move = ev => { const m = wm((ev.clientY - r.top) / r.height); dur = clamp(snap15(m - start), 15, 1440 - start); blk.style.height = 'max(26px,' + (wy(start + dur) - wy(start)) + '%)'; if (lab) lab.textContent = i.time + ' · ' + durLabel(dur); };
   const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); const old = i.dur; i.dur = dur; save(); render(); toast(esc((lang() === 'cs' ? 'Délka ' : 'Length ') + durLabel(dur)), { label: t('undo'), fn: () => { i.dur = old; save(); render(); } }); };
   window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
 }
@@ -338,7 +338,7 @@ document.addEventListener('pointerdown', e => {
   if (kind === 'idea') { const m = S.moments.find(x => x.id === id); if (!m) return; dragStart(e, { kind, id, title: ((m.title || m.note || '').split('\n')[0] || momName(m)).slice(0, 60), color: cardColor(m.card), dur: 45, click: () => openViewer(id) }); return; }
   const i = itemById(id); if (!i) return;
   const isBlock = src.classList.contains('wb');
-  let grabOff = 0; if (isBlock) { const col = src.closest('.wgc').getBoundingClientRect(); grabOff = (e.clientY - src.getBoundingClientRect().top) / col.height * 1440; }
+  let grabOff = 0; if (isBlock) { const col = src.closest('.wgc').getBoundingClientRect(); const top0 = (src.getBoundingClientRect().top - col.top) / col.height; grabOff = wm((e.clientY - col.top) / col.height) - wm(top0); }
   dragStart(e, { kind: 'item', id, title: i.t, color: itemColor(i), dur: i.dur || 45, from: src.dataset.d, blockEl: isBlock ? src : null, grabOff, click: () => openItem(id) });
 });
 
@@ -367,36 +367,71 @@ function deskPlan() {
     + '<div class="cap dsc">' + esc(t('noDayYet')) + ' · ' + nd.length + '</div>' + (nd.map(i => src('item', i.id, i.t, (cardById(i.card) || {}).name || '', itemColor(i))).join('') || '<div class="muted dempty">' + esc(cs ? 'Všechno má svůj den.' : 'Everything has a day.') + '</div>')
     + '<div class="cap dsc">' + esc(cs ? 'Nápady z Boardu' : 'Ideas from Board') + '</div>' + (ideas.map(m => src('idea', m.id, (m.title || m.note || '').split('\n')[0] || momName(m), (m.kind === 'link' ? (m.site || '') + ' · ' : '') + (m.kind === 'photo' ? (cs ? 'fotka · ' : 'photo · ') : m.kind === 'video' ? 'video · ' : (cs ? 'nápad · ' : 'idea · ')) + dayShort(m.d), cardColor(m.card), momThumb(m))).join('') || '<div class="muted dempty">' + esc(cs ? 'Žádné nové nápady.' : 'No new ideas.') + '</div>')
     + '</div></section>';
-  if (isMon) return '<main class="dmain g12 rows">' + hdr + side + deskMonth() + '</main>';
+  if (isMon) return '<main class="dmain g12 rows">' + hdr + (DESK.monSel ? deskMonDay(DESK.monSel) : side) + deskMonth() + '</main>';
   // grid
   const head = days.map(d => '<button class="wgh' + (d === T() ? ' tdy' : '') + '" data-a="dGoDay" data-d="' + d + '"><span>' + WD[lang()][dow(d)] + '</span><b>' + dOf(d).getDate() + '</b></button>').join('');
   const allday = days.map(d => '<div class="wad" data-d="' + d + '">' + wacList(d, 3) + '</div>').join('');
+  wkRange(days);
   const cols = days.map(d => {
     const bl = lanes(itemsOn(d).filter(i => i.time).map(i => ({ i, s: tmin(i.time), e: tmin(i.time) + (i.dur || 45) })));
-    let h = bl.map(b => { const i = b.i; const on = isDone(i, d); const top = Math.max(0, b.s) / 1440 * 100, ht = (Math.min(1440, b.e) - Math.max(0, b.s)) / 1440 * 100; /* v2054 · the whole day, 00–24 */ const w = 100 / b.n;
-      return '<div class="wb' + (on ? ' done' : '') + (i.repeat ? ' rep' : '') + '" data-drag="item:' + i.id + '" data-id="' + i.id + '" data-d="' + d + '" style="--c:' + itemColor(i) + ';top:' + top + '%;height:' + Math.max(1.6, ht) + '%;left:calc(' + (b.lane * w) + '% + 2px);width:calc(' + w + '% - 4px)" title="' + esc(i.time + ' ' + i.t) + '">' + ((i.dur || 45) <= 30 ? '<span><em>' + i.time + '</em> ' + esc(i.t) + '</span>' : '<span>' + esc(i.t) + '</span><small>' + i.time + ' · ' + durLabel(i.dur || 45) + '</small>') + checkBtn(i, d) + '<i class="rz" aria-hidden="true"></i></div>'; }).join('');
-    if (d === T()) h += '<span class="wnow" style="top:' + ((nm) / 1440 * 100) + '%"></span>';
+    let h = bl.map(b => { const i = b.i; const on = isDone(i, d); const top = wy(Math.max(0, b.s)), ht = wy(Math.min(1440, b.e)) - top; /* v2059 · folded night */ const w = 100 / b.n;
+      return '<div class="wb' + (on ? ' done' : '') + (i.repeat ? ' rep' : '') + '" data-drag="item:' + i.id + '" data-id="' + i.id + '" data-d="' + d + '" style="--c:' + itemColor(i) + ';top:' + top + '%;height:max(28px,' + ht + '%);left:calc(' + (b.lane * w) + '% + 2px);width:calc(' + w + '% - 4px)" title="' + esc(i.time + ' ' + i.t) + '">' + ((i.dur || 45) <= 30 ? '<span><em>' + i.time + '</em> ' + esc(i.t) + '</span>' : '<span>' + esc(i.t) + '</span><small>' + i.time + ' · ' + durLabel(i.dur || 45) + '</small>') + checkBtn(i, d) + '<i class="rz" aria-hidden="true"></i></div>'; }).join('');
+    if (d === T()) h += '<span class="wnow" style="top:' + wy(nm) + '%"></span>';
     return '<div class="wgc' + (d === T() ? ' tdy' : '') + '" data-d="' + d + '">' + h + '</div>';
   }).join('');
-  const lines = Array.from({ length: 25 }, (_, k) => k).map(h => '<span class="whl' + (h % 3 ? ' minor' : '') + '" style="top:' + (h / 24 * 100) + '%"><b>' + pad(h) + '</b></span>').join('');
+  const span = WK.he - WK.hs, step = span > 16 ? 2 : 1;
+  const lines = Array.from({ length: span + 1 }, (_, k) => WK.hs + k).filter(h => (h - WK.hs) % step === 0 || h === WK.he).map(h => '<span class="whl' + (h % 3 ? ' minor' : '') + '" style="top:' + wy(h * 60) + '%"><b>' + pad(h) + '</b></span>').join('')
+    + (WK.n1 ? '<button class="wnight" data-a="dNight" style="top:0;height:' + WK.n1 + '%">' + esc((cs ? 'noc' : 'night') + ' 00–' + pad(WK.hs)) + '</button>' : '')
+    + (WK.n2 ? '<button class="wnight" data-a="dNight" style="bottom:0;height:' + WK.n2 + '%">' + esc(pad(WK.he) + '–24') + '</button>' : '')
+    + (DESK.night ? '<button class="wnight on" data-a="dNight" style="top:0;height:22px">' + esc(cs ? 'sbalit noc' : 'fold the night') + '</button>' : '');
   const grid = '<section class="pn frost solid wgp" style="grid-column:4/13"><div class="wgrid2"><span></span>' + head + '</div><div class="wgrid2 wadrow"><span class="cap" style="font-size:9.5px;align-self:center">' + esc(cs ? 'celý den' : 'all day') + '</span>' + allday + '</div><div class="wbody" id="wBody"><div class="wcan"><div class="wlines">' + lines + '</div><div class="wcols">' + cols + '</div></div></div></section>';
   return '<main class="dmain g12 rows">' + hdr + side + grid + '</main>';
 }
+/* v2059 · week view: the empty night folds into a thin band, the day gets the room */
+const WK = { hs: 0, he: 24, n1: 0, n2: 0 };
+function wkRange(days) {
+  let lo = 7 * 60, hi = 22 * 60;
+  days.forEach(d => itemsOn(d).forEach(i => { if (!i.time) return; const s0 = tmin(i.time), e0 = s0 + (i.dur || 45); lo = Math.min(lo, s0); hi = Math.max(hi, e0); }));
+  if (DESK.night) { lo = 0; hi = 1440; }
+  WK.hs = Math.max(0, Math.floor(lo / 60)); WK.he = Math.min(24, Math.ceil(hi / 60));
+  WK.n1 = WK.hs > 0 ? 5 : 0; WK.n2 = WK.he < 24 ? 3 : 0;
+}
+function wy(m) { /* minutes → % from the top */
+  const a = WK.hs * 60, b = WK.he * 60, mid = 100 - WK.n1 - WK.n2;
+  if (m <= a) return a ? m / a * WK.n1 : 0;
+  if (m <= b) return WK.n1 + (m - a) / (b - a) * mid;
+  return 100 - WK.n2 + (m - b) / (1440 - b) * WK.n2;
+}
+function wm(f) { /* fraction of the column (0–1) → minutes */
+  const y = f * 100, a = WK.hs * 60, b = WK.he * 60, mid = 100 - WK.n1 - WK.n2;
+  if (y <= WK.n1) return WK.n1 ? y / WK.n1 * a : a;
+  if (y <= WK.n1 + mid) return a + (y - WK.n1) / mid * (b - a);
+  return WK.n2 ? b + (y - WK.n1 - mid) / WK.n2 * (1440 - b) : b;
+}
+ACT.dNight = () => { DESK.night = !DESK.night; deskRender(); };
 function deskMonth() {
   const [y, m] = DESK.mon.split('-').map(Number); const first = y + '-' + pad(m) + '-01'; const start = weekStart(first);
   const n = new Date(y, m, 0).getDate(); const weeks = Math.ceil((dow(first) + n) / 7);
   let cells = '';
   for (let k = 0; k < weeks * 7; k++) {
     const d = addD(start, k); const its = itemsOn(d); const inM = d.slice(0, 7) === DESK.mon;
-    cells += '<div class="dmc' + (inM ? '' : ' out') + (d === T() ? ' tdy' : '') + (d < T() ? ' past' : '') + '" data-d="' + d + '"><button class="dmd" data-a="dMonDay" data-d="' + d + '">' + dOf(d).getDate() + '</button>'
-      + its.slice(0, 3).map(i => '<span class="dme' + (isDone(i, d) ? ' done' : '') + '" style="--c:' + itemColor(i) + '"' + (i.repeat ? '' : ' data-drag="item:' + i.id + '" data-d="' + d + '"') + '>' + (i.time ? '<em>' + i.time + '</em>' : '') + esc(i.t) + '</span>').join('')
-      + (its.length > 3 ? '<button class="dmm" data-a="dMonDay" data-d="' + d + '">+' + (its.length - 3) + '</button>' : '') + '</div>';
+    cells += '<div class="dmc' + (inM ? '' : ' out') + (d === T() ? ' tdy' : '') + (d < T() ? ' past' : '') + (d === DESK.monSel ? ' sel' : '') + '" data-d="' + d + '"><button class="dmd" data-a="dMonDay" data-d="' + d + '">' + dOf(d).getDate() + '</button>'
+      + its.slice(0, 2).map(i => '<span class="dme' + (isDone(i, d) ? ' done' : '') + '" style="--c:' + itemColor(i) + '"' + (i.repeat ? '' : ' data-drag="item:' + i.id + '" data-d="' + d + '"') + '>' + (i.time ? '<em>' + i.time + '</em>' : '') + esc(i.t) + '</span>').join('')
+      + (its.length > 2 ? '<button class="dmm" data-a="dMonDay" data-d="' + d + '">+' + (its.length - 2) + '</button>' : '') + '</div>';
   }
   return '<section class="pn frost solid dmon" style="grid-column:4/13"><div class="dmh">' + WD[lang()].map(w => '<span>' + w + '</span>').join('') + '</div><div class="dmg" style="grid-template-rows:repeat(' + weeks + ',minmax(0,1fr))">' + cells + '</div></section>';
 }
 ACT.dMon = el => { const [y, m] = DESK.mon.split('-').map(Number); const d = new Date(y, m - 1 + +el.dataset.n, 1); DESK.mon = d.getFullYear() + '-' + pad(d.getMonth() + 1); deskRender(); };
 ACT.dMonToday = () => { DESK.mon = T().slice(0, 7); deskRender(); };
-ACT.dMonDay = el => { V.planWeek = weekStart(el.dataset.d); DESK.mode = 'week'; deskRender(); };
+ACT.dMonDay = el => { DESK.monSel = DESK.monSel === el.dataset.d ? null : el.dataset.d; deskRender(); };
+ACT.dMonWeek = el => { V.planWeek = weekStart(el.dataset.d); DESK.mode = 'week'; DESK.monSel = null; deskRender(); };
+/* v2059 · month: the picked day's whole list sits in the left panel */
+function deskMonDay(d) {
+  const cs = lang() === 'cs'; const its = itemsOn(d).slice().sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1);
+  const rows = its.map(i => { const on = isDone(i, d);
+    return '<div class="dmdr' + (on ? ' done' : '') + '"><span class="bar" style="background:' + itemColor(i) + '"></span><button class="st" data-a="openItem" data-id="' + i.id + '"><span>' + esc(i.t) + '</span><small>' + esc(i.time || (i.repeat === 'monthly' ? (cs ? 'měsíc' : 'monthly') : (cs ? 'bez času' : 'any time'))) + ((cardById(i.card) || {}).name ? ' · ' + esc(cardById(i.card).name) : '') + '</small></button><button class="dmck' + (on ? ' on' : '') + '" style="--c:' + itemColor(i) + '" data-a="toggle" data-id="' + i.id + '" data-d="' + d + '" aria-label="' + esc(t('done')) + '"></button></div>'; }).join('');
+  return '<section class="pn frost dmday" style="grid-column:1/4"><div class="ph2"><span class="cap">' + esc(dayName(d)) + '</span><button class="chip frost press" data-a="dMonDay" data-d="' + d + '" aria-label="' + esc(cs ? 'Zavřít' : 'Close') + '">✕</button></div><b class="dmdn">' + its.length + ' ' + esc(cs ? (its.length === 1 ? 'věc' : its.length >= 2 && its.length <= 4 ? 'věci' : 'věcí') : (its.length === 1 ? 'thing' : 'things')) + '</b><div class="pscroll">' + (rows || '<div class="muted dempty">' + esc(cs ? 'Volný den.' : 'A free day.') + '</div>') + '</div><button class="chip frost press" style="align-self:flex-start" data-a="dMonWeek" data-d="' + d + '">' + esc(cs ? 'Otevřít týden' : 'Open the week') + '</button></section>';
+}
 ACT.dPlanMode = el => { DESK.mode = el.dataset.k; deskRender(); };
 ACT.dWeek = el => { V.planWeek = addD(V.planWeek || weekStart(T()), 7 * +el.dataset.n); deskRender(); };
 ACT.dWeekToday = () => { V.planWeek = weekStart(T()); deskRender(); };
