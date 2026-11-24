@@ -910,3 +910,40 @@ body.a3.lightui #orbMood.on { background: rgba(239,233,223,.45); } body.a3.light
 .a3gtool.on { color: var(--c, #5fd0cf); background: linear-gradient(160deg, color-mix(in oklab, #5fd0cf 26%, transparent), rgba(95,208,207,.04)); box-shadow: inset 0 0 0 1px rgba(95,208,207,.45); }
 .a3gtool.on b { color: var(--cream); }
 .a3gtool:disabled { cursor:default; opacity:.7; }
+
+/* ===== v2060 · theme vars for inline colours, Today focus card, cards widget 2x2 ===== */
+body.a3 { --wr:255,255,255; --mw:#fff; --stl:#9ff0ec; }
+.a3kn { color:#1b2228; }
+.a3today.a3tf { gap:12px; }
+.a3foc { position:static; align-items:flex-start; padding:2px 2px 0; gap:8px; min-height:118px; justify-content:center; }
+.a3foc .a3big { white-space:normal; text-align:left !important; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.02 !important; letter-spacing:-.035em; overflow-wrap:anywhere; padding-bottom:3px !important; }
+.a3fm { display:flex; align-items:center; gap:8px; font:500 14px/1.2 Inter; color:var(--t2); min-width:0; }
+.a3fm > span:last-child { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.a3dl { display:flex; align-items:center; gap:10px; font-size:11px; padding:2px 2px 4px; }
+.a3dlt { position:relative; flex:1; height:10px; }
+.a3dlt::before { content:""; position:absolute; left:0; right:0; top:4px; height:2px; border-radius:2px; background-image:linear-gradient(90deg, rgba(var(--wr),.28) 50%, transparent 0); background-size:6px 2px; }
+.a3dlt > b { position:absolute; left:0; top:4px; height:2px; border-radius:2px; background:var(--cream); opacity:.75; }
+.a3dlt > i { position:absolute; top:2px; height:6px; border-radius:6px; background:var(--c); }
+.a3dlt > i.done { opacity:.4; }
+.a3dlt > i.next { box-shadow:0 0 10px var(--c); top:1px; height:8px; }
+.a3dlt > em { position:absolute; top:0; width:10px; height:10px; margin-left:-5px; border-radius:50%; background:var(--cream); box-shadow:0 0 0 3px rgba(var(--wr),.14); }
+.a3today.leave .a3foc { animation: a3up-out .28s var(--out) forwards; }
+.a3today.enter .a3foc { animation: a3up-in .5s var(--out) both; }
+/* cards widget: tiles fill the widget */
+.a3wtl.a3tiles { flex:1; min-height:0; grid-template-columns:repeat(2, minmax(0,1fr)); grid-auto-rows:minmax(0,1fr); align-content:stretch; gap:10px; }
+.a3wtl.n1 { grid-template-columns:1fr; }
+.a3wtl .a3tile { align-items:flex-start; justify-content:space-between; padding:14px 14px 13px !important; gap:6px; text-align:left; border-radius:22px !important; }
+.a3wtl .a3tile .a3rg { width:56px !important; height:56px !important; }
+.a3wtl .a3tile .a3rg svg { width:100%; height:100%; }
+.a3wtl .a3tile .a3rg > b { font-size:13px !important; }
+.a3wtl .a3tile > span:last-child { order:2; font:650 15px/1.1 Inter; padding:0; margin-top:auto; }
+.a3wtl .a3tile .a3tsub { order:3; display:block; font:500 12px/1 Inter; font-style:normal; color:var(--t2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.a3tsub { display:none; }
+.a3home { height:100%; }
+.a3home > .a3stack { flex:1 1 300px; height:auto; min-height:230px; max-height:440px; }
+.a3wtl .a3tile { padding:12px 13px 12px !important; gap:4px; }
+.a3wtl .a3tile .a3rg { width:50px !important; height:50px !important; }
+.a3wtl .a3tile > span:last-child { line-height:1.15; padding-bottom:1px; }
+body.a3:not(.desk) #s-home .a3home > #hstack { max-height:440px; }
+.a3today.d.a3tf .a3foc { flex:1; }
+.a3today.d.a3tf .a3sl { margin-top:0; }

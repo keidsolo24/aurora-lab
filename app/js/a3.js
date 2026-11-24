@@ -17,7 +17,7 @@
   const SUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></svg>';
   function ring(size, frac, color, i, label, fs) {
     const off = (100 - pct(frac) * 100).toFixed(1);
-    return '<div class="a3rg" style="width:' + size + 'px;height:' + size + 'px"><svg class="a2-ring" width="' + size + '" height="' + size + '" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="4"/><circle class="p" cx="20" cy="20" r="16" fill="none" stroke="' + color + '" stroke-width="4" pathLength="100" transform="rotate(-90 20 20)" style="--off:' + off + ';--i:' + (i || 0) + '"/></svg>'
+    return '<div class="a3rg" style="width:' + size + 'px;height:' + size + 'px"><svg class="a2-ring" width="' + size + '" height="' + size + '" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="none" style="stroke:rgba(var(--wr),.14)" stroke-width="4"/><circle class="p" cx="20" cy="20" r="16" fill="none" stroke="' + color + '" stroke-width="4" pathLength="100" transform="rotate(-90 20 20)" style="--off:' + off + ';--i:' + (i || 0) + '"/></svg>'
       + (label != null ? '<b class="a2-num" style="font:700 ' + (fs || 12) + 'px/1 Inter">' + esc(String(label)) + '</b>' : '') + '</div>';
   }
   const check = (i, d, c, sz) => { const on = isDone(i, d); return '<button class="a2-check a3ck' + (on ? ' done on' : '') + '" style="--c:' + (c || itemColor(i)) + ';width:' + (sz || 24) + 'px;height:' + (sz || 24) + 'px" data-a="toggle" data-id="' + i.id + '" data-d="' + d + '" aria-label="' + esc(t('done')) + '">' + (on ? TICK.replace('width="20" height="20"', 'width="' + Math.round((sz || 24) * .62) + '" height="' + Math.round((sz || 24) * .62) + '"') : '') + '</button>'; };
@@ -47,12 +47,12 @@
   function arc(M, w, h, dot) {
     const nowP = P(M.nm);
     let s = '<svg width="' + w + '" height="' + h + '" viewBox="0 0 340 178" aria-hidden="true" class="a3arc">'
-      + '<path d="' + ARC + '" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="3" stroke-dasharray="2 6" stroke-linecap="round"/>'
-      + '<path d="' + ARC + '" fill="none" stroke="rgba(244,236,220,.85)" stroke-width="3" pathLength="100" stroke-dasharray="' + nowP.toFixed(1) + ' 100" stroke-linecap="round"/>';
+      + '<path d="' + ARC + '" fill="none" style="stroke:rgba(var(--wr),.16)" stroke-width="3" stroke-dasharray="2 6" stroke-linecap="round"/>'
+      + '<path d="' + ARC + '" fill="none" style="stroke:var(--cream);opacity:.85" stroke-width="3" pathLength="100" stroke-dasharray="' + nowP.toFixed(1) + ' 100" stroke-linecap="round"/>';
     M.arcs.forEach(a => {
       const st = P(a.s), len = Math.max(1.6, P(a.e) - st); const nx = a.st === 'next';
-      const col = a.c || 'rgba(255,255,255,.4)';
-      s += '<path d="' + ARC + '" fill="none" stroke="' + col + '" stroke-width="7" pathLength="100" stroke-dasharray="' + len.toFixed(1) + ' 100" stroke-dashoffset="-' + st.toFixed(1) + '" stroke-linecap="round"' + (a.st === 'done' ? ' opacity=".45"' : '') + (nx || a.st === 'later' ? ' style="filter:drop-shadow(0 0 6px ' + col + ')"' : '') + '/>';
+      const col = a.c || 'rgba(var(--wr),.4)';
+      s += '<path d="' + ARC + '" fill="none" style="stroke:' + col + (nx || a.st === 'later' ? ';filter:drop-shadow(0 0 6px ' + col + ')' : '') + '" stroke-width="7" pathLength="100" stroke-dasharray="' + len.toFixed(1) + ' 100" stroke-dashoffset="-' + st.toFixed(1) + '" stroke-linecap="round"' + (a.st === 'done' ? ' opacity=".45"' : '') + '/>';
     });
     s += '</svg>';
     if (dot) { const th = Math.PI * nowP / 100; const x = (170 - 150 * Math.cos(th)) / 340 * 100, y = (168 - 150 * Math.sin(th)) / 178 * 100; s += '<span class="a2-now a3nowd" style="left:' + x.toFixed(2) + '%;top:' + y.toFixed(2) + '%"></span>'; }
@@ -66,7 +66,7 @@
   }
   const bigSize = (t, base) => { const n = String(t || '').length; return n <= 8 ? base : n <= 12 ? Math.round(base * .82) : n <= 16 ? Math.round(base * .68) : n <= 22 ? Math.round(base * .56) : Math.round(base * .48); };
   function slider(id) {
-    return '<div class="a2-well a2-shimmer a3sl" data-id="' + id + '" role="slider" aria-label="' + esc(L('Slide to done', 'Posuň = hotovo')) + '"><span class="a3kn">' + TICK + '</span><span class="a3slt">' + esc(L('Slide to done', 'Posuň = hotovo')) + '</span></div>';
+    return '<div class="a2-well a2-shimmer a3sl" data-id="' + id + '" role="slider" aria-label="' + esc(L('Slide to done', 'Posuň = hotovo')) + '"><span class="a3kn">' + TICK.replace('#1b2228', 'currentColor') + '</span><span class="a3slt">' + esc(L('Slide to done', 'Posuň = hotovo')) + '</span></div>';
   }
   function todayCard(M, isDesk) {
     const nx = nextInfo(M); const n = M.list.length;
@@ -80,10 +80,31 @@
     } else {
       mid = '<div class="a3cen" style="top:' + (isDesk ? 62 : 50) + 'px"><span class="a2-lab">' + esc(n ? L('All done', 'Vše hotovo') : L('Free day', 'Volný den')) + '</span><b class="a2-d" style="font-size:46px">' + mtime(M.nm) + '</b><span class="a2-t2" style="font-size:13px">' + esc(n ? L('Nothing left for today', 'Na dnešek nic nezbývá') : L('Nothing planned', 'Nic naplánovaného')) + '</span></div>';
     }
+    return todayFocus(M, nx, n, head, isDesk);
     const dial = isDesk ? '<div class="a3dial d">' + arc(M, '100%', 168, false) + mid + '</div>' : '<div class="a3dial"><div class="a3arcw">' + arc(M, 290, 152, true) + '</div>' + mid + '</div>';
     const foot = nx ? slider(nx.i.id) : '<button class="a2-btn ghost a3w" data-a="add" data-ctx="today">+ ' + esc(L('Add to Today', 'Přidat na dnešek')) + '</button>';
     const ent = V.a3enter && Date.now() - V.a3enter < 1500 ? ' enter' : '';
     return '<div class="a2-glass a2-in a3today' + (isDesk ? ' d' : '') + ent + '" style="--i:' + (isDesk ? 2 : 1) + '">' + head + dial + foot + '</div>';
+  }
+  /* the day as a flat line 06–24: items as segments, a dot for now */
+  function dayLine(M) {
+    const nowP = P(M.nm);
+    const segs = M.arcs.map(a => { const st = P(a.s), len = Math.max(2.2, P(a.e) - st); const col = a.c || 'rgba(var(--wr),.45)';
+      return '<i class="' + (a.st || '') + '" style="left:' + st.toFixed(1) + '%;width:' + len.toFixed(1) + '%;--c:' + col + '"></i>'; }).join('');
+    return '<div class="a3dl" aria-hidden="true"><span class="a2-t3 a2-num">6</span><div class="a3dlt"><b style="width:' + nowP.toFixed(1) + '%"></b>' + segs + '<em style="left:' + nowP.toFixed(1) + '%"></em></div><span class="a2-t3 a2-num">24</span></div>';
+  }
+  function todayFocus(M, nx, n, head, isDesk) {
+    const ent = V.a3enter && Date.now() - V.a3enter < 1500 ? ' enter' : '';
+    let mid;
+    if (nx) {
+      const len = String(nx.i.t || '').length; const fs = len <= 12 ? 40 : len <= 20 ? 34 : len <= 32 ? 29 : 25;
+      mid = '<div class="a3cen a3foc"><span class="a2-lab">' + esc(nx.lab) + '</span><button class="a2-d a3big" style="font-size:' + fs + 'px" data-a="openItem" data-id="' + nx.i.id + '">' + esc(nx.i.t) + '</button>'
+        + '<span class="a3fm">' + (hasCol(nx.i) ? '<span class="a2-dot" style="--c:' + itemColor(nx.i) + '"></span>' : '') + '<span>' + esc(nx.sub) + '</span></span></div>';
+    } else {
+      mid = '<div class="a3cen a3foc"><span class="a2-lab">' + esc(n ? L('All done', 'Vše hotovo') : L('Free day', 'Volný den')) + '</span><b class="a2-d a2-num" style="font-size:44px;line-height:1">' + mtime(M.nm) + '</b><span class="a3fm"><span>' + esc(n ? L('Nothing left for today', 'Na dnešek nic nezbývá') : L('Nothing planned', 'Nic naplánovaného')) + '</span></span></div>';
+    }
+    const foot = nx ? slider(nx.i.id) : '<button class="a2-btn ghost a3w" data-a="add" data-ctx="today">+ ' + esc(L('Add to Today', 'Přidat na dnešek')) + '</button>';
+    return '<div class="a2-glass a2-in a3today a3tf' + (isDesk ? ' d' : '') + ent + '" style="--i:' + (isDesk ? 2 : 1) + '">' + head + mid + dayLine(M) + foot + '</div>';
   }
   /* one row "now": Keiro first, then reminders / Lab notes */
   function nowRow(i) {
@@ -98,7 +119,7 @@
     }
     if (!r && typeof homeNotes === 'function') { const n = (homeNotes() || []).find(x => x.id !== 'keiro'); if (n) r = { c: n.c || '#9fd6e8', lab: n.s || '', t: n.t, btn: n.btn, act: n.act, k: '', id: n.id }; }
     if (!r) return '';
-    return '<div class="a2-glass a2-tint a2-in a3now" style="--i:' + i + ';--c:' + r.c + '"><div class="a3nt"><span class="a2-lab" style="color:color-mix(in oklab,' + r.c + ' 45%,#fff)"><span class="a2-dot' + (r.pulse ? ' a2-pulse' : '') + '" style="--c:' + r.c + '"></span><span>' + esc(r.lab) + '</span></span><b>' + esc(r.t) + '</b></div>'
+    return '<div class="a2-glass a2-tint a2-in a3now" style="--i:' + i + ';--c:' + r.c + '"><div class="a3nt"><span class="a2-lab" style="color:color-mix(in oklab,' + r.c + ' 45%,var(--mw))"><span class="a2-dot' + (r.pulse ? ' a2-pulse' : '') + '" style="--c:' + r.c + '"></span><span>' + esc(r.lab) + '</span></span><b>' + esc(r.t) + '</b></div>'
       + (r.btn ? '<button class="a2-btn" style="height:40px;padding:0 16px;font-size:14px" data-a="' + r.act + '" data-k="' + esc(r.k) + '"' + (r.id ? ' data-id="' + esc(r.id) + '"' : '') + '>' + esc(r.btn) + '</button>' : '') + '</div>';
   }
 
@@ -119,9 +140,10 @@
       return { keiro: true, name: p ? p.name : 'Keiro', k: p ? p.name : '', color: p ? kx.pcol(p.name) : kx.KC(), n: rv, f: tot ? dn / tot : 0 }; });
     return ps.length ? ps.map(one) : [one(null)];
   }
+  const tileSub = c => c.type === 'habit' ? L('this week', 'tento týden') : c.type === 'month' ? L('this month', 'tento měsíc') : c.deadline ? L('days left', 'dní zbývá') : L('open', 'otevřené');
   function homeTiles(max) {
-    const out = keiroCards().slice(0, 2).map(k => ({ k, html: (i) => '<button class="a2-glass a2-tint a2-in a3tile" style="--i:' + i + ';--c:' + k.color + '" data-a="krOpen" data-k="' + esc(k.k) + '">' + ring(46, k.f, k.color, i, k.n, 14) + '<span>' + esc(k.name) + '</span></button>' }));
-    S.cards.slice().sort((a, b) => score(b) - score(a)).slice(0, max - out.length).forEach(c => { const v = cardVal(c); out.push({ c, html: i => '<button class="a2-glass a2-tint a2-in a3tile" style="--i:' + i + ';--c:' + c.color + '" data-a="openCard" data-id="' + c.id + '">' + ring(46, v.f, c.color, i, v.v, v.v.length > 4 ? 10 : 12) + '<span>' + esc(c.name) + '</span></button>' }); });
+    const out = keiroCards().slice(0, 2).map(k => ({ k, html: (i) => '<button class="a2-glass a2-tint a2-in a3tile" style="--i:' + i + ';--c:' + k.color + '" data-a="krOpen" data-k="' + esc(k.k) + '">' + ring(46, k.f, k.color, i, k.n, 14) + '<i class="a3tsub">' + esc(L('to review', 'ke schválení')) + '</i><span>' + esc(k.name) + '</span></button>' }));
+    S.cards.slice().sort((a, b) => score(b) - score(a)).slice(0, max - out.length).forEach(c => { const v = cardVal(c); out.push({ c, html: i => '<button class="a2-glass a2-tint a2-in a3tile" style="--i:' + i + ';--c:' + c.color + '" data-a="openCard" data-id="' + c.id + '">' + ring(46, v.f, c.color, i, v.v, v.v.length > 4 ? 10 : 12) + '<i class="a3tsub">' + esc(tileSub(c)) + '</i><span>' + esc(c.name) + '</span></button>' }); });
     return out;
   }
 
@@ -139,12 +161,12 @@
     }
     if (!r && typeof homeNotes === 'function') { const n = (homeNotes() || []).find(x => x.id !== 'keiro'); if (n) r = { c: n.c || '#9fd6e8', lab: L('Now', 'Teď'), t: n.t, sub: n.s || '', btn: n.btn, act: n.act, k: '', id: n.id }; }
     if (!r) return null;
-    return '<div class="a3wp a2-tint" style="--c:' + r.c + '"><span class="a2-lab a3wpl" style="color:color-mix(in oklab,' + r.c + ' 45%,#fff)"><span class="a2-dot' + (r.pulse ? ' a2-pulse' : '') + '" style="--c:' + r.c + '"></span><span>' + esc(r.lab) + '</span></span><b class="a2-d a3wpt">' + esc(r.t) + '</b>' + (r.sub ? '<span class="a2-t2 a3wps">' + esc(r.sub) + '</span>' : '')
+    return '<div class="a3wp a2-tint" style="--c:' + r.c + '"><span class="a2-lab a3wpl" style="color:color-mix(in oklab,' + r.c + ' 45%,var(--mw))"><span class="a2-dot' + (r.pulse ? ' a2-pulse' : '') + '" style="--c:' + r.c + '"></span><span>' + esc(r.lab) + '</span></span><b class="a2-d a3wpt">' + esc(r.t) + '</b>' + (r.sub ? '<span class="a2-t2 a3wps">' + esc(r.sub) + '</span>' : '')
       + (r.btn ? '<button class="a2-btn a3wpb" data-a="' + r.act + '" data-k="' + esc(r.k) + '"' + (r.id ? ' data-id="' + esc(r.id) + '"' : '') + '>' + esc(r.btn) + '</button>' : '') + '</div>';
   }
   function cardsPage() {
     const tiles = homeTiles(4);
-    return '<div class="a3wp"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(L('Cards · this week', 'Karty · tento týden')) + '</span><button class="a2-t2" data-a="tab" data-k="spaces">Spaces ›</button></div><div class="a3tiles a3wtl">'
+    return '<div class="a3wp"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(L('Cards · this week', 'Karty · tento týden')) + '</span><button class="a2-t2" data-a="tab" data-k="spaces">Spaces ›</button></div><div class="a3tiles a3wtl n' + Math.min(4, Math.max(1, tiles.length)) + '">'
       + (tiles.length ? tiles.map((x, k) => x.html(k)).join('') : '<button class="a2-glass a3tile" data-a="newCard"><span class="a3plus">' + ico('plus', 20, 1.8) + '</span><span>' + esc(t('newCard')) + '</span></button>') + '</div></div>';
   }
   function ideasPage() {
@@ -155,7 +177,7 @@
   function widgetStack(M, isDesk) {
     const pages = [];
     const sf = S.studioOn ? studioFacts() : null;
-    if (sf && (sf.ups.length || sf.busy.length || sf.ready.length)) pages.push(['a3st', '<div class="a3wp" role="button" data-a="a3StOpen"><span class="a2-lab a3wpl" style="color:#9ff0ec"><span class="a2-dot a2-pulse" style="--c:' + STC + '"></span><span>Aurora Studio</span></span><b class="a2-d a3wpt">' + esc(sf.ready.length && !sf.busy.length && !sf.ups.length ? L('Your cut is ready', 'Střih je hotový') : L('Cutting your video…', 'Stříhám tvoje video…')) + '</b><span class="a2-t2 a3wps">' + esc(studioNext(sf)) + '</span><span class="a3lbar" style="margin-top:6px"><i style="width:' + (sf.ready.length && !sf.busy.length ? 100 : Math.max(8, sf.ups[0] ? sf.ups[0].pct || 0 : Math.round((Math.max(0, ST_ORDER.indexOf(sf.busy[0].stage || 'start')) + .5) / ST_ORDER.length * 100))) + '%"></i></span><button class="a2-btn a3wpb" data-a="a3StOpen">' + esc(sf.ready.length && !sf.busy.length ? L('Pick the opening', 'Vybrat začátek') : L('Open Studio', 'Otevřít Studio')) + '</button></div>']);
+    if (sf && (sf.ups.length || sf.busy.length || sf.ready.length)) pages.push(['a3st', '<div class="a3wp" role="button" data-a="a3StOpen"><span class="a2-lab a3wpl" style="color:var(--stl)"><span class="a2-dot a2-pulse" style="--c:' + STC + '"></span><span>Aurora Studio</span></span><b class="a2-d a3wpt">' + esc(sf.ready.length && !sf.busy.length && !sf.ups.length ? L('Your cut is ready', 'Střih je hotový') : L('Cutting your video…', 'Stříhám tvoje video…')) + '</b><span class="a2-t2 a3wps">' + esc(studioNext(sf)) + '</span><span class="a3lbar" style="margin-top:6px"><i style="width:' + (sf.ready.length && !sf.busy.length ? 100 : Math.max(8, sf.ups[0] ? sf.ups[0].pct || 0 : Math.round((Math.max(0, ST_ORDER.indexOf(sf.busy[0].stage || 'start')) + .5) / ST_ORDER.length * 100))) + '%"></i></span><button class="a2-btn a3wpb" data-a="a3StOpen">' + esc(sf.ready.length && !sf.busy.length ? L('Pick the opening', 'Vybrat začátek') : L('Open Studio', 'Otevřít Studio')) + '</button></div>']);
     const n = nowPage(); if (n) pages.push(['a3now', n]);
     if (!isDesk) { pages.push(['a3cards', cardsPage()]); const i = ideasPage(); if (i) pages.push(['a3ideas', i]); }
     /* the app's own widgets stay in the stack after the canvas ones (news from shared cards, evening, the week, tips) */
@@ -175,7 +197,7 @@
 
   /* ================= HOME · computer ================= */
   function dayRow(i, d, nextId) {
-    const on = isDone(i, d); const c = hasCol(i) ? itemColor(i) : 'rgba(255,255,255,.4)';
+    const on = isDone(i, d); const c = hasCol(i) ? itemColor(i) : 'rgba(var(--wr),.4)';
     const sub = [i.date && i.date < d && !i.repeat ? dayShort(i.date) : (i.time || L('any time', 'kdykoli')), cardName(i)].filter(Boolean).join(' · ');
     return '<div class="a3dr' + (on ? ' done' : '') + '" role="button" data-a="openItem" data-id="' + i.id + '"><span class="a3bar" style="background:' + c + (i.id === nextId ? ';box-shadow:0 0 10px ' + c : '') + '"></span><div class="a3dt"><span' + (i.id === nextId ? ' style="font-weight:600"' : '') + '>' + esc(i.t) + '</span><span class="a2-t3">' + esc(sub) + '</span></div>' + check(i, d, hasCol(i) ? itemColor(i) : '#f4ecdc') + '</div>';
   }
@@ -246,12 +268,12 @@
   const monthDone = c => { const ms = monthStats(c, T()); return ms.total && ms.done >= ms.total; };
   function squares(c, big) {
     const d = T();
-    if (c.type === 'habit') { const w = habitWeek(c.id), td = dow(d); return '<div class="' + (big ? 'a3sq7' : 'a3sq') + '">' + w.map((on, k) => '<span class="a2-pop" style="--i:' + (k + 2) + ';' + (on ? 'background:' + c.color : k === td ? 'box-shadow:inset 0 0 0 ' + (big ? 2 : 1.5) + 'px var(--cream)' : 'background:rgba(255,255,255,.12)') + '"></span>').join('') + '</div>'; }
-    const ms = monthStats(c, d); return '<div class="' + (big ? 'a3sq7 m' : 'a3sq') + '">' + ms.its.slice(0, big ? 14 : 9).map((it, k) => '<span class="a2-pop" style="--i:' + (k + 2) + ';' + (isDone(it, d) ? 'background:' + c.color : 'background:rgba(255,255,255,.12)') + '"></span>').join('') + '</div>';
+    if (c.type === 'habit') { const w = habitWeek(c.id), td = dow(d); return '<div class="' + (big ? 'a3sq7' : 'a3sq') + '">' + w.map((on, k) => '<span class="a2-pop" style="--i:' + (k + 2) + ';' + (on ? 'background:' + c.color : k === td ? 'box-shadow:inset 0 0 0 ' + (big ? 2 : 1.5) + 'px var(--cream)' : 'background:rgba(var(--wr),.12)') + '"></span>').join('') + '</div>'; }
+    const ms = monthStats(c, d); return '<div class="' + (big ? 'a3sq7 m' : 'a3sq') + '">' + ms.its.slice(0, big ? 14 : 9).map((it, k) => '<span class="a2-pop" style="--i:' + (k + 2) + ';' + (isDone(it, d) ? 'background:' + c.color : 'background:rgba(var(--wr),.12)') + '"></span>').join('') + '</div>';
   }
   function segs(c, big) {
     const ps = projectStats(c.id); const n = Math.min(big ? 10 : 8, ps.total); if (!n) return ''; const on = ps.total ? Math.round(ps.done / ps.total * n) : 0;
-    return '<div class="' + (big ? 'a3sg2' : 'a3sg') + '">' + Array.from({ length: n }, (_, k) => '<span style="background:' + (k < on ? c.color : 'rgba(255,255,255,.14)') + '"></span>').join('') + '</div>';
+    return '<div class="' + (big ? 'a3sg2' : 'a3sg') + '">' + Array.from({ length: n }, (_, k) => '<span style="background:' + (k < on ? c.color : 'rgba(var(--wr),.14)') + '"></span>').join('') + '</div>';
   }
   function spaceList() {
     let ord = []; try { ord = JSON.parse(localStorage.getItem('spOrder') || '[]') || []; } catch (e) {}
@@ -303,7 +325,7 @@
   }
   function spaceDeskCard(x, i) {
     if (x.s) return studioPhoneCard(i);
-    const nxt = (lab, txt, w, col) => '<div class="a3nxs"><span class="a2-lab" style="color:color-mix(in oklab,' + col + ' 55%,#fff)">' + esc(lab) + '</span><span>' + esc(txt) + (w ? ' <span class="a2-t2">· ' + esc(w) + '</span>' : '') + '</span></div>';
+    const nxt = (lab, txt, w, col) => '<div class="a3nxs"><span class="a2-lab" style="color:color-mix(in oklab,' + col + ' 55%,var(--mw))">' + esc(lab) + '</span><span>' + esc(txt) + (w ? ' <span class="a2-t2">· ' + esc(w) + '</span>' : '') + '</span></div>';
     if (x.k) { const k = x.k, fa = keiroFacts(k);
       const wells = '<div class="a3w3">' + [[fa.out, L('out today', 'dnes venku')], [fa.sch, L('scheduled', 'naplánováno')], [fa.send, L('to send', 'k odeslání')]].map(([n, l]) => '<div class="a2-well"><b class="a2-d a2-num">' + esc(String(n)) + '</b><div class="a2-t2">' + esc(l) + '</div></div>').join('') + '</div>';
       const foot = fa.send ? '<div class="a3nxs r"><span class="a2-dot' + (fa.hot ? ' a2-pulse' : '') + '" style="--c:#ee5a85"></span><span>' + esc(L('Send link to campaign', 'Odeslat odkaz do kampaně')) + '</span>' + (fa.mins != null ? '<b>' + fa.mins + ' min</b>' : '') + '</div>'
@@ -369,7 +391,7 @@
     const d = T(), w = habitWeek(c.id), n = w.filter(Boolean).length, g = goalOf(c), td = dow(d); const set = cardDaySet(c.id);
     const lw = [0, 1, 2, 3, 4, 5, 6].filter(j => set.has(addD(addD(weekStart(d), -7), j))).length; const pc = Math.round(Math.min(1, n / g) * 100);
     const dark = 'color-mix(in oklab,' + c.color + ' 30%,#0b1a12)';
-    const pills = w.map((on, k) => '<span class="a2-pop" style="--i:' + (k + 2) + ';' + (on ? 'background:' + c.color + ';color:' + dark : k === td ? 'box-shadow:inset 0 0 0 2px var(--cream)' : 'background:rgba(255,255,255,.1);color:var(--t2);font-weight:600') + '">' + WD1[lang()][k] + '</span>').join('');
+    const pills = w.map((on, k) => '<span class="a2-pop" style="--i:' + (k + 2) + ';' + (on ? 'background:' + c.color + ';color:' + dark : k === td ? 'box-shadow:inset 0 0 0 2px var(--cream)' : 'background:rgba(var(--wr),.1);color:var(--t2);font-weight:600') + '">' + WD1[lang()][k] + '</span>').join('');
     return '<div class="a2-glass a2-tint a2-in a3wkc' + (isDesk ? ' d' : '') + '" style="--i:2;--c:' + c.color + '"><div class="a3wkh"><div class="a3wkn"><span class="a2-lab">' + esc(L('This week', 'Tento týden')) + '</span><div><b class="a2-d a2-num">' + n + '</b><span class="a2-t2">/ ' + g + (isDesk ? ' ' + L('days', plural(g, 'den', 'dny', 'dní')) : '') + '</span></div><span class="a2-t2 a3sm">' + esc(L('last week ', 'minulý týden ') + lw + (isDesk ? ' · ' + L('goal ', 'cíl ') + goalText(g) : '')) + '</span></div>'
       + '<button class="a3bring" data-a="editGoal" aria-label="' + esc(t('goal')) + '">' + ring(isDesk ? 150 : 112, n / g, c.color, 2) + '<span class="a3bri"><b class="a2-num">' + (n >= g ? '✓' : pc + '%') + '</b><span class="a2-t2">' + esc(n >= g ? L('goal met', 'cíl splněn') : isDesk ? L('weekly goal', 'týdenní cíl') : L('goal', 'cíl')) + '</span></span></button></div>'
       + '<div class="a3pills">' + pills + '</div></div>';
@@ -377,7 +399,7 @@
   function rhythmCard(c, isDesk) {
     const d = T(), set = cardDaySet(c.id), ws = addD(weekStart(d), -21); let cells = '', got = 0; const byDow = [0, 0, 0, 0, 0, 0, 0];
     for (let k = 0; k < 28; k++) { const x = addD(ws, k); const on = set.has(x); const n = on ? completionsOn(x, c.id) : 0; if (on && x <= d) { got++; byDow[k % 7]++; }
-      cells += '<span class="a2-pop" style="--i:' + k + ';' + (x === d ? 'box-shadow:inset 0 0 0 2px var(--cream)' + (on ? ';background:' + c.color : '') : on ? 'background:' + (n > 1 ? c.color : 'color-mix(in oklab,' + c.color + ' 72%,#0b1a12)') : 'background:rgba(255,255,255,.1)') + '"></span>'; }
+      cells += '<span class="a2-pop" style="--i:' + k + ';' + (x === d ? 'box-shadow:inset 0 0 0 2px var(--cream)' + (on ? ';background:' + c.color : '') : on ? 'background:' + (n > 1 ? c.color : 'color-mix(in oklab,' + c.color + ' 72%,#0b1a12)') : 'background:rgba(var(--wr),.1)') + '"></span>'; }
     const best = Math.max(...byDow); const bd = best ? WD[lang()][byDow.indexOf(best)] : '–'; const wk = habitWeek(c.id).filter(Boolean).length;
     return '<div class="a2-glass a2-in a3rh' + (isDesk ? ' d' : '') + '" style="--i:' + (isDesk ? 3 : 4) + '"><div class="a3rhg">' + cells + '</div><div class="a3rht"><span class="a2-lab">' + esc(isDesk ? L('Rhythm · 4 weeks', 'Rytmus · 4 týdny') : L('4 weeks', '4 týdny')) + '</span><div><b class="a2-d a2-num">' + got + '</b><span class="a2-t2">/ 28</span></div><span class="a2-t2 a3sm">' + esc(L('best day ', 'nejlepší den ') + bd + (isDesk ? ' · ' + wk + L(' good days this week', ' dobrých dní tento týden') : '')) + '</span></div></div>';
   }
@@ -397,7 +419,7 @@
     const ps = projectStats(c.id), nx = ps.next; if (!nx) return '';
     const d = nx.date || T(); const w = nx.date ? (nx.date === T() ? L('today', 'dnes') : nx.date < T() ? L('late', 'po termínu') : dayName(nx.date).toLowerCase()) : L('no day', 'bez dne');
     return '<div class="a2-glass a2-tint a2-in a3nxp' + (isDesk ? ' d' : '') + '" style="--i:2;--c:' + c.color + '"><button class="a3nxb" style="box-shadow:0 0 0 ' + (isDesk ? 8 : 6) + 'px color-mix(in oklab,' + c.color + ' 18%,transparent),0 10px 24px -8px rgba(0,0,0,.5)" data-a="toggle" data-id="' + nx.id + '" data-d="' + d + '" aria-label="' + esc(t('done')) + '"><span style="box-shadow:inset 0 0 0 ' + (isDesk ? 3 : 2.5) + 'px ' + c.color + '"></span></button>'
-      + '<button class="a3nxt" data-a="openItem" data-id="' + nx.id + '"><span class="a2-lab" style="color:color-mix(in oklab,' + c.color + ' 55%,#fff)">' + esc(t('nextStep') + ' · ' + w + (nx.time ? ' ' + nx.time : '')) + '</span><b class="a2-d">' + esc(nx.t) + '</b></button></div>';
+      + '<button class="a3nxt" data-a="openItem" data-id="' + nx.id + '"><span class="a2-lab" style="color:color-mix(in oklab,' + c.color + ' 55%,var(--mw))">' + esc(t('nextStep') + ' · ' + w + (nx.time ? ' ' + nx.time : '')) + '</span><b class="a2-d">' + esc(nx.t) + '</b></button></div>';
   }
   function noDayRow(c, isDesk) {
     const ps = projectStats(c.id); if (!ps.noDay) return ''; const it = cardItems(c.id).find(i => !i.repeat && !i.done && !i.date); if (!it) return '';
@@ -463,7 +485,7 @@
   function monthCal(c, isDesk) {
     const d = T(), ym = d.slice(0, 7), n = dimOf(ym), set = cardDaySet(c.id), first = dow(ym + '-01'); let cells = '', got = 0;
     for (let k = 0; k < first; k++) cells += '<span></span>';
-    for (let k = 1; k <= n; k++) { const x = ym + '-' + pad(k); const on = set.has(x); if (on) got++; cells += '<span class="a2-pop" style="--i:' + k + ';' + (on ? 'background:' + c.color + ';color:#0b1a12' : 'background:rgba(255,255,255,.08)') + (x === d ? ';box-shadow:inset 0 0 0 2px var(--cream)' : '') + (x > d ? ';opacity:.45' : '') + '">' + k + '</span>'; }
+    for (let k = 1; k <= n; k++) { const x = ym + '-' + pad(k); const on = set.has(x); if (on) got++; cells += '<span class="a2-pop" style="--i:' + k + ';' + (on ? 'background:' + c.color + ';color:#0b1a12' : 'background:rgba(var(--wr),.08)') + (x === d ? ';box-shadow:inset 0 0 0 2px var(--cream)' : '') + (x > d ? ';opacity:.45' : '') + '">' + k + '</span>'; }
     return '<div class="a2-glass a2-in a3mcal' + (isDesk ? ' d' : '') + '"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(MONF()[+ym.slice(5) - 1]) + '</span><span class="a2-t2 a2-num"><b style="color:var(--cream)">' + got + '</b> ' + esc(L('good days', 'dobrých dní')) + '</span></div><div class="a3mcg">' + WD1[lang()].map(w => '<i>' + w + '</i>').join('') + cells + '</div></div>';
   }
   function noteBlk(c) {
@@ -499,7 +521,7 @@
       const act = its.filter(i => (i.date || i.created || '2000-01-01').slice(0, 7) <= ym); let dn = 0, ok = 0;
       act.forEach(i => { const key = mKey(i, dd); const on = (i.mDone || {})[key] || ((i.doneDates || []).includes(key) ? key : null); if (on) { dn++; if (on <= mRange(i, dd)[1]) ok++; } });
       const tot = act.length; const h = tot ? dn / tot : 0;
-      cols += '<div class="a3hc2"><span class="a2-t3 a2-num">' + (tot ? dn + '/' + tot : '–') + '</span><div class="a3hbar"><i class="a2-grow" style="--i:' + (5 - k) + ';height:' + Math.max(4, h * 100).toFixed(0) + '%;background:' + (tot && ok === tot ? c.color : tot && dn ? 'color-mix(in oklab,' + c.color + ' 55%,#f2a541)' : 'rgba(255,255,255,.18)') + '"></i></div><span class="a2-t2">' + esc(MONF()[dt.getMonth()].slice(0, 3)) + '</span></div>'; }
+      cols += '<div class="a3hc2"><span class="a2-t3 a2-num">' + (tot ? dn + '/' + tot : '–') + '</span><div class="a3hbar"><i class="a2-grow" style="--i:' + (5 - k) + ';height:' + Math.max(4, h * 100).toFixed(0) + '%;background:' + (tot && ok === tot ? c.color : tot && dn ? 'color-mix(in oklab,' + c.color + ' 55%,#f2a541)' : 'rgba(var(--wr),.18)') + '"></i></div><span class="a2-t2">' + esc(MONF()[dt.getMonth()].slice(0, 3)) + '</span></div>'; }
     return '<div class="a2-glass a2-in a3hist"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(L('Last 6 months', 'Posledních 6 měsíců')) + '</span><span class="a2-t3" style="font-size:12px">' + esc(L('full colour = all on time', 'plná barva = vše včas')) + '</span></div><div class="a3hg">' + cols + '</div></div>';
   }
   function nextMonthBlk(c) {
@@ -701,7 +723,7 @@
   }
   function planRow(i, d, nextId, timeCol) {
     if (!timeCol) return dayRow(i, d, nextId);
-    const on = isDone(i, d); const c = hasCol(i) ? itemColor(i) : 'rgba(255,255,255,.4)'; const late = !i.repeat && i.date && i.date < d;
+    const on = isDone(i, d); const c = hasCol(i) ? itemColor(i) : 'rgba(var(--wr),.4)'; const late = !i.repeat && i.date && i.date < d;
     return '<div class="a3dr a3pr' + (on ? ' done' : '') + '" role="button" data-a="openItem" data-id="' + i.id + '"><span class="a3ptm a2-num"' + (late ? ' style="color:#ffb08a"' : '') + '>' + esc(late ? WD[lang()][dow(i.date)] : i.time || L('any', 'kdy.')) + '</span><span class="a3bar" style="background:' + c + (i.id === nextId ? ';box-shadow:0 0 10px ' + c : '') + '"></span><div class="a3dt"><span' + (i.id === nextId ? ' style="font-weight:600"' : '') + '>' + esc(i.t) + (cardName(i) ? ' <span class="a2-t3 a3pts">· ' + esc(cardName(i)) + '</span>' : '') + '</span></div>' + check(i, d, hasCol(i) ? itemColor(i) : '#f4ecdc', 26) + '</div>';
   }
   function planDayList(day, timeCol) {
@@ -721,7 +743,7 @@
   const planSeg = (cur, act) => '<div class="a2-seg">' + [['list', t('list')], ['week', t('week')], ['month', L('Month', 'Měsíc')]].map(([k, l]) => '<button class="' + (cur === k ? 'on' : '') + '" data-a="' + act + '" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div>';
   function planPhone() {
     const day = V.planDay || T(); const ws = weekStart(day);
-    const strip = [0, 1, 2, 3, 4, 5, 6].map(k => { const d = addD(ws, k); const on = d === day; const cols = [...new Set(itemsOn(d).map(i => hasCol(i) ? itemColor(i) : 'rgba(255,255,255,.5)'))].slice(0, 3);
+    const strip = [0, 1, 2, 3, 4, 5, 6].map(k => { const d = addD(ws, k); const on = d === day; const cols = [...new Set(itemsOn(d).map(i => hasCol(i) ? itemColor(i) : 'rgba(var(--wr),.5)'))].slice(0, 3);
       return '<button class="a3ps' + (on ? ' on a2-pop' : '') + (d === T() && !on ? ' td' : '') + '" data-a="planDay" data-d="' + d + '"><span>' + esc(WD[lang()][k]) + '</span><b class="a2-num">' + dOf(d).getDate() + '</b><i>' + cols.map(c => '<em style="background:' + c + '"></em>').join('') + '</i></button>'; }).join('');
     const L1 = planDayList(day, false); const nd = undatedItems();
     return '<div class="a2 a3p a3plan">' + pHead('<b class="a2-d" style="font-size:44px">Plan</b>', planSeg('list', 'planMode'))
@@ -745,7 +767,7 @@
     const day = V.a3pday || T(); const ws = weekStart(day), we = addD(ws, 6);
     const rng = dOf(ws).getDate() + (dOf(ws).getMonth() === dOf(we).getMonth() ? '' : ' ' + MON[lang()][dOf(ws).getMonth()].toLowerCase()) + ' – ' + dOf(we).getDate() + ' ' + (cs() ? ['ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'][dOf(we).getMonth()] : MON.en[dOf(we).getMonth()]);
     const strip = [0, 1, 2, 3, 4, 5, 6].map(k => { const d = addD(ws, k); const on = d === day; const its = itemsOn(d); const dn = its.filter(i => isDone(i, d)).length; const lf = its.length - dn;
-      const bars = its.slice(0, 4).map(i => '<em style="background:' + (isDone(i, d) || d >= T() ? (hasCol(i) ? itemColor(i) : (on ? 'rgba(27,34,40,.35)' : 'rgba(255,255,255,.45)')) : 'color-mix(in oklab,' + (hasCol(i) ? itemColor(i) : '#fff') + ' 35%,transparent)') + (on && !isDone(i, d) && d === T() ? ';opacity:.35' : '') + '"></em>').join('');
+      const bars = its.slice(0, 4).map(i => '<em style="background:' + (isDone(i, d) || d >= T() ? (hasCol(i) ? itemColor(i) : (on ? 'rgba(27,34,40,.35)' : 'rgba(var(--wr),.45)')) : 'color-mix(in oklab,' + (hasCol(i) ? itemColor(i) : 'var(--mw)') + ' 35%,transparent)') + (on && !isDone(i, d) && d === T() ? ';opacity:.35' : '') + '"></em>').join('');
       const st = !its.length ? '' : d === T() ? dn + ' ' + L('of ', 'z ') + its.length : d < T() ? (lf ? lf + ' ' + L('left', 'zbývá') : dn + ' ' + L('done', 'hotovo')) : its.length + ' ' + L('planned', 'v plánu');
       return '<button class="a3pd' + (on ? ' on' : '') + (d === T() && !on ? ' td' : '') + '" data-a="a3PDay" data-d="' + d + '"><span>' + esc(WD[lang()][k] + ' ' + dOf(d).getDate()) + '</span><i>' + bars + '</i><small' + (d < T() && lf ? ' style="color:#ffb08a"' : '') + '>' + esc(st) + '</small></button>'; }).join('');
     const L1 = planDayList(day, true); const nd = undatedItems(); const tm = addD(day, 1); const tmi = itemsOn(tm);
@@ -754,7 +776,7 @@
       + '<div class="a3pg"><div class="a2-glass a2-in a3pday d" style="--i:3"><div class="a3pdh"><b class="a2-d">' + esc(dayTitle(day)) + '</b><span class="a2-t2 a2-num"><b style="color:var(--cream)">' + L1.left + '</b> ' + esc(L('left', 'zbývá')) + '</span></div><div class="a3list">' + L1.rows + '</div>'
       + '<button class="a2-btn ghost a3w" style="margin-top:auto;flex:none" data-a="add" data-date="' + day + '">+ ' + esc(day === T() ? L('Add to Today', 'Přidat na dnešek') : L('Add to ', 'Přidat na ') + dayName(day).toLowerCase()) + '</button></div>'
       + '<div class="a3col">' + weekBlk(ws) + '<div class="a2-glass a2-in a3pnd d" style="--i:4"><span class="a2-lab">' + esc(L('No day yet · ', 'Bez dne · ') + nd.length) + '</span>' + (nd.length ? '<div class="a3pch v">' + nd.slice(0, 8).map(i => '<button class="a2-chip" data-a="when" data-id="' + i.id + '">' + (hasCol(i) ? '<span class="a2-dot" style="--c:' + itemColor(i) + '"></span>' : '') + '<span>' + esc(i.t) + '</span></button>').join('') + '</div><span class="a2-t3" style="font-size:13px">' + esc(L('Tap one to give it a day', 'Ťukni a dej mu den')) + '</span>' : '<span class="a2-t3" style="font-size:14px">' + esc(L('Everything has a day.', 'Všechno má svůj den.')) + '</span>') + '</div>'
-      + '<div class="a2-glass a2-in a3ptm2" style="--i:5"><span class="a2-lab" style="padding-bottom:8px">' + esc(dayTitle(tm)) + '</span>' + (tmi.length ? tmi.slice(0, 7).map(i => '<div class="a3dr" role="button" data-a="openItem" data-id="' + i.id + '"><span class="a3bar" style="height:26px;background:' + (hasCol(i) ? itemColor(i) : 'rgba(255,255,255,.4)') + '"></span><span class="a3dt"><span style="font-size:15px">' + esc(i.t) + '</span></span><span class="a2-t3" style="font-size:13px">' + esc(i.time || (i.repeat === 'daily' ? L('daily', 'denně') : L('any', 'kdykoli'))) + '</span></div>').join('') : '<span class="a2-t3" style="font-size:14px">' + esc(t('emptyDay')) + '</span>') + '</div></div></div></main>';
+      + '<div class="a2-glass a2-in a3ptm2" style="--i:5"><span class="a2-lab" style="padding-bottom:8px">' + esc(dayTitle(tm)) + '</span>' + (tmi.length ? tmi.slice(0, 7).map(i => '<div class="a3dr" role="button" data-a="openItem" data-id="' + i.id + '"><span class="a3bar" style="height:26px;background:' + (hasCol(i) ? itemColor(i) : 'rgba(var(--wr),.4)') + '"></span><span class="a3dt"><span style="font-size:15px">' + esc(i.t) + '</span></span><span class="a2-t3" style="font-size:13px">' + esc(i.time || (i.repeat === 'daily' ? L('daily', 'denně') : L('any', 'kdykoli'))) + '</span></div>').join('') : '<span class="a2-t3" style="font-size:14px">' + esc(t('emptyDay')) + '</span>') + '</div></div></div></main>';
   }
 
 
@@ -784,7 +806,7 @@
   function lookPanel() {
     const wk = wallKey(); const grain = S.a3grain != null ? S.a3grain : .16;
     const tiles = WL.map(([k, l, bg], i) => '<button class="a3wt" data-a="a3Wall" data-k="' + k + '"><span class="a2-pop" style="--i:' + i + ';background:' + bg + (wk === k ? ';box-shadow:0 0 0 3px var(--cream)' : '') + '"></span><span class="' + (wk === k ? '' : 'a2-t2') + '">' + esc(l) + '</span></button>').join('')
-      + '<button class="a3wt" data-a="a3Wall" data-k="photo"><span class="a2-pop" style="--i:4;' + (S.wallKey ? 'background:url(' + mediaNow(S.wallKey) + ') center/cover' : 'background:rgba(255,255,255,.08)') + (wk === 'photo' ? ';box-shadow:0 0 0 3px var(--cream)' : '') + '">' + (S.wallKey ? '' : ico('plus', 20, 1.8)) + '</span><span class="' + (wk === 'photo' ? '' : 'a2-t2') + '">' + esc(L('Your photo', 'Vlastní fotka')) + '</span></button>';
+      + '<button class="a3wt" data-a="a3Wall" data-k="photo"><span class="a2-pop" style="--i:4;' + (S.wallKey ? 'background:url(' + mediaNow(S.wallKey) + ') center/cover' : 'background:rgba(var(--wr),.08)') + (wk === 'photo' ? ';box-shadow:0 0 0 3px var(--cream)' : '') + '">' + (S.wallKey ? '' : ico('plus', 20, 1.8)) + '</span><span class="' + (wk === 'photo' ? '' : 'a2-t2') + '">' + esc(L('Your photo', 'Vlastní fotka')) + '</span></button>';
     const bl = S.blur ?? 12, bk = bl <= 4 ? 0 : bl <= 24 ? 12 : 40;
     const blurRow = wk === 'photo' ? '<div class="a2-well a3lw"><div><b>' + esc(L('Photo blur', 'Rozmazání fotky')) + '</b><span class="a2-t2">' + esc(L('How much the photo melts behind the glass.', 'Jak moc se fotka rozpije za sklem.')) + '</span></div><div class="a2-seg">' + [[0, L('Sharp', 'Ostré')], [12, L('Soft', 'Jemné')], [40, L('Strong', 'Silné')]].map(([k, l]) => '<button class="' + (bk === k ? 'on' : '') + '" data-a="a3Blur" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div></div>' : '';
     return '<div class="a3lk"><span class="a2-lab">' + esc(t('wallpaper')) + '</span><div class="a3wts">' + tiles + '</div></div>' + blurRow
@@ -849,10 +871,10 @@
   }
   function studioPhoneCard(i) {
     const f = studioFacts();
-    return '<div class="a2-glass a2-tint a2-in a3dc a3dk" role="button" style="--i:' + i + ';--c:' + STC + '" data-a="a3StOpen"><div class="a3dch">' + kick(L('Studio · video cut', 'Studio · střih videa'), STC) + (f.busy.length || f.ups.length ? '<span class="a3nowb" style="background:rgba(95,208,207,.2);color:#9ff0ec">' + esc(L('CUTTING', 'STŘÍHÁ')) + '</span>' : '') + '</div>'
+    return '<div class="a2-glass a2-tint a2-in a3dc a3dk" role="button" style="--i:' + i + ';--c:' + STC + '" data-a="a3StOpen"><div class="a3dch">' + kick(L('Studio · video cut', 'Studio · střih videa'), STC) + (f.busy.length || f.ups.length ? '<span class="a3nowb" style="background:rgba(95,208,207,.2);color:var(--stl)">' + esc(L('CUTTING', 'STŘÍHÁ')) + '</span>' : '') + '</div>'
       + '<div class="a3dcn"><b class="a2-d" style="font-size:clamp(26px,7.6vw,38px)">Aurora Studio</b>' + ring(64, f.used / f.daily, STC, i, f.left + '/' + f.daily, 15) + '</div>'
       + '<div class="a3w3">' + [[f.ups.length + f.busy.length, L('in progress', 'rozpracováno')], [f.ready.length, L('to pick', 'k výběru')], [f.done.length, L('done', 'hotovo')]].map(([n, l]) => '<div class="a2-well"><b class="a2-d a2-num">' + n + '</b><div class="a2-t2">' + esc(l) + '</div></div>').join('') + '</div>'
-      + '<div class="a3nxs"><span class="a2-lab" style="color:#9ff0ec">' + esc(t('nextStep')) + '</span><span>' + esc(studioNext(f)) + '</span></div></div>';
+      + '<div class="a3nxs"><span class="a2-lab" style="color:var(--stl)">' + esc(t('nextStep')) + '</span><span>' + esc(studioNext(f)) + '</span></div></div>';
   }
 
   /* what is happening right now, so you can see it works: steps, a moving bar, time running */
