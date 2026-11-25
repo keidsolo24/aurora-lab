@@ -1061,3 +1061,25 @@ body:has(.a3bkbar) #orbFab { opacity:0 !important; pointer-events:none !importan
 .scr, .a3p, .a3oldp, .a3list, .a3tl.d, .a3spanel, #s-spaces.a3s, body.a3 #desk main, #sheet .sb, .hst, .dstk, .pscroll, .wbody, .dbgrid { overscroll-behavior:none; }
 * { scrollbar-width:none; }
 *::-webkit-scrollbar, body.desk ::-webkit-scrollbar { display:none; width:0; height:0; }
+
+/* v2064 · karty na počítači plnou barvou jako na mobilu + karta s fotkou (styl „složka“) */
+.a3dc[data-solid] { color:#fff !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important;
+  background: linear-gradient(165deg, color-mix(in oklab, var(--c) 86%, #fff 14%), color-mix(in oklab, var(--c) 58%, #000)) !important;
+  box-shadow: 0 14px 30px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.3), inset 0 0 0 1px rgba(255,255,255,.08) !important; }
+.a3dc[data-solid]::before { display:none !important; }
+.a3dc[data-solid] .a2-d, .a3dc[data-solid] b { color:#fff !important; }
+.a3dc[data-solid] .a2-t2, .a3dc[data-solid] .a2-t3, .a3dc[data-solid] .a2-lab, .a3dc[data-solid] small, .a3dc[data-solid] .a3nxs span { color: rgba(255,255,255,.84) !important; }
+.a3dc[data-solid] .a2-well { background: rgba(0,0,0,.18) !important; box-shadow:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+.a3dc[data-solid] .a2-btn.ghost { color:#fff !important; background: rgba(255,255,255,.12) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.38) !important; }
+/* fotka: nahoře vidět, spodek jako matné čelo složky */
+.a3dc[data-img] { background: var(--img) center/cover !important; }
+.a3dc[data-img]::after { content:""; position:absolute; left:10px; right:10px; bottom:10px; top:42%; border-radius:22px; pointer-events:none; z-index:0;
+  background: linear-gradient(180deg, rgba(20,20,24,.30), rgba(20,20,24,.55)); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.08); }
+.a3dc[data-img] > * { position:relative; z-index:1; }
+.a3dc[data-img] .a3dch, .a3dc[data-img] .a3dcn { text-shadow: 0 1px 6px rgba(0,0,0,.45); }
+.a3wc.img { background: var(--img) center/cover; }
+.a3wc.img .a3wcb { margin:0 8px 8px; height: calc(100% - 54px); padding:14px 14px 16px; border-radius:20px;
+  background: linear-gradient(180deg, rgba(20,20,24,.30), rgba(20,20,24,.55)); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.08); }
+.a3wc.img .a3wch b { text-shadow: 0 1px 6px rgba(0,0,0,.45); }

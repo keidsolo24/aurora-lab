@@ -398,7 +398,15 @@
     requestAnimationFrame(() => { d.scrollLeft = at(i0); });
     let raf = 0; d.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { const mid = d.scrollLeft + d.clientWidth / 2; let best = 0, bd = 1e9; [...d.children].forEach((c, k) => { const dd = Math.abs(c.offsetLeft + c.clientWidth / 2 - mid); if (dd < bd) { bd = dd; best = k; } }); if (best !== V.deckIdx) { V.deckIdx = best; dots && [...dots.children].forEach((x, k) => x.classList.toggle('on', k === best)); } }); }, { passive: true });
   }
+  /* v2064: desktop cards in full colour like the phone wallet (or the card's photo) */
   function spaceDeskCard(x, i) {
+    const h = spaceDeskCard0(x, i), col = x.k ? x.k.color : x.c ? x.c.color : '';
+    if (!col || x.s) return h;
+    const img = x.c && x.c.bgImg, key = '--c:' + col, at = h.indexOf(key); if (at < 0) return h;
+    let tail = h.slice(at + key.length).split(col).join('#fff').split('rgba(var(--wr),.12)').join('rgba(255,255,255,.24)').split('rgba(var(--wr),.14)').join('rgba(255,255,255,.24)');
+    return (h.slice(0, at + key.length) + (img ? ';--img:url(' + img + ')' : '') + tail).replace(' role="button"', ' role="button" data-solid="1"' + (img ? ' data-img="1"' : ''));
+  }
+  function spaceDeskCard0(x, i) {
     if (x.s) return studioPhoneCard(i);
     const nxt = (lab, txt, w, col) => '<div class="a3nxs"><span class="a2-lab" style="color:color-mix(in oklab,' + col + ' 55%,var(--mw))">' + esc(lab) + '</span><span>' + esc(txt) + (w ? ' <span class="a2-t2">· ' + esc(w) + '</span>' : '') + '</span></div>';
     if (x.k) { const k = x.k, fa = keiroFacts(k);
