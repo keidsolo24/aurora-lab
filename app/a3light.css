@@ -12,7 +12,7 @@ body.lightui .a3tg i { background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.22); }
 body.lightui .a3wc, body.lightui .a3wc b, body.lightui .a3wc .a3wbig, body.lightui .a3wc .a3wnx, body.lightui .a3wc .a3wbg, body.lightui .a3wc .a2-well { color:#fff; }
 body.lightui .a3wnx .a2-lab { color: rgba(255,255,255,.72); }
 body.lightui .a3edge { background: linear-gradient(180deg, rgba(240,236,230,.7), rgba(240,236,230,0)); }
-body.lightui.a3:not(.desk) .a3p > .a3hd.a3fh .a2-icon, body.lightui.a3:not(.desk) .a3p > .a3hd.a3fh .a2-chip, body.lightui .a3pill { background: rgba(255,255,255,.62); color:#1c2228; box-shadow: inset 0 0 0 1px rgba(28,34,40,.08), 0 4px 14px rgba(0,0,0,.08); }
+body.lightui.a3:not(.desk) .a3p > .a3hd.a3fh .a2-icon, body.lightui.a3:not(.desk) .a3p > .a3hd.a3fh .a2-chip, body.lightui .a3tpill { background: rgba(255,255,255,.62); color:#1c2228; box-shadow: inset 0 0 0 1px rgba(28,34,40,.08), 0 4px 14px rgba(0,0,0,.08); }
 body.lightui .a3bkbar { background: rgba(255,255,255,.78); box-shadow: inset 0 0 0 1px rgba(28,34,40,.08), 0 14px 34px rgba(0,0,0,.14); }
 body.lightui .a3szb { background: rgba(28,34,40,.06); }
 body.lightui .a3szb button.on { background:#1c2228; color:#fff; }
@@ -151,7 +151,7 @@ body.lightui .a3gjack::after{background:rgba(28,34,40,0.138)}
 body.lightui .a3gtool{background:rgba(28,34,40,0.028);box-shadow:inset 0 0 0 1px rgba(28,34,40,0.044)}
 body.lightui .a3kn{color:#f4ecdc}
 body.lightui.a3:not(.desk) .a3p > .a3hd.a3fh .a2-icon, body.lightui.a3:not(.desk) .a3p > .a3hd.a3fh .a2-chip{background:rgba(255,255,255,0.80);box-shadow:inset 0 0 0 1px rgba(28,34,40,0.066), 0 4px 14px rgba(60,40,30,0.077)}
-body.lightui .a3pill{background:rgba(255,255,255,0.80);box-shadow:inset 0 0 0 1px rgba(28,34,40,0.066), 0 4px 14px rgba(60,40,30,0.077)}
+body.lightui .a3tpill{background:rgba(255,255,255,0.80);box-shadow:inset 0 0 0 1px rgba(28,34,40,0.066), 0 4px 14px rgba(60,40,30,0.077)}
 body.lightui .a3edge{background:linear-gradient(180deg, rgba(255,255,255,0.82), rgba(255,255,255,0.38))}
 body.lightui .a3bkm{box-shadow:0 2px 8px rgba(60,40,30,0.122)}
 body.lightui .a3grip2{background:rgba(255,255,255,0.56)}

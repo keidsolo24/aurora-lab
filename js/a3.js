@@ -91,7 +91,7 @@
     const nowP = P(M.nm);
     const segs = M.arcs.map(a => { const st = P(a.s), len = Math.max(2.2, P(a.e) - st); const col = a.c || 'rgba(var(--wr),.45)';
       return '<i class="' + (a.st || '') + '" style="left:' + st.toFixed(1) + '%;width:' + len.toFixed(1) + '%;--c:' + col + '"></i>'; }).join('');
-    return '<div class="a3dl" aria-hidden="true"><span class="a2-t3 a2-num">6</span><div class="a3dlt"><b style="width:' + nowP.toFixed(1) + '%"></b>' + segs + '<em style="left:' + nowP.toFixed(1) + '%"></em></div><span class="a2-t3 a2-num">24</span></div>';
+    return '<div class="a3dln" aria-hidden="true"><span class="a2-t3 a2-num">6</span><div class="a3dlt"><b style="width:' + nowP.toFixed(1) + '%"></b>' + segs + '<em style="left:' + nowP.toFixed(1) + '%"></em></div><span class="a2-t3 a2-num">24</span></div>';
   }
   function todayFocus(M, nx, n, head, isDesk) {
     const ent = V.a3enter && Date.now() - V.a3enter < 1500 ? ' enter' : '';
@@ -381,13 +381,15 @@
         el.style.transform = 'translate3d(0,' + Y.toFixed(1) + 'px,0) scale(' + Sc.toFixed(3) + ')'; el.style.height = Hh.toFixed(0) + 'px'; el.style.zIndex = f < .5 ? x.z : y.z; el.style.setProperty('--ex', ex.toFixed(2)); el.style.opacity = (x.hide && y.hide) ? 0 : 1; el.classList.toggle('act', ex > .5); });
     };
     size(); paint(); requestAnimationFrame(() => { size(); paint(); });
-    let raf = 0; scr.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); }, { passive: true });
+    if (scr._walOff) scr._walOff();
+    let raf = 0; const onS = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(paint); }; scr.addEventListener('scroll', onS, { passive: true });
     /* a strip is a way to get there; only the open card opens */
     deck.addEventListener('click', e => { const el = e.target.closest('.a3wc'); if (!el || el.classList.contains('act')) return; e.stopPropagation(); e.preventDefault();
       const i = cs.indexOf(el); const top = Math.max(0, wal.offsetTop - T0) + ((n - 1) - i) * STEP; scr.scrollTo({ top, behavior: RM ? 'auto' : 'smooth' }); haptic && haptic(); }, true);
     /* settle on a card after a fling */
-    let st2 = 0; scr.addEventListener('scroll', () => { clearTimeout(st2); st2 = setTimeout(() => { const base = Math.max(0, wal.offsetTop - T0); const p = (scr.scrollTop - base) / STEP; if (p < -.2 || p > n - .8) return; const k = Math.round(p); if (Math.abs(p - k) > .02) scr.scrollTo({ top: base + k * STEP, behavior: RM ? 'auto' : 'smooth' }); }, 140); }, { passive: true });
-    if (!wal._ro) { try { wal._ro = new ResizeObserver(() => { size(); paint(); }); wal._ro.observe(scr); } catch (e) {} }
+    let st2 = 0; const onE = () => { clearTimeout(st2); if (scr._tch) return; st2 = setTimeout(() => { const base = Math.max(0, wal.offsetTop - T0); const p = (scr.scrollTop - base) / STEP; if (p < -.2 || p > n - .8) return; const k = Math.round(p); if (Math.abs(p - k) > .02) scr.scrollTo({ top: base + k * STEP, behavior: RM ? 'auto' : 'smooth' }); }, 160); }; scr.addEventListener('scroll', onE, { passive: true });
+    let ro = null; try { ro = new ResizeObserver(() => { size(); paint(); }); ro.observe(scr); } catch (e) {}
+    scr._walOff = () => { scr.removeEventListener('scroll', onS); scr.removeEventListener('scroll', onE); clearTimeout(st2); cancelAnimationFrame(raf); ro && ro.disconnect(); };
   }
   function bindDeck(el) {
     const d = el.querySelector('#a3deck'), dots = el.querySelector('#a3dots'); if (!d) return;
@@ -981,7 +983,7 @@
   /* what is happening right now, so you can see it works: steps, a moving bar, time running */
   const ST_ORDER = ['start', 'download', 'transcript', 'plan', 'cut', 'render', 'upload'];
   const ST_TXT = { start: ['Waking up the cutter', 'Startuju střižnu'], download: ['Getting your video', 'Beru tvoje video'], transcript: ['Listening to what is said', 'Poslouchám, co se říká'], plan: ['Reading what you want', 'Čtu, co chceš'], cut: ['Cutting the pauses', 'Stříhám pauzy'], render: ['Rendering the video', 'Renderuju video'], upload: ['Almost done', 'Skoro hotovo'] };
-  const liq = (pc, cls) => '<span class="a3liq' + (cls ? ' ' + cls : '') + '" style="--h:' + Math.max(8, Math.min(100, pc)) + '%"><span class="a3lw">' + '<svg viewBox="0 0 240 16" preserveAspectRatio="none"><path d="M0 8 Q15 0 30 8 T60 8 T90 8 T120 8 T150 8 T180 8 T210 8 T240 8 V16 H0Z"/></svg>' + '<svg class="b" viewBox="0 0 240 16" preserveAspectRatio="none"><path d="M0 8 Q15 0 30 8 T60 8 T90 8 T120 8 T150 8 T180 8 T210 8 T240 8 V16 H0Z"/></svg>' + '</span></span>';
+  const liq = (pc, cls) => '<span class="a3liq' + (cls ? ' ' + cls : '') + '" style="--h:' + Math.max(8, Math.min(100, pc)) + '%"><span class="a3lqw">' + '<svg viewBox="0 0 240 16" preserveAspectRatio="none"><path d="M0 8 Q15 0 30 8 T60 8 T90 8 T120 8 T150 8 T180 8 T210 8 T240 8 V16 H0Z"/></svg>' + '<svg class="b" viewBox="0 0 240 16" preserveAspectRatio="none"><path d="M0 8 Q15 0 30 8 T60 8 T90 8 T120 8 T150 8 T180 8 T210 8 T240 8 V16 H0Z"/></svg>' + '</span></span>';
   const mmss = ms => { const s2 = Math.max(0, Math.round(ms / 1000)); return Math.floor(s2 / 60) + ':' + String(s2 % 60).padStart(2, '0'); };
   function liveRow(j) {
     const k = Math.max(0, ST_ORDER.indexOf(j.stage || (j.status === 'queued' ? '' : 'start')));
@@ -1015,7 +1017,7 @@
     const errTxt = e => (e && e.status ? e.status + ' · ' : '') + ((e && e.message) || String(e)).slice(0, 90);
     const pull = cr => syncApi('/s/pull', { sp: cr.sp, secret: cr.secret, since: Number.MAX_SAFE_INTEGER, sinceK: '' });
     openSheet({ title: L('Connection check', 'Kontrola spojení'), right: L('Again', 'Znovu'), cls: 'a3cksheet',
-      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2061 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
+      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2062 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
       mount: el => { paint(el); const run = async () => {
         const set = (k, v) => { R[k] = v; paint(el); };
         try { const r = await fetch(pushBase() + '/', { cache: 'no-store' }); const j = await r.json().catch(() => null); set('srv', r.ok && j && j.sync ? [1, L('running', 'běží')] : [0, 'http ' + r.status]); } catch (e) { set('srv', [0, L('not reachable', 'nedostupný') + ' · ' + errTxt(e)]); }
@@ -1197,7 +1199,7 @@
       const own = hd.querySelector(':scope > b.a2-d'); const nxt = p.querySelector(':scope > .a3cti b.a2-d, :scope > .a3cti .a3ctn b.a2-d');
       const txt = ((own || nxt || {}).textContent || '').trim(); if (!txt) return;
       const back = hd.querySelector('[data-a="closeCard"],[data-a="closeSettings"],[data-a="settingsBack"],[data-a="a3StClose"],[data-a="krClose"]');
-      hd.insertAdjacentHTML('beforeend', '<span class="a3pill' + (back ? ' bk' : '') + '" aria-hidden="true">' + esc(txt) + '</span>');
+      hd.insertAdjacentHTML('beforeend', '<span class="a3tpill' + (back ? ' bk' : '') + '" aria-hidden="true">' + esc(txt) + '</span>');
       const pill = hd.lastElementChild; const right = hd.querySelector(':scope > .a3hdr') || (hd.children.length > 2 ? hd.children[hd.children.length - 2] : null);
       requestAnimationFrame(() => { const rw = right && right !== pill && right !== back && !right.matches('b') ? right.offsetWidth : 0; pill.style.maxWidth = Math.max(80, hd.clientWidth - (back ? 56 : 0) - rw - 14) + 'px'; });
     });
@@ -1230,7 +1232,13 @@
     const _sp = renderSpaces;
     renderSpaces = function () {
       if (desk()) return _sp.apply(this, arguments);
-      const el = $('#s-spaces'); el.classList.add('a3s'); settle(el, 'spaces' + NAV); el.innerHTML = spacesPhone(); bindWallet(el); auraFromCards && auraFromCards(null);
+      const el = $('#s-spaces'); el.classList.add('a3s');
+      /* the wallet is scroll-driven: never rebuild it under a finger, and keep the scroll position through a rebuild */
+      if (el._walBusy && Date.now() - el._walBusy < 900) { clearTimeout(el._walLater); el._walLater = setTimeout(() => { if (V.tab === 'spaces' || $('#s-spaces.on')) renderSpaces(); }, 950); return; }
+      const keep = el.scrollTop, oldH = el.querySelector('#a3wal') && el.querySelector('#a3wal').style.height; const html = spacesPhone();
+      if (el._walHtml === html && el.querySelector('#a3wal')) return; el._walHtml = html;
+      settle(el, 'spaces' + NAV); el.innerHTML = html; if (oldH) el.querySelector('#a3wal') && (el.querySelector('#a3wal').style.height = oldH); bindWallet(el); el.scrollTop = keep;
+      if (!el._walL) { el._walL = 1; const busy = () => { el._walBusy = Date.now(); }; el.addEventListener('scroll', busy, { passive: true }); el.addEventListener('touchstart', busy, { passive: true }); el.addEventListener('touchmove', busy, { passive: true }); el.addEventListener('touchstart', () => { el._tch = 1; }, { passive: true }); const up = () => { el._tch = 0; el.dispatchEvent(new Event('scroll')); }; el.addEventListener('touchend', up, { passive: true }); el.addEventListener('touchcancel', up, { passive: true }); } auraFromCards && auraFromCards(null);
     };
     RENDER.spaces = renderSpaces;
     const _rb = renderBoard;
