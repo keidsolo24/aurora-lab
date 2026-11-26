@@ -1,0 +1,23 @@
+/* Aurora 2 Lab · v2035 · one grammar for every card: answer · main · side · More. Empty blocks are not shown. */
+.cmrow{margin-top:16px}
+.cmore{display:flex;flex-direction:column;margin-top:4px}
+.cmore>.stack{margin-top:16px}
+.stack.cside{margin-top:16px}
+.srcp.srcadd.sm{margin:16px 0 0;padding:14px 16px}
+.srcp.srcadd.sm .cap{display:block;margin-bottom:8px}
+/* computer: answer + side left, tasks right, More full width below */
+.dmain.dcardv.nu{grid-template-rows:none;grid-auto-rows:max-content;align-content:start;overflow-y:auto}
+.dmain.nu>#dC1,.dmain.nu>#dC2{align-self:start}
+.dmain.nu>#dC1>.stack:first-child{margin-top:0!important}
+.dmain.nu>#dC2>.sec:first-child{margin-top:0}
+.dmain.nu>.cmrow{grid-column:1/-1;margin-top:0}
+.dmain.nu>.cmore{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start;margin:0}
+.dmain.nu>.cmore>*{margin-top:0!important}
+.dmain.nu>.cmore>.srcp,.dmain.nu>.cmore>.stud{grid-column:auto;margin:0}
+/* Spaces: statistics under More */
+.dspmore{grid-column:1/-1}
+/* Home: nothing gets cut off */
+.dhome .dstk .pn.grow{flex:none}
+.dhome .dideas{flex:none;min-height:0;grid-template-rows:auto;overflow:visible}
+.dhome .dideas .mt{height:190px}
+/* Keiro widget: the numbers never touch the button */

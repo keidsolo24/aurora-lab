@@ -1,0 +1,83 @@
+/* Aurora 2 Lab · v2040 · motion + the living AI orb. No blur, no new layout. */
+
+/* sheets come in and leave on the one spring; when a sheet turns into another one, it changes size instead of jumping */
+#sheet{transition:transform var(--sp-sheet-ms,.42s) var(--sp-sheet,var(--out))}
+#sheet.mtmorph{overflow:hidden}
+
+/* the tick: a ring that leaves the circle once */
+.mtring{position:fixed;z-index:60;width:26px;height:26px;border-radius:50%;pointer-events:none;box-shadow:0 0 0 2px var(--c,var(--green))}
+.c0{transition:background .18s,border-color .18s}
+
+/* press: everything you can tap sinks a little and comes back on the spring */
+.press{transition:transform var(--sp-soft-ms,.3s) var(--sp-soft,var(--out))}
+
+/* ---------- the AI orb: a living sphere like the one in ChatGPT voice, in the colours of the Aurora wallpaper ---------- */
+@keyframes obA{0%{transform:translate(-12%,4%) scale(1.1)}33%{transform:translate(10%,-6%) scale(.95)}66%{transform:translate(-4%,10%) scale(1.15)}100%{transform:translate(-12%,4%) scale(1.1)}}
+@keyframes obB{0%{transform:translate(14%,-8%)}50%{transform:translate(-14%,6%)}100%{transform:translate(14%,-8%)}}
+@keyframes obC{0%{transform:translate(0,6%) scale(1)}50%{transform:translate(6%,-8%) scale(.9)}100%{transform:translate(0,6%) scale(1)}}
+@keyframes obBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.orbv.alive{animation:obBreath 3.2s ease-in-out infinite;border-radius:50%}
+.orbv.alive .ob{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:linear-gradient(180deg,#2a4a72 0%,#2c73a1 26%,#5fb2d4 50%,#a9d3dd 66%,#c49a80 84%,#7a4a4a 100%);box-shadow:0 6px 22px rgba(40,110,150,.35);isolation:isolate}
+.orbv.alive .ob i{position:absolute;border-radius:50%}
+.orbv.alive .ob .b1{width:130%;height:70%;left:-15%;top:52%;background:radial-gradient(closest-side,rgba(232,246,248,.9),rgba(232,246,248,0));animation:obA 7s ease-in-out infinite}
+.orbv.alive .ob .b2{width:110%;height:50%;left:-5%;top:38%;background:radial-gradient(closest-side,rgba(230,170,130,.7),rgba(230,170,130,0));animation:obB 9s ease-in-out infinite}
+.orbv.alive .ob .b3{width:80%;height:55%;left:10%;top:-10%;background:radial-gradient(closest-side,rgba(40,80,130,.8),rgba(40,80,130,0));animation:obC 11s ease-in-out infinite}
+.orbv.alive .ob .gl{display:none}
+.orbv .orbm,.aorb .orbp{display:none!important}
+/* thinking: the clouds run faster; done: it turns green for a moment */
+.orbthink .orbv.alive .ob i,body.thinking .orbv.alive .ob i{animation-duration:2.2s}
+.aorb.orbdone .orbv.alive .ob{background:linear-gradient(180deg,#2f9c68 0%,#5fd39a 50%,#e4fbef 100%)}
+
+/* phone: the orb sits in the middle of the bar, between Spaces and Board */
+.nav .bar{grid-template-columns:1fr 1fr 64px 1fr 1fr}
+.nav .bar .tab:nth-child(3){grid-column:4}
+.nav .plus.aorb{position:absolute;left:calc(50% - 29px);top:calc(50% - 29px);width:58px;height:58px;border-radius:50%;background:none!important;box-shadow:none!important;-webkit-backdrop-filter:none;backdrop-filter:none;z-index:2;padding:0}
+.nav .plus.aorb .orbv{width:52px;height:52px}
+html body.lightui .nav .plus.aorb{background:none!important}
+/* the card page on the phone: the same sphere floats bottom right */
+#orbFab{background:none!important;box-shadow:none!important;-webkit-backdrop-filter:none;backdrop-filter:none}
+#orbFab .orbv{width:56px;height:56px}
+/* computer: in the top bar between Spaces and Board */
+.dnav .dorb{width:40px;height:40px;padding:0!important;margin:0 4px;border-radius:50%;background:none!important;display:flex;align-items:center;justify-content:center;flex:none}
+.dnav .dorb .orbv{width:34px;height:34px}
+
+@media (prefers-reduced-motion:reduce){
+  .orbv.alive,.orbv.alive .ob i{animation:none!important}
+  #sheet,.press{transition-duration:.01s!important}
+}
+
+/* ---------- v2043 · how the orb feels in the hand ---------- */
+/* hover (mouse): it leans towards you */
+.aorb .orbv.alive .ob{transition:transform .45s var(--sp-soft,var(--out)),box-shadow .45s}
+@media (hover:hover){.aorb:hover .orbv.alive .ob{transform:scale(1.1);box-shadow:0 8px 28px rgba(40,110,150,.5)}}
+/* holding: it swells for as long as you hold, so you feel it is about to lift */
+.aorb.orbpress{transform:none!important}
+.aorb.orbpress .orbv.alive .ob{transform:scale(1.22);transition:transform .36s cubic-bezier(.3,.7,.4,1),box-shadow .36s;box-shadow:0 10px 34px rgba(40,110,150,.6)}
+/* lifted: the sphere is in your hand, its place stays marked */
+.aorb.orbaway{opacity:1!important;transform:none!important}
+.aorb.orbaway .orbv{opacity:0;transform:scale(.5);transition:opacity .2s,transform .25s}
+.aorb.orbaway::after{content:'';position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;border:1.5px dashed rgba(243,234,216,.45);pointer-events:none}
+.dnav .dorb{position:relative}
+.dnav .dorb.orbaway::after{width:28px;height:28px;margin:-14px 0 0 -14px}
+/* the sphere you carry: the same living ball, bigger, no box around it */
+#orbGhost{width:72px;height:72px;border-radius:50%;background:none!important;box-shadow:none!important;transition:opacity .2s,scale .35s var(--sp-sheet,var(--out))!important;scale:.72}
+#orbGhost.on{scale:1}
+#orbGhost.snap{scale:.8}
+#orbGhost .orbv{width:72px;height:72px}
+#orbGhost .orbv.alive .ob{box-shadow:0 14px 40px rgba(20,60,90,.55),0 0 30px rgba(120,200,230,.35)}
+#orbGhost.snap .orbv.alive .ob{box-shadow:0 0 0 3px rgba(243,234,216,.9),0 10px 30px rgba(20,60,90,.5)}
+
+/* ---------- v2043 · the orb is liquid ---------- */
+/* idle: the horizon inside sways slowly, the colours pour over each other */
+@keyframes obSway{0%,100%{rotate:-9deg}50%{rotate:9deg}}
+@keyframes obPour{0%{background-position:50% 0%}50%{background-position:50% 100%}100%{background-position:50% 0%}}
+.orbv.alive .ob{background-size:100% 160%;animation:obSway 6s ease-in-out infinite,obPour 9s ease-in-out infinite}
+/* carried: it stretches in the direction you move and the inside lags behind, then sloshes back */
+#orbGhost .orbv.alive{rotate:var(--ang,0deg)}
+#orbGhost .orbv.alive .ob{scale:var(--sq,1) var(--sr,1)}
+#orbGhost .orbv.alive .ob{rotate:calc(var(--tilt,0deg) - var(--ang,0deg));animation:obPour 4s ease-in-out infinite}
+#orbGhost .orbv.alive .ob i{translate:var(--lx,0) var(--ly,0);transition:translate .12s linear}
+/* a clear way out while you carry it */
+#orbL .orbx{position:fixed;left:50%;bottom:calc(max(14px,var(--sb,0px) - 10px) + 76px);transform:translateX(-50%);height:46px;padding:0 22px;border-radius:23px;background:rgba(20,21,25,.88);color:#f3ead8;font:600 15px/1 Inter,sans-serif;box-shadow:inset 0 0 0 1px rgba(243,234,216,.2),0 10px 30px rgba(0,0,0,.35);z-index:2}
+body:has(#desk .dnav) #orbL .orbx{bottom:28px}
+@media (prefers-reduced-motion:reduce){.orbv.alive .ob{animation:none!important}}
