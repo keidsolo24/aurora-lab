@@ -15,7 +15,7 @@
   const _push = syncPush;
   syncPush = async function () { return SY.lab ? _push() : 0; };   // only the Lab's own space is ever written to
   const _now = syncNow;
-  syncNow = async function (o) { if (SY.labAllow) return _now(o); if (S.labSync) return labSyncNow(); return false; };
+  syncNow = async function (o) { if (SY.labAllow) return _now(o); if (S && S.labSync) return labSyncNow(); return false; };
 
   /* ---------- the Lab's own link: phone ↔ computer, both ways. The beta account is only read from. ----------
      S.labSync is a second sync space. For one run it takes the place of S.sync, with its own snapshot. */
@@ -23,9 +23,9 @@
   snapLoad = async function () { const k = SY.lab ? 'syncsnap:lab' : 'syncsnap'; if (SY.snap && SY.snapK === k) return SY.snap; try { SY.snap = (await DB.get('kv', k)) || {}; } catch (e) { SY.snap = {}; } SY.snapK = k; return SY.snap; };
   snapSave = async function () { try { await DB.set('kv', SY.snapK || 'syncsnap', SY.snap); } catch (e) {} };
   if (typeof accSeen === 'function') { const _as = accSeen; accSeen = async function (f) { if (SY.lab) return; return _as(f); }; }
-  syncSchedule = function (ms = 2500) { if (!syncOn() && !S.labSync) return; clearTimeout(SY.timer); SY.timer = setTimeout(() => syncNow(), ms); };
+  syncSchedule = function (ms = 2500) { if (!S || (!syncOn() && !S.labSync)) return; clearTimeout(SY.timer); SY.timer = setTimeout(() => syncNow(), ms); };
   async function labRun(fn) {
-    if (!S.labSync) return false; if (SY.busy) { SY.again = true; return false; }
+    if (!S.labSync) return false; if (SY.lab || SY.busy) { SY.again = true; return false; }
     const beta = S.sync; S.sync = S.labSync; SY.lab = true; SY.snap = null;
     try { return await fn(); }
     finally { S.labSync = S.sync; S.sync = beta; SY.lab = false; SY.snap = null; SY.snapK = null; await rawSave(); if (V.settingsOpen && V.settingsPage === 'labsync') renderSettings(); }

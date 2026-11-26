@@ -1056,30 +1056,59 @@ body:has(.a3bkbar) #orbFab { opacity:0 !important; pointer-events:none !importan
 .a3wcb { transform: translateY(calc((1 - var(--ex, 0)) * 18px)); }
 .a3wc.act { box-shadow: 0 -10px 26px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.34), inset 0 0 0 1px rgba(255,255,255,.1); }
 
-/* v2063 · horní část stojí: bez rozmazání nahoře, bez gumového pružení, bez bočních posuvníků */
-.a3edge, .scr > .hdr::before { display:none !important; }
-.scr, .a3p, .a3oldp, .a3list, .a3tl.d, .a3spanel, #s-spaces.a3s, body.a3 #desk main, #sheet .sb, .hst, .dstk, .pscroll, .wbody, .dbgrid { overscroll-behavior:none; }
-* { scrollbar-width:none; }
-*::-webkit-scrollbar, body.desk ::-webkit-scrollbar { display:none; width:0; height:0; }
-
-/* v2064 · karty na počítači plnou barvou jako na mobilu + karta s fotkou (styl „složka“) */
-.a3dc[data-solid] { color:#fff !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important;
-  background: linear-gradient(165deg, color-mix(in oklab, var(--c) 86%, #fff 14%), color-mix(in oklab, var(--c) 58%, #000)) !important;
-  box-shadow: 0 14px 30px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.3), inset 0 0 0 1px rgba(255,255,255,.08) !important; }
-.a3dc[data-solid]::before { display:none !important; }
-.a3dc[data-solid] .a2-d, .a3dc[data-solid] b { color:#fff !important; }
-.a3dc[data-solid] .a2-t2, .a3dc[data-solid] .a2-t3, .a3dc[data-solid] .a2-lab, .a3dc[data-solid] small, .a3dc[data-solid] .a3nxs span { color: rgba(255,255,255,.84) !important; }
-.a3dc[data-solid] .a2-well { background: rgba(0,0,0,.18) !important; box-shadow:none !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
-.a3dc[data-solid] .a2-btn.ghost { color:#fff !important; background: rgba(255,255,255,.12) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.38) !important; }
-/* fotka: nahoře vidět, spodek jako matné čelo složky */
-.a3dc[data-img] { background: var(--img) center/cover !important; }
-.a3dc[data-img]::after { content:""; position:absolute; left:10px; right:10px; bottom:10px; top:42%; border-radius:22px; pointer-events:none; z-index:0;
-  background: linear-gradient(180deg, rgba(20,20,24,.30), rgba(20,20,24,.55)); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.08); }
-.a3dc[data-img] > * { position:relative; z-index:1; }
-.a3dc[data-img] .a3dch, .a3dc[data-img] .a3dcn { text-shadow: 0 1px 6px rgba(0,0,0,.45); }
-.a3wc.img { background: var(--img) center/cover; }
-.a3wc.img .a3wcb { margin:0 8px 8px; height: calc(100% - 54px); padding:14px 14px 16px; border-radius:20px;
-  background: linear-gradient(180deg, rgba(20,20,24,.30), rgba(20,20,24,.55)); -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.08); }
-.a3wc.img .a3wch b { text-shadow: 0 1px 6px rgba(0,0,0,.45); }
+/* ===== v2063 ===== */
+/* AI: actions jump out of the orb (phone) */
+#orbRad { position:fixed; inset:0; z-index:9002; }
+#orbRad .orsc { position:absolute; inset:0; background:rgba(6,9,13,.42); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); opacity:0; transition:opacity .25s; }
+#orbRad.on .orsc { opacity:1; }
+.orbq { position:absolute; width:74px; height:74px; margin:0; padding:0; border:0; border-radius:24px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; cursor:pointer; opacity:0;
+  background:rgba(34,40,48,.94); color:#f4ecdc; box-shadow:0 14px 30px rgba(0,0,0,.42), inset 0 0 0 1px rgba(255,255,255,.14), inset 0 1px 0 rgba(255,255,255,.18); font:650 11.5px/1 Inter, sans-serif; -webkit-tap-highlight-color:transparent; }
+.orbq svg { width:24px; height:24px; }
+.orbq.ai { background:linear-gradient(150deg, var(--o1,#5ccfc9), var(--o2,#4d5cff) 55%, var(--o3,#e9557c)); color:#fff; }
+.orbq:active { filter:brightness(1.15); }
+#orbBub .obgo { background:#f4ecdc !important; color:#1b2228 !important; }
+#orbBub .obgo svg { stroke:#1b2228 !important; }
+html body.lightui #orbBub .obb { background:#f7f4ef !important; }
+html body.lightui #orbBub .obgo { background:#1c2228 !important; color:#f4ecdc !important; }
+html body.lightui #orbBub .obgo svg { stroke:#f4ecdc !important; }
+/* Home phone: cards as rows */
+.a3wrows { gap:6px; }
+.a3wrl { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:space-around; }
+.a3wrl .a3kr { flex:1 1 0; max-height:64px; }
+/* Home desk: Today and the widget under it share the column half and half */
+.a3dhome .a3c1 > * { flex:1 1 0 !important; min-height:0; height:auto !important; max-height:none !important; }
+/* iPad: everything a notch smaller */
+body.desk.dtab #desk { zoom:.88; }
+/* Board: a stack of up to three photos, kept inside its own tile */
+.a3stw { position:relative; margin:10px 14px 0 2px; }
+.a3stw > .a3bimg { position:absolute; inset:0; width:100%; height:100%; aspect-ratio:auto !important; z-index:3; box-shadow:0 8px 20px rgba(0,0,0,.3); }
+.a3sly { position:absolute; inset:0; border-radius:22px; background:#14202a center/cover; box-shadow:0 6px 16px rgba(0,0,0,.28); }
+.a3sly.s2 { z-index:2; transform: translate(5%, -4%) rotate(3deg); }
+.a3sly.s3 { z-index:1; transform: translate(10%, -8%) rotate(6deg); }
+.a3stn { position:absolute; right:10px; bottom:10px; min-width:26px; height:26px; padding:0 8px; border-radius:13px; display:grid; place-items:center; background:rgba(0,0,0,.6); color:#fff; font:700 12px/1 Inter, sans-serif; -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+.a3bt.a3stk { overflow:visible; }
+.mediaprev { position:relative; }
+.mpmore { position:absolute; left:10px; bottom:10px; display:flex; align-items:center; gap:4px; padding:4px 8px 4px 4px; border-radius:14px; background:rgba(0,0,0,.6); color:#fff; font:700 12px/1 Inter, sans-serif; }
+.mpmore i { width:30px; height:30px; border-radius:9px; background:#222 center/cover; }
+.vsubs { position:absolute; left:0; right:0; bottom:calc(var(--sb,0px) + 150px); z-index:6; display:flex; justify-content:center; gap:8px; }
+.vsubs button { width:46px; height:46px; border-radius:13px; border:0; padding:0; background:#222 center/cover; opacity:.55; box-shadow:0 4px 12px rgba(0,0,0,.4); cursor:pointer; }
+.vsubs button.on { opacity:1; box-shadow:0 0 0 2px #fff, 0 4px 12px rgba(0,0,0,.4); }
+/* phone edit: small real card on top, list under it */
+.a3epv { padding:12px; overflow:hidden; }
+.a3epz { transform:scale(.34); transform-origin:0 0; width:294.1%; pointer-events:none; }
+body:has(.a3elist) #orbFab { opacity:0 !important; pointer-events:none !important; visibility:hidden !important; }
+.a3epz .a2-in { animation:none !important; }
+.a3elist { padding:6px 12px; display:flex; flex-direction:column; }
+.a3er { display:flex; align-items:center; gap:10px; min-height:60px; border-top:1px solid rgba(var(--wr), .08); background:transparent; }
+.a3er:first-child { border-top:0; }
+.a3er.drag { background:rgba(var(--wr), .08); border-radius:16px; border-color:transparent; }
+.a3er > b { flex:1; min-width:0; font:600 15px/1.2 Inter, sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.a3er.off > b { opacity:.4; }
+.a3erg { width:34px; height:44px; display:grid; place-items:center; color:var(--t3); font:700 15px/1 Inter; letter-spacing:-2px; touch-action:none; cursor:grab; flex:none; }
+.a3szb.sm button { height:36px; min-width:0; padding:0 12px; font-size:13px; }
+.a3szb.sm button:disabled { opacity:.3; }
+.a3ere { width:44px; height:44px; border-radius:50%; border:0; background:rgba(var(--wr), .07); color:var(--cream); display:grid; place-items:center; flex:none; cursor:pointer; }
+.a3er.off .a3ere { color:var(--t3); }
+/* Plan desk: "Tomorrow" scrolls inside itself and fades at the bottom instead of being cut */
+.a3ptm2 { overflow-y:auto; scrollbar-width:none; -webkit-mask:linear-gradient(180deg,#000 calc(100% - 30px),transparent); mask:linear-gradient(180deg,#000 calc(100% - 30px),transparent); padding-bottom:26px !important; }
+.a3ptm2::-webkit-scrollbar { display:none; }

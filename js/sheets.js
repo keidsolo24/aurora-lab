@@ -214,9 +214,9 @@ function monHTML() {
 function noteDyn() {
   const c = cardById(A.card);
   let h = '';
-  if (A.file) h += '<div class="mediaprev" style="margin-top:10px">' + (A.kind === 'video' ? '<video src="' + A.url + '" controls playsinline muted></video>' : '<img src="' + A.url + '" alt="">') + '<button class="xbtn in press mrm" data-a="aNoFile" aria-label="' + esc(t('removeFile')) + '">' + ico('x', 14, 2.6) + '</button></div>';
+  if (A.file) h += '<div class="mediaprev" style="margin-top:10px">' + (A.kind === 'video' ? '<video src="' + A.url + '" controls playsinline muted></video>' : '<img src="' + A.url + '" alt="">') + '<button class="xbtn in press mrm" data-a="aNoFile" aria-label="' + esc(t('removeFile')) + '">' + ico('x', 14, 2.6) + '</button>' + ((A.more || []).length ? '<span class="mpmore">' + A.more.map(x => '<i style="background-image:url(' + x.url + ')"></i>').join('') + '<b>' + (A.more.length + 1) + '</b></span>' : '') + '</div>';
   h += '<div class="alist in">'
-    + '<label class="lrw pick press"><span class="li">' + ico('photo', 15, 2) + '</span><span class="ll">' + esc(t('photoVideo')) + '</span><span class="lv"><b>' + esc(A.file ? t('change') : '') + '</b>' + ico('plus', 13, 2.4) + '</span><input type="file" id="aFile" accept="image/*,video/*"></label>'
+    + '<label class="lrw pick press"><span class="li">' + ico('photo', 15, 2) + '</span><span class="ll">' + esc(t('photoVideo')) + '</span><span class="lv"><b>' + esc(A.file ? t('change') : '') + '</b>' + ico('plus', 13, 2.4) + '</span><input type="file" id="aFile" accept="image/*,video/*" multiple></label>'
     + listRow('card', 'card', t('cardCap'), c ? c.name : t('noCard'), () => '<div class="chips wrap" id="aCards">' + cardChips(A.card, suggestCard(A.text)) + '</div>')
     + '</div>';
   h += '<div class="hint"><span class="led" style="--c:' + cardColor(A.card) + '"></span><span id="aHint">' + esc(c ? t('ideaLandsCard', c.name) : t('ideaLands')) + '</span></div>';
@@ -290,7 +290,10 @@ function bindAddDyn() {
     const file = f.files && f.files[0]; if (!file) return;
     if (file.type.startsWith('video/') && file.size > 500 * 1024 * 1024) { toast(esc(t('tooBig'))); return; }
     if (file.type.startsWith('video/') && navigator.storage && navigator.storage.estimate) { try { const e = await navigator.storage.estimate(); if (e.quota && e.quota - (e.usage || 0) < file.size * 1.15) { toast(esc(t('noSpace'))); return; } } catch (er) {} }
-    A.file = file; A.kind = file.type.startsWith('video/') ? 'video' : 'photo'; if (A.url) URL.revokeObjectURL(A.url); A.url = URL.createObjectURL(file); updAdd();
+    A.file = file; A.kind = file.type.startsWith('video/') ? 'video' : 'photo'; if (A.url) URL.revokeObjectURL(A.url); A.url = URL.createObjectURL(file);
+    (A.more || []).forEach(x => URL.revokeObjectURL(x.url)); A.more = [];
+    if (A.kind === 'photo') { const rest = [...f.files].slice(1).filter(x => x.type.startsWith('image/')); if (rest.length > 2) toast(esc(lang() === 'cs' ? 'Nejvýš 3 fotky v jedné hromádce' : '3 photos in one stack at most')); A.more = rest.slice(0, 2).map(x => ({ file: x, url: URL.createObjectURL(x) })); }
+    updAdd();
   });
 }
 const blurField = () => { const a = document.activeElement; if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT')) a.blur(); };
@@ -306,7 +309,7 @@ ACT.aRepeat = el => { const k = el.dataset.k || null; A.repeat = k; A.rT = true;
 ACT.aWd = el => { const k = +el.dataset.k; const s2 = new Set(A.days || []); s2.has(k) ? s2.delete(k) : s2.add(k); A.days = [...s2].sort((a, b) => a - b); A.rT = true; haptic(); updAdd(); };
 ACT.aDur = el => { A.dur = +el.dataset.k; A.durT = true; A.row = null; updAdd(); };
 ACT.aRem = el => { const k = el.dataset.k; A.remind = k === 'off' || k === 'eve' ? k : +k; A.row = null; updAdd(); };
-ACT.aNoFile = () => { if (A.url) URL.revokeObjectURL(A.url); A.file = null; A.url = null; A.kind = null; updAdd(); };
+ACT.aNoFile = () => { if (A.url) URL.revokeObjectURL(A.url); (A.more || []).forEach(x => URL.revokeObjectURL(x.url)); A.more = []; A.file = null; A.url = null; A.kind = null; updAdd(); };
 ACT.pickCard = el => { A.card = el.dataset.k || null; A.cardTouched = true; A.tile = null; A.row = null; const mc = A.card && (cardById(A.card) || {}).type === 'month'; if (mc && (!A.rT || !A.repeat)) { A.repeat = 'monthly'; A.mwin = null; A.rT = true; } else if (!mc && A.repeat === 'monthly' && !A.mwin) A.mwin = aWinEff(); updAdd(); };
 
 async function saveAdd(o = {}) {
@@ -369,9 +372,10 @@ async function saveAdd(o = {}) {
     const key = await putMedia(blob);
     const m = { id: uid(), kind: A.kind, card, note: A.text.trim(), d: T(), img: key, r, dur, ts: Date.now() };
     if (A.kind === 'video') { try { const th = await videoThumb(blob); if (th) { m.thumb = await putMedia(th); await mediaURL(m.thumb); } } catch (e) {} }
+    if (A.kind === 'photo' && (A.more || []).length) { m.more = []; for (const x of A.more) { try { const b2 = await compressImage(x.file); const k2 = await putMedia(b2); await mediaURL(k2); m.more.push({ k: k2, r: await imgRatio(b2) }); } catch (e) {} URL.revokeObjectURL(x.url); } if (!m.more.length) delete m.more; }
     S.moments.push(m); if (typeof useCount === 'function') useCount('moms'); save(); closeSheet(true); if (A.url) URL.revokeObjectURL(A.url);
     if (V.tab !== 'board' && !V.card) go('board'); else render();
-    toast(esc(t('photoAdded')), { label: t('undo'), fn: () => { S.moments = S.moments.filter(x => x !== m); delMedia(key); if (m.thumb) delMedia(m.thumb); save(); render(); } });
+    toast(esc(t('photoAdded')), { label: t('undo'), fn: () => { S.moments = S.moments.filter(x => x !== m); delMedia(key); if (m.thumb) delMedia(m.thumb); (m.more || []).forEach(x => delMedia(x.k)); save(); render(); } });
   } catch (e) { if (sv) { sv.disabled = false; sv.textContent = saveLabel(); } toast(lang() === 'cs' ? 'Uložení se nepovedlo' : 'Could not save'); }
 }
 ACT.add = el => {
@@ -613,11 +617,12 @@ function openViewer(id) {
   const inBoard = V.tab === 'board' && !V.card;
   VW.list = (inBoard ? boardList() : (V.card ? cardMoments(V.card) : [m])).map(x => x.id);
   if (!VW.list.includes(id)) VW.list = [id];
-  VW.idx = VW.list.indexOf(id); paintViewer(); $('#viewer').classList.add('on'); $('#viewer').classList.remove('bare', 'orig'); document.body.classList.add('viewing');
+  VW.idx = VW.list.indexOf(id); VW.sub = 0; paintViewer(); $('#viewer').classList.add('on'); $('#viewer').classList.remove('bare', 'orig'); document.body.classList.add('viewing');
 }
 function paintViewer(dir) {
   const v = $('#viewer'); const m = S.moments.find(x => x.id === VW.list[VW.idx]); if (!m) { closeViewer(); return; }
-  const c = cardById(m.card); const u = mediaNow(m.img);
+  const c = cardById(m.card); const subs = m.kind === 'photo' && m.more && m.more.length ? [m.img].concat(m.more.map(x => x.k)) : null; if (!subs || VW.subOf !== m.id) { VW.sub = 0; VW.subOf = m.id; }
+  const u = mediaNow(subs ? subs[VW.sub] || m.img : m.img);
   const miss = typeof missingMedia === 'function' && missingMedia(m);
   const med = m.kind === 'link' ? '<div class="vnote vlink frost" style="--c:' + cardColor(m.card) + '">' + (m.image ? '<img src="' + esc(m.image) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '<span class="ls">' + ico('link', 13, 2.2) + esc(m.site || '') + '</span><b>' + esc(m.title || m.url) + '</b>' + (m.note ? '<span class="ln">' + esc(m.note) + '</span>' : '') + '<a class="pbtn cr" href="' + esc(safeHref(m.url)) + '" target="_blank" rel="noopener">' + ico('ext', 16, 2.2) + esc(lang() === 'cs' ? 'Otevřít odkaz' : 'Open link') + '</a></div>'
     : miss ? '<div class="vnote frost" style="--c:' + cardColor(m.card) + '">' + esc(lang() === 'cs' ? 'Tahle fotka je zatím jen v druhém zařízení. Náhled dorazí při další synchronizaci.' : 'This photo is only on your other device so far. A preview arrives with the next sync.') + '</div>'
@@ -626,6 +631,7 @@ function paintViewer(dir) {
     + '<div class="vmed" id="vmed">' + med + '</div>'
     + '<div class="vtop"><span style="flex:1"></span>' + (m.kind === 'video' ? '<button class="cb frost press" id="vPlayBtn" data-a="vPlay" aria-label="Play">' + ico('pause', 20, 2) + '</button>' : '') + '<button class="cb frost press" data-a="closeViewer" aria-label="' + esc(t('close')) + '">' + ico('x', 20, 2.2) + '</button></div>'
     + (VW.list.length > 1 ? '<div class="vcount">' + (VW.idx + 1) + ' / ' + VW.list.length + '</div>' : '')
+    + (subs ? '<div class="vsubs">' + subs.map((k, i) => '<button class="' + (i === VW.sub ? 'on' : '') + '" data-a="vSub" data-i="' + i + '" style="background-image:url(' + mediaNow(k) + ')" aria-label="' + (i + 1) + '"></button>').join('') + '</div>' : '')
     + vFoot(m, c);
   const vv = $('#vmed video'); if (vv) { const pp = vv.play(); if (pp && pp.catch) pp.catch(() => { vv.muted = true; vv.play().catch(() => {}); const b = $('#vPlayBtn'); if (b) b.innerHTML = ico('play', 20, 2); }); }
   if (dir && !RM) $('#vmed').animate([{ transform: 'translateX(' + (dir * 60) + 'px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
@@ -643,6 +649,7 @@ function vFoot(m, c) {
 function closeViewer() { const v = $('#viewer'); const vid = $('video', v); if (vid) vid.pause(); v.classList.remove('on'); v.innerHTML = ''; document.body.classList.remove('viewing'); render(); }
 ACT.closeViewer = closeViewer;
 ACT.vPlay = () => { const vd = $('#viewer video'); if (!vd) return; if (vd.paused) vd.play().catch(() => {}); else vd.pause(); const b = $('#vPlayBtn'); if (b) b.innerHTML = ico(vd.paused ? 'play' : 'pause', 20, 2); };
+ACT.vSub = el => { VW.sub = +el.dataset.i || 0; paintViewer(); };
 ACT.viewMoment = el => { if (el.closest('.spc') && !el.closest('.thumbs')) return; openViewer(el.dataset.id); };
 const curM = () => S.moments.find(x => x.id === VW.list[VW.idx]);
 ACT.vPin = () => { const m = curM(); m.pin = !m.pin; save(); paintViewer(); toast(esc(m.pin ? t('pin') : t('unpin'))); };
@@ -661,7 +668,7 @@ ACT.vDelete = () => {
   const m = curM(); if (!m) return; const idx = S.moments.indexOf(m); const at = VW.idx;
   S.moments.splice(idx, 1); save();
   let undone = false;
-  const purge = setTimeout(() => { if (!undone && !S.moments.includes(m)) { delMedia(m.img); if (m.thumb) delMedia(m.thumb); } }, 6500);
+  const purge = setTimeout(() => { if (!undone && !S.moments.includes(m)) { delMedia(m.img); if (m.thumb) delMedia(m.thumb); (m.more || []).forEach(x => delMedia(x.k)); } }, 6500);
   VW.list.splice(VW.idx, 1);
   if (!VW.list.length) closeViewer(); else { VW.idx = Math.min(VW.idx, VW.list.length - 1); paintViewer(); }
   toast(esc(t('deleted')), { label: t('undo'), fn: () => { undone = true; clearTimeout(purge); S.moments.splice(Math.min(idx, S.moments.length), 0, m); save(); if ($('#viewer').classList.contains('on')) { VW.list.splice(at, 0, m.id); VW.idx = at; paintViewer(); } else render(); } });

@@ -234,7 +234,34 @@
     const steps = c ? [fx(L('Add a task', 'Přidat úkol'), '', () => openAdd({ card: c.id })), fx(L('Photo or idea', 'Fotka nebo nápad'), '', () => openAdd({ card: c.id, mode: 'note' })), stepsOf({ type: 'card', card: c.id })[0]]
       : [fx(L('New card', 'Nová karta'), '', () => window.QUICK ? window.QUICK.card('') : ACT.newCard()), fx(L('Add a task', 'Přidat úkol'), '', () => { const ctx = {}; if (V.tab === 'plan' && V.planMode === 'list') ctx.date = V.planDay; openAdd(ctx); }), fx(L('Photo or idea', 'Fotka nebo nápad'), '', () => openAdd({ mode: 'note' }))];
     const t = c ? { type: 'card', card: c.id } : V.tab === 'plan' ? { type: 'day', d: V.planDay || T() } : { type: 'now' };
-    bubble({ x, y: desk() ? y + 10 : y, title: c ? c.name : L('What do you need?', 'Co potřebuješ?'), steps, t, ph: L('e.g. run Tue Thu 6pm · card Running 3× a week', 'např. běh út čt v 18 · karta Běhání 3× týdně') });
+    const ph = L('e.g. run Tue Thu 6pm · card Running 3× a week', 'např. běh út čt v 18 · karta Běhání 3× týdně');
+    if (!desk()) return radial(b, steps.slice(0, 3), () => bubble({ x, y, title: c ? c.name : L('Ask Aurora', 'Zeptej se Aurory'), steps: [], t, ph, focus: true }));
+    bubble({ x, y: y + 10, title: c ? c.name : L('What do you need?', 'Co potřebuješ?'), steps, t, ph });
+  }
+  /* v2063 · phone: a tap on the orb throws up to three actions and "AI" out of it in an arc */
+  let RAD = null;
+  const RIC = { card: '<rect x="4" y="5" width="16" height="14" rx="3.5"/><path d="M12 9v6M9 12h6"/>', task: '<circle cx="12" cy="12" r="8"/><path d="m8.5 12 2.5 2.5 4.5-5"/>', photo: '<rect x="4" y="5" width="16" height="14" rx="3.5"/><circle cx="9" cy="10" r="1.5"/><path d="m5 17 5-4 3 2 3-3 3 3"/>', ai: '<path d="M12 4l1.8 4.7L18.5 10.5 13.8 12.3 12 17l-1.8-4.7L5.5 10.5l4.7-1.8z"/><path d="M18 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>' };
+  function closeRadial(then) {
+    const r = RAD; if (!r) { then && then(); return; } RAD = null; const bs = [...r.el.querySelectorAll('button')]; r.el.classList.remove('on');
+    const G = window.gsap, done = () => { r.el.remove(); then && then(); };
+    if (G && !RM) { G.to(bs, { x: 0, y: 0, scale: .4, opacity: 0, duration: .2, ease: 'power2.in', stagger: .02, onComplete: done }); G.to(r.orb, { scale: 1, duration: .25 }); }
+    else done();
+  }
+  function radial(orb, steps, askFn) {
+    if (RAD) return closeRadial();
+    const r = orb.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const kinds = steps.map(s2 => /card|kart/i.test(s2.label) ? 'card' : /photo|fot|idea|náp/i.test(s2.label) ? 'photo' : 'task');
+    const all = steps.map((s2, i) => ({ lab: s2.label.replace(/^(Add a |Přidat |New |Nová )/i, '').replace(/ or idea| nebo nápad/i, ''), k: kinds[i], run: s2.run })).concat([{ lab: 'AI', k: 'ai', run: askFn, ai: true }]);
+    const n = all.length, R = Math.min(116, innerWidth / 2 - 52), span = Math.PI * .7, a0 = Math.PI / 2 + span / 2;
+    const el = document.createElement('div'); el.id = 'orbRad';
+    el.innerHTML = '<div class="orsc" style="-webkit-mask:radial-gradient(circle ' + (r.width / 2 + 10) + 'px at ' + cx + 'px ' + cy + 'px,transparent 96%,#000);mask:radial-gradient(circle ' + (r.width / 2 + 10) + 'px at ' + cx + 'px ' + cy + 'px,transparent 96%,#000)"></div>' + all.map((x, i) => { const a = a0 - span * (n === 1 ? .5 : i / (n - 1)); return '<button class="orbq' + (x.ai ? ' ai' : '') + '" data-i="' + i + '" data-x="' + (Math.cos(a) * R).toFixed(1) + '" data-y="' + (-Math.sin(a) * R - 24).toFixed(1) + '" style="left:' + cx + 'px;top:' + cy + 'px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + RIC[x.k] + '</svg><span>' + esc(x.lab.charAt(0).toUpperCase() + x.lab.slice(1)) + '</span></button>'; }).join('');
+    document.body.appendChild(el); RAD = { el, orb }; const bs = [...el.querySelectorAll('button')]; const G = window.gsap;
+    requestAnimationFrame(() => el.classList.add('on'));
+    if (G && !RM) { G.set(bs, { xPercent: -50, yPercent: -50, scale: .4, opacity: 0 }); bs.forEach((b2, i) => G.to(b2, { x: +b2.dataset.x, y: +b2.dataset.y, scale: 1, opacity: 1, duration: .5, delay: i * .045, ease: 'back.out(1.7)' })); G.to(orb, { scale: 1.12, duration: .3, ease: 'back.out(2)' }); }
+    else bs.forEach(b2 => { b2.style.transform = 'translate(calc(-50% + ' + b2.dataset.x + 'px), calc(-50% + ' + b2.dataset.y + 'px))'; b2.style.opacity = 1; });
+    if (typeof haptic === 'function') haptic();
+    el.querySelector('.orsc').addEventListener('pointerdown', e => { e.preventDefault(); closeRadial(); });
+    bs.forEach(b2 => b2.onclick = () => { const x = all[+b2.dataset.i]; closeRadial(() => x.run && x.run()); });
   }
   window.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.aorb'); if (!b || O.held || O.busy) return; if (b._orbEat && Date.now() - b._orbEat < 1500) return; e.stopImmediatePropagation(); e.preventDefault(); tapOrb(b); }, true);
 

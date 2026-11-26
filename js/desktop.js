@@ -27,7 +27,7 @@ ACT.setLayout = el => { S.layout = el.dataset.k === 'auto' ? undefined : el.data
 function deskCheck() {
   const on = deskWant();
   if (on === DESK.on) return;
-  DESK.on = on; document.body.classList.toggle('desk', on); applyLook();
+  DESK.on = on; document.body.classList.toggle('desk', on); document.body.classList.toggle('dtab', on && deskTablet()); applyLook();
   if (on) { if (V.settingsOpen) _closeSettings(true); document.body.classList.remove('dset'); if (SH.open) closeSheet(true); deskRender(); }
   else { cmdkClose(); if (V.settingsOpen) _closeSettings(true); document.body.classList.remove('dset'); const d = $('#desk'); if (d) d.innerHTML = ''; const card = V.card; V.card = null; go(V.tab); if (card) openCard(card); }
 }
@@ -356,8 +356,8 @@ function deskPlan() {
   const [my, mm] = DESK.mon.split('-').map(Number); const isMon = DESK.mode === 'month';
   const nav = isMon
     ? '<button class="cb frost press" data-a="dMon" data-n="-1" aria-label="Previous month">' + ico('chevL', 16, 2.4) + '</button><b class="wlbl">' + esc(MON[lang()][mm - 1] + ' ' + my) + '</b><button class="cb frost press" data-a="dMon" data-n="1" aria-label="Next month">' + ico('chev', 16, 2.4) + '</button>' + (DESK.mon !== T().slice(0, 7) ? '<button class="chip frost press" data-a="dMonToday">' + esc(t('today')) + '</button>' : '')
-    : '<span class="muted">' + esc(cs ? tot + ' položek · ' + dn + ' hotovo' : tot + ' items · ' + dn + ' done') + '</span><button class="cb frost press" data-a="dWeek" data-n="-1" aria-label="Previous week">' + ico('chevL', 16, 2.4) + '</button><b class="wlbl">' + esc(lbl) + '</b><button class="cb frost press" data-a="dWeek" data-n="1" aria-label="Next week">' + ico('chev', 16, 2.4) + '</button>' + (ws !== weekStart(T()) ? '<button class="chip frost press" data-a="dWeekToday">' + esc(t('today')) + '</button>' : '');
-  const hdr = '<div class="dph"><div class="dgrp"><h1>' + esc(t('plan')) + '</h1>' + seg + '<button class="chip frost press" data-a="dReview">' + ico('sun', 15, 2) + esc(cs ? 'Nedělní plánování' : 'Plan next week') + '</button></div><div class="dgrp">' + nav + '</div></div>';
+    : '<button class="cb frost press" data-a="dWeek" data-n="-1" aria-label="Previous week">' + ico('chevL', 16, 2.4) + '</button><b class="wlbl">' + esc(lbl) + '</b><button class="cb frost press" data-a="dWeek" data-n="1" aria-label="Next week">' + ico('chev', 16, 2.4) + '</button>' + (ws !== weekStart(T()) ? '<button class="chip frost press" data-a="dWeekToday">' + esc(t('today')) + '</button>' : '');
+  const hdr = '<div class="dph"><div class="dgrp"><h1>' + esc(t('plan')) + '</h1><button class="chip frost press" data-a="dReview">' + ico('sun', 15, 2) + esc(cs ? 'Nedělní plánování' : 'Plan next week') + '</button></div><div class="dgrp">' + nav + seg + '</div></div>';
   // sources
   const src = (kind, id, title, sub, c, th) => '<div class="dsrc" data-drag="' + kind + ':' + id + '" role="button" tabindex="0"><span class="muted">' + ico('grip', 14, 2) + '</span>' + (th ? '<img class="dsth" src="' + th + '" alt="">' : '<span class="dot" style="--c:' + c + '"></span>') + '<span class="st"><span>' + esc(title) + '</span>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span></div>';
   const nd = undatedItems(), od = overdueItems();

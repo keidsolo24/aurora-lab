@@ -203,7 +203,7 @@ async function mediaURL(k) {
   try { const b = await DB.get('media', k); if (!b) return ''; const u = URL.createObjectURL(b); MEDIA_URL.set(k, u); return u; } catch (e) { return ''; }
 }
 const mediaNow = k => urlKey(k) ? urlOf(k) : (MEDIA_URL.get(k) || '');
-async function warmMedia() { const ks = new Set(); S.moments.forEach(m => { m.img && ks.add(m.img); m.thumb && ks.add(m.thumb); }); if (S.wallKey) ks.add(S.wallKey); await Promise.all([...ks].map(mediaURL)); }
+async function warmMedia() { const ks = new Set(); S.moments.forEach(m => { m.img && ks.add(m.img); m.thumb && ks.add(m.thumb); (m.more || []).forEach(x => x && x.k && ks.add(x.k)); }); if (S.wallKey) ks.add(S.wallKey); await Promise.all([...ks].map(mediaURL)); }
 async function delMedia(k) { if (!k || urlKey(k)) return; try { await DB.del('media', k); } catch (e) {} const u = MEDIA_URL.get(k); if (u) URL.revokeObjectURL(u); MEDIA_URL.delete(k); }
 async function compressImage(file, max = 1800) {
   if (!file.type.startsWith('image/') || file.type === 'image/gif' || file.type === 'image/svg+xml') return file;
@@ -570,7 +570,7 @@ async function importOld() {
 /* ---------- backup ---------- */
 async function exportBackup() {
   const media = {};
-  const keys = new Set(); S.moments.forEach(m => { m.img && keys.add(m.img); m.thumb && keys.add(m.thumb); }); if (S.wallKey) keys.add(S.wallKey);
+  const keys = new Set(); S.moments.forEach(m => { m.img && keys.add(m.img); m.thumb && keys.add(m.thumb); (m.more || []).forEach(x => x && x.k && keys.add(x.k)); }); if (S.wallKey) keys.add(S.wallKey);
   let skipped = 0;
   for (const k of keys) { try { const b = await DB.get('media', k); if (!b) continue; if (b.size > 80 * 1024 * 1024) { skipped++; continue; } media[k] = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); }); } catch (e) {} }
   if (skipped) toast(esc(lang() === 'cs' ? 'Velká videa (nad 80 MB) nejsou v záloze, jen jejich náhled.' : 'Large videos (over 80 MB) are not in the backup, only their preview.'));

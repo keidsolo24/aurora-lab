@@ -14,14 +14,15 @@ function syncEnts() {
   for (const ch of S.shared || []) m.set('k:' + ch.sp, { sp: ch.sp, secret: ch.secret, kind: ch.kind, ref: ch.ref });
   m.set('p:prefs', { name: S.name || '', lang: S.lang, nudges: S.nudges, weekly: S.weekly, order: S.cards.map(c => c.id), me: S.me && S.me.id || null });
   for (const [sp, k] of Object.entries(S.kickedSp || {})) if (!m.has('k:' + sp)) m.set('k:' + sp, k); // v19.5.1: removed here ≠ removed on my other devices
-  m.set('p:look', { mode: S.mode === 'light' ? 'light' : 'dark', blur: S.blur ?? 0, dim: S.dim ?? 22, wall: S.wall || 'aurora', wallKey: S.wall === 'photo' ? S.wallKey || null : null }); // v19.6.3: one look on every device
+  m.set('p:look', { mode: S.mode === 'light' ? 'light' : 'dark', blur: S.blur ?? 0, dim: S.dim ?? 22, wall: S.wall || 'aurora', wallKey: S.wall === 'photo' ? S.wallKey || null : null, orbCols: S.orbCols || null, orbMove: S.orbMove ?? null }); // v19.6.3: one look on every device
   if (S.acc && S.acc.login) m.set('p:acc', { login: S.acc.login, id: S.acc.id }); // v19.5: who this account is
   return m;
 }
 async function snapLoad() { if (SY.snap) return SY.snap; try { SY.snap = (await DB.get('kv', 'syncsnap')) || {}; } catch (e) { SY.snap = {}; } return SY.snap; }
 async function snapSave() { try { await DB.set('kv', 'syncsnap', SY.snap); } catch (e) {} }
 async function syncApi(path, body) {
-  const r = await fetch(pushBase() + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const ac = typeof AbortController === 'function' ? new AbortController() : null; const tm = ac ? setTimeout(() => ac.abort(), 20000) : 0;
+  let r; try { r = await fetch(pushBase() + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: ac ? ac.signal : undefined }); } finally { clearTimeout(tm); }
   let j = null; try { j = await r.json(); } catch (e) {}
   if (!r.ok) { const er = new Error((j && (j.error || j.message)) || ('http ' + r.status)); er.code = j && j.error; er.status = r.status; throw er; }
   return j;
@@ -52,7 +53,7 @@ async function syncPush() {
   }
   // media previews (once per media key)
   const keys = new Set(); if (S.wall === 'photo' && S.wallKey) keys.add(S.wallKey); // wallpaper photo first
-  S.moments.forEach(m => { if (typeof spaceOfMoment === 'function' && spaceOfMoment(m)) return; if (m.kind === 'photo' && m.img) keys.add(m.img); if (m.thumb) keys.add(m.thumb); });
+  S.moments.forEach(m => { if (typeof spaceOfMoment === 'function' && spaceOfMoment(m)) return; if (m.kind === 'photo' && m.img) keys.add(m.img); if (m.thumb) keys.add(m.thumb); (m.more || []).forEach(x => x && x.k && keys.add(x.k)); });
   let sent = 0;
   for (const key of keys) {
     if (snap['b:' + key]) continue; if (sent >= 6) { SY.again = true; break; }
@@ -77,7 +78,9 @@ async function syncPull() {
         continue;
       }
       const mine = local.get(e.k); const mineS = mine ? JSON.stringify(mine) : undefined;
-      if (mineS !== undefined && snap[e.k] !== undefined && mineS !== snap[e.k]) continue; // local change not pushed yet: ours goes up next
+      if (mineS !== undefined && snap[e.k] !== undefined && mineS !== snap[e.k]) { // both sides changed it: ours goes up next, with the other side's check-offs kept
+        if (e.k[0] === 'i' && e.v) { try { const o = JSON.parse(e.v), old = JSON.parse(snap[e.k]); if (Array.isArray(o.doneDates) && Array.isArray(mine.doneDates)) { const was = new Set(old.doneDates || []); const add = o.doneDates.filter(d => !was.has(d) && !mine.doneDates.includes(d)); if (add.length) { mine.doneDates = mine.doneDates.concat(add).sort(); changed = true; } } if (o.done && !old.done && !mine.done) { mine.done = true; mine.doneOn = o.doneOn || mine.doneOn; changed = true; } } catch (er) {} }
+        continue; }
       if (mineS === undefined && snap[e.k] === undefined && e.v == null) continue;
       if (e.v != null && mineS === e.v) { snap[e.k] = e.v; continue; }
       applyEnt(e.k, e.v); changed = true;
@@ -93,7 +96,7 @@ async function syncPull() {
 function applyEnt(k, v) {
   const t = k[0], id = k.slice(2);
   if (k === 'p:prefs') { if (v) { const p = JSON.parse(v); S.name = p.name || S.name; if (p.lang) S.lang = p.lang; S.nudges = p.nudges !== false; S.weekly = p.weekly !== false; if (Array.isArray(p.order)) SY.order = p.order; if (p.me && !(S.acc && S.acc.id) && (!S.me || !S.me.id || !(S.shared || []).length)) S.me = { id: p.me }; } return; }
-  if (k === 'p:look') { if (v) { let o = null; try { o = JSON.parse(v); } catch (e) {} if (o) { S.mode = o.mode === 'light' ? 'light' : 'dark'; S.blur = clamp(+o.blur || 0, 0, 100); S.dim = clamp(o.dim ?? 22, 0, 70); if (o.wall === 'photo' && o.wallKey) { S.wall = 'photo'; S.wallKey = o.wallKey; } else if (o.wall && o.wall !== 'photo') S.wall = o.wall; } } return; }
+  if (k === 'p:look') { if (v) { let o = null; try { o = JSON.parse(v); } catch (e) {} if (o) { S.mode = o.mode === 'light' ? 'light' : 'dark'; S.blur = clamp(+o.blur || 0, 0, 100); S.dim = clamp(o.dim ?? 22, 0, 70); if (Array.isArray(o.orbCols)) S.orbCols = o.orbCols.slice(0, 3); if (o.orbMove != null) S.orbMove = o.orbMove; try { window.A3ORB && window.A3ORB(); } catch (e) {}  if (o.wall === 'photo' && o.wallKey) { S.wall = 'photo'; S.wallKey = o.wallKey; } else if (o.wall && o.wall !== 'photo') S.wall = o.wall; } } return; }
   if (k === 'p:acc') { if (v) { let o = null; try { o = JSON.parse(v); } catch (e) {} if (o && o.id && o.login && (!S.acc || S.acc.id !== o.id || S.acc.login !== o.login)) { S.acc = { login: o.login, id: o.id }; if (typeof adoptId === 'function') adoptId(o.id); } } return; }
   if (t === 'k') {
     // a shared card / plan I am in (joined on my other device)
@@ -114,12 +117,12 @@ function applyEnt(k, v) {
 }
 async function syncNow(opts = {}) {
   if (!syncOn()) return false;
-  if (SY.busy) { SY.again = true; return false; }
-  SY.busy = true; SY.again = false; const before = S.sync.state;
+  if (SY.busy && Date.now() - (SY.busyAt || 0) < 45000) { SY.again = true; return false; }
+  SY.busy = true; SY.busyAt = Date.now(); SY.again = false; const before = S.sync.state;
   S.sync.state = 'busy'; syncBadge();
   try {
-    await syncPush();
     const r = await syncPull();
+    await syncPush();
     if (r.changed) { S.sync.state = 'ok'; S.sync.last = Date.now(); S.sync.err = ''; await rawSave(); applyLook(); render(); }
     else if (r.media) { applyLook(); render(); }
     S.sync.state = 'ok'; S.sync.last = Date.now(); S.sync.err = '';
@@ -231,4 +234,5 @@ function addLink(url, note, card) {
 
 /* keep in sync while the app is open */
 document.addEventListener('visibilitychange', () => { if (!document.hidden) syncSchedule(300); });
-setInterval(() => { if (!document.hidden) syncNow(); }, 60000);
+setInterval(() => { if (!document.hidden) syncNow(); }, 25000);
+window.addEventListener('focus', () => syncSchedule(300)); window.addEventListener('online', () => syncSchedule(300)); window.addEventListener('pageshow', () => syncSchedule(300));

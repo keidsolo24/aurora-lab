@@ -165,9 +165,9 @@
       + (r.btn ? '<button class="a2-btn a3wpb" data-a="' + r.act + '" data-k="' + esc(r.k) + '"' + (r.id ? ' data-id="' + esc(r.id) + '"' : '') + '>' + esc(r.btn) + '</button>' : '') + '</div>';
   }
   function cardsPage() {
-    const tiles = homeTiles(4);
-    return '<div class="a3wp"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(L('Cards · this week', 'Karty · tento týden')) + '</span><button class="a2-t2" data-a="tab" data-k="spaces">Spaces ›</button></div><div class="a3tiles a3wtl n' + Math.min(4, Math.max(1, tiles.length)) + '">'
-      + (tiles.length ? tiles.map((x, k) => x.html(k)).join('') : '<button class="a2-glass a3tile" data-a="newCard"><span class="a3plus">' + ico('plus', 20, 1.8) + '</span><span>' + esc(t('newCard')) + '</span></button>') + '</div></div>';
+    const rows = cardRows(5);
+    return '<div class="a3wp a3wrows"><div class="a3sh" style="padding:0"><span class="a2-lab">' + esc(L('Cards · this week', 'Karty · tento týden')) + '</span><button class="a2-t2" data-a="tab" data-k="spaces">Spaces ›</button></div><div class="a3wrl">'
+      + (rows.length ? rows.join('') : '<button class="a3kr" data-a="newCard"><span class="a3plus">' + ico('plus', 16, 2) + '</span><b>' + esc(t('newCard')) + '</b></button>') + '</div></div>';
   }
   function ideasPage() {
     const ideas = ideasList(); const ni = ideas.length; if (!ni) return null;
@@ -219,15 +219,18 @@
   function weekPills(day, act) {
     return weekDays(day).map(d => { const on = d === day; return '<button class="' + (on ? 'a3wd on' : 'a2-well a3wd') + (d === T() && !on ? ' td' : '') + '" data-a="' + act + '" data-d="' + d + '"><span class="a2-lab">' + esc(WD[lang()][dow(d)]) + '</span><b class="a2-num">' + dOf(d).getDate() + '</b></button>'; }).join('');
   }
+  function cardRows(max) {
+    const ks = keiroCards().map(k => '<button class="a3kr" data-a="krOpen" data-k="' + esc(k.k) + '">' + ring(30, k.f, k.color, 5) + '<b>' + esc(k.name) + '</b><span class="a2-t2 a2-num"><b class="a2-d">' + k.n + '</b> ' + esc(L('wait', 'čeká')) + '</span></button>');
+    const cs_ = S.cards.slice().sort((a, b) => score(b) - score(a)).slice(0, Math.max(2, max - ks.length)).map(c => { const v = cardVal(c); return '<button class="a3kr" data-a="openCard" data-id="' + c.id + '">' + ring(30, v.f, c.color, 5) + '<b>' + esc(c.name) + '</b><span class="a2-t2 a2-num"><b class="a2-d">' + v.big + '</b> ' + esc(v.unit.trim()) + '</span></button>'; });
+    return ks.concat(cs_).slice(0, max);
+  }
   function homeDesk() {
     const M = homeModel(); const day = V.deskDay || T(); const nx = M.nextAny;
     const greet = (() => { const h = new Date().getHours(); return h < 11 ? L('Good morning', 'Dobré ráno') : h < 18 ? L('Good afternoon', 'Dobrý den') : L('Good evening', 'Dobrý večer'); })();
     const col1 = '<div class="a3col a3c1">' + todayCard(M, true) + widgetStack(M, true) + '</div>';
     const col2 = '<div class="a2-glass a2-in a3col2" style="--i:4"><div class="a3wk">' + weekPills(day, 'dHomeDay') + '</div><div class="a3list">' + dayList(M, day, nx && nx.id) + '</div>'
       + '<button class="a2-btn ghost a3w" data-a="add" data-date="' + day + '">+ ' + esc(day === T() ? L('Add to Today', 'Přidat na dnešek') : L('Add to ', 'Přidat na ') + dayName(day).toLowerCase()) + '</button></div>';
-    const ks = keiroCards().map(k => '<button class="a3kr" data-a="krOpen" data-k="' + esc(k.k) + '">' + ring(30, k.f, k.color, 5) + '<b>' + esc(k.name) + '</b><span class="a2-t2 a2-num"><b class="a2-d">' + k.n + '</b> ' + esc(L('wait', 'čeká')) + '</span></button>');
-    const cs_ = S.cards.slice().sort((a, b) => score(b) - score(a)).slice(0, Math.max(2, 6 - ks.length)).map(c => { const v = cardVal(c); return '<button class="a3kr" data-a="openCard" data-id="' + c.id + '">' + ring(30, v.f, c.color, 5) + '<b>' + esc(c.name) + '</b><span class="a2-t2 a2-num"><b class="a2-d">' + v.big + '</b> ' + esc(v.unit.trim()) + '</span></button>'; });
-    const rows = ks.concat(cs_);
+    const rows = cardRows(6);
     const ideas = ideasList();
     const col3 = '<div class="a3col"><div class="a2-glass a2-in a3cards" style="--i:5"><div class="a3sh"><span class="a2-lab">' + esc(L('Cards · this week', 'Karty · tento týden')) + '</span><button class="a2-t2" data-a="tab" data-k="spaces">Spaces ›</button></div>'
       + (rows.length ? rows.join('') : '<button class="a3kr" data-a="newCard"><span class="a3plus">' + ico('plus', 16, 2) + '</span><b>' + esc(t('newCard')) + '</b></button>') + '</div>'
@@ -398,15 +401,7 @@
     requestAnimationFrame(() => { d.scrollLeft = at(i0); });
     let raf = 0; d.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { const mid = d.scrollLeft + d.clientWidth / 2; let best = 0, bd = 1e9; [...d.children].forEach((c, k) => { const dd = Math.abs(c.offsetLeft + c.clientWidth / 2 - mid); if (dd < bd) { bd = dd; best = k; } }); if (best !== V.deckIdx) { V.deckIdx = best; dots && [...dots.children].forEach((x, k) => x.classList.toggle('on', k === best)); } }); }, { passive: true });
   }
-  /* v2064: desktop cards in full colour like the phone wallet (or the card's photo) */
   function spaceDeskCard(x, i) {
-    const h = spaceDeskCard0(x, i), col = x.k ? x.k.color : x.c ? x.c.color : '';
-    if (!col || x.s) return h;
-    const img = x.c && x.c.bgImg, key = '--c:' + col, at = h.indexOf(key); if (at < 0) return h;
-    let tail = h.slice(at + key.length).split(col).join('#fff').split('rgba(var(--wr),.12)').join('rgba(255,255,255,.24)').split('rgba(var(--wr),.14)').join('rgba(255,255,255,.24)');
-    return (h.slice(0, at + key.length) + (img ? ';--img:url(' + img + ')' : '') + tail).replace(' role="button"', ' role="button" data-solid="1"' + (img ? ' data-img="1"' : ''));
-  }
-  function spaceDeskCard0(x, i) {
     if (x.s) return studioPhoneCard(i);
     const nxt = (lab, txt, w, col) => '<div class="a3nxs"><span class="a2-lab" style="color:color-mix(in oklab,' + col + ' 55%,var(--mw))">' + esc(lab) + '</span><span>' + esc(txt) + (w ? ' <span class="a2-t2">· ' + esc(w) + '</span>' : '') + '</span></div>';
     if (x.k) { const k = x.k, fa = keiroFacts(k);
@@ -528,6 +523,9 @@
   const blkOn = (c, b) => c.blocks && b[0] in c.blocks ? !!c.blocks[b[0]] : !!b[2];
   /* v2059 · blocks: sizes S/M/L in a grid, "Edit" mode like iPhone widgets */
   const DSZ = { week: 'M', rhythm: 'M', monthcal: 'S', tasks: 'M', stats: 'M', moments: 'M', note: 'S', people: 'S', next: 'M', nums: 'M', noday: 'M', timeline: 'M', tools: 'M', month: 'M', items: 'M', window: 'M', history: 'M', nextm: 'S' };
+  /* on the phone only blocks that really have a half-width layout may be Small */
+  const PS = { moments: 1, note: 1, next: 1, nextm: 1, nums: 1 };
+  const pSize = (c, id) => { const z = bSize(c, id, false); return z === 'S' && PS[id] ? 'S' : 'L'; };
   const bSize = (c, id, isDesk) => (c.bsize && c.bsize[id]) || (isDesk ? DSZ[id] || 'M' : 'L');
   function orderedBlocks(c) { const all = blocksOf(c); const ord = (c.border || []).filter(id => all.some(b => b[0] === id)); all.forEach(b => { if (!ord.includes(b[0])) ord.push(b[0]); }); return ord.map(id => all.find(b => b[0] === id)); }
   ACT.a3Blocks = () => { const c = cardById(V.card); if (!c) return; V.blkEdit = V.blkEdit === c.id ? null : c.id; haptic(); render(); };
@@ -537,25 +535,32 @@
   function blockGrid(c, isDesk) {
     const ed = V.blkEdit === c.id; let k = 2; const ord = orderedBlocks(c);
     const SZ = isDesk ? ['S', 'M', 'L'] : ['S', 'L'];
-    const items = ord.filter(b => blkOn(c, b)).map(b => { let sz = bSize(c, b[0], isDesk); if (!isDesk && sz === 'M') sz = 'L';
+    const items = ord.filter(b => blkOn(c, b)).map(b => { let sz = isDesk ? bSize(c, b[0], true) : pSize(c, b[0]);
       const ctl = ed ? '<div class="a3bkc"><span class="a3grip" data-grip="' + b[0] + '" aria-label="' + esc(L('Move', 'Přesunout')) + '">⋮⋮</span><span class="a3bkn">' + esc(b[3]) + '</span><span class="a3szs">' + SZ.map(z => '<button class="' + (z === sz ? 'on' : '') + '" data-a="a3BkSize" data-id="' + b[0] + '" data-k="' + z + '">' + z + '</button>').join('') + '</span><button class="a3bkx" data-a="a3BkOff" data-id="' + b[0] + '" aria-label="' + esc(L('Hide', 'Skrýt')) + '">×</button></div>' : '';
       return '<div class="a3bk sz-' + sz + (ed ? ' ed' : '') + '" data-bk="' + b[0] + '">' + ctl + tagBlk(blockHTML(c, b[0], isDesk), b[0], Math.min(9, k++)) + '</div>'; }).join('');
     const hidden = ord.filter(b => !blkOn(c, b));
     const add = ed ? '<div class="a3bk sz-L a3bkadd"><span class="a2-lab">' + esc(L('Add a block', 'Přidat blok')) + '</span><div class="a3bka">' + (hidden.map(b => '<button class="a2-chip" data-a="a3BkOn" data-id="' + b[0] + '">+ ' + esc(b[3]) + '</button>').join('') || '<span class="a2-t3">' + esc(L('All blocks are on.', 'Všechny bloky jsou zapnuté.')) + '</span>') + '</div></div>' : '';
     const empty = !items && !ed ? '<button class="a2-glass a3ndr" data-a="a3Blocks"><span>' + esc(L('All blocks are off.', 'Všechny bloky jsou vypnuté.')) + '</span><span class="a2-t2">' + esc(L('Edit', 'Upravit')) + ' ›</span></button>' : '';
     const bgo = ed ? bgOpt(c) : '';
-    if (!isDesk && ed) return bgo + phoneEdit(c, ord) + add.replace('a3bk sz-L a3bkadd', 'a3bkadd2 a2-glass');
+    if (!isDesk && ed) return bgo + phoneEdit(c, ord);
     return bgo + '<div class="a3bg' + (isDesk ? ' d' : '') + (ed ? ' editing' : '') + '" data-card="' + c.id + '">' + items + add + empty + '</div>';
   }
-  /* v2061 · phone edit mode like iOS widgets: blocks wiggle, "–" hides, one big bar at the bottom sets the size */
+  /* v2063 · phone edit: the real card, small, on top; one plain list under it (drag, Small / Large, eye) */
   function phoneEdit(c, ord) {
-    const shown = ord.filter(b => blkOn(c, b)); if (!shown.length) return '<div class="a3bg editing" data-card="' + c.id + '"></div>';
-    const sel = shown.some(b => b[0] === V.blkSel) ? V.blkSel : shown[0][0]; let k = 2;
-    const items = shown.map(b => { let sz = bSize(c, b[0], false); if (sz === 'M') sz = 'L';
-      return '<div class="a3bk sz-' + sz + ' ed pe' + (b[0] === sel ? ' sel' : '') + '" data-bk="' + b[0] + '"><button class="a3bksel" data-a="a3BkSel" data-id="' + b[0] + '" aria-label="' + esc(b[3]) + '"></button><button class="a3bkm" data-a="a3BkOff" data-id="' + b[0] + '" aria-label="' + esc(L('Hide', 'Skrýt')) + '"><i></i></button><span class="a3grip a3grip2" data-grip="' + b[0] + '" aria-label="' + esc(L('Move', 'Přesunout')) + '">⋮⋮</span>' + tagBlk(blockHTML(c, b[0], false), b[0], Math.min(9, k++)) + '</div>'; }).join('');
-    const sb = shown.find(b => b[0] === sel); let ssz = bSize(c, sel, false); if (ssz === 'M') ssz = 'L';
-    const bar = '<div class="a3bkbar"><span class="a3bkbn">' + esc(sb[3]) + '</span><div class="a3szb">' + [['S', L('Small', 'Malý')], ['L', L('Large', 'Velký')]].map(([z, l]) => '<button class="' + (z === ssz ? 'on' : '') + '" data-a="a3BkSize" data-id="' + sel + '" data-k="' + z + '">' + esc(l) + '</button>').join('') + '</div><button class="a3bkd" data-a="a3BkOff" data-id="' + sel + '" aria-label="' + esc(L('Hide', 'Skrýt')) + '">' + ico('trash', 18, 2) + '</button></div>';
-    return '<div class="a3bg editing pe" data-card="' + c.id + '">' + items + '</div>' + bar;
+    const shown = ord.filter(b => blkOn(c, b)); let k = 2;
+    const prev = shown.map(b => { const sz = pSize(c, b[0]); return '<div class="a3bk sz-' + sz + '" data-bk="' + b[0] + '">' + tagBlk(blockHTML(c, b[0], false), b[0], Math.min(9, k++)) + '</div>'; }).join('');
+    const rows = ord.map(b => { const on = blkOn(c, b); const sz = pSize(c, b[0]);
+      return '<div class="a3er' + (on ? '' : ' off') + '" data-bk="' + b[0] + '"><span class="a3erg" data-egrip="' + b[0] + '" aria-label="' + esc(L('Move', 'Přesunout')) + '">⋮⋮</span><b>' + esc(b[3]) + '</b>' + (PS[b[0]] ? '<span class="a3szb sm">' + [['S', L('Small', 'Malý')], ['L', L('Large', 'Velký')]].map(([z, l]) => '<button class="' + (z === sz ? 'on' : '') + '" data-a="a3BkSize" data-id="' + b[0] + '" data-k="' + z + '"' + (on ? '' : ' disabled') + '>' + esc(l) + '</button>').join('') + '</span>' : '') + '<button class="a3ere" data-a="' + (on ? 'a3BkOff' : 'a3BkOn') + '" data-id="' + b[0] + '" aria-label="' + esc(on ? L('Hide', 'Skrýt') : L('Show', 'Ukázat')) + '">' + ico(on ? 'eye' : 'eyeOff', 18, 2) + '</button></div>'; }).join('');
+    return '<div class="a2-glass a3epv"><div class="a3epz"><div class="a3bg" data-card="' + c.id + '">' + (prev || '<span class="a2-t2" style="padding:30px;display:block;text-align:center;font-size:30px">' + esc(L('No blocks', 'Žádné bloky')) + '</span>') + '</div></div></div><div class="a2-glass a3elist" data-card="' + c.id + '">' + rows + '</div>';
+  }
+  try { if (!IC.eye) IC.eye = '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>'; if (!IC.eyeOff) IC.eyeOff = '<path d="M4 4l16 16M9.9 5.8A9 9 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-3 3.7M6.4 7.4A16 16 0 0 0 2.5 12S6 18.5 12 18.5a9 9 0 0 0 3.4-.7"/>'; } catch (e) {}
+  function bindEditList(root) {
+    const l = (root || document).querySelector('.a3elist:not([data-bd])'); if (!l) return; l.dataset.bd = 1;
+    const z = (root || document).querySelector('.a3epz'); if (z) { const fitz = () => { z.parentNode.style.height = Math.round(z.offsetHeight * .34 + 24) + 'px'; }; fitz(); try { new ResizeObserver(fitz).observe(z); } catch (e) {} }
+    l.addEventListener('pointerdown', e => { const gr = e.target.closest('[data-egrip]'); if (!gr) return; e.preventDefault(); const el = gr.closest('.a3er'); el.classList.add('drag'); try { gr.setPointerCapture(e.pointerId); } catch (er) {}
+      const mv = ev => { const rows = [...l.querySelectorAll('.a3er')].filter(x => x !== el); const over = rows.find(x => { const r = x.getBoundingClientRect(); return ev.clientY >= r.top && ev.clientY <= r.bottom; }); if (!over) return; const r = over.getBoundingClientRect(); l.insertBefore(el, ev.clientY - r.top > r.height / 2 ? over.nextSibling : over); };
+      const up = () => { gr.removeEventListener('pointermove', mv); gr.removeEventListener('pointerup', up); gr.removeEventListener('pointercancel', up); el.classList.remove('drag'); const c = cardById(l.dataset.card); if (!c) return; c.border = [...l.querySelectorAll('.a3er')].map(x => x.dataset.bk); save(); haptic(); render(); };
+      gr.addEventListener('pointermove', mv); gr.addEventListener('pointerup', up); gr.addEventListener('pointercancel', up); });
   }
   ACT.a3BkSel = el => { V.blkSel = el.dataset.id; haptic(); render(); };
   /* card background: its own colour (default) or a photo */
@@ -566,10 +571,11 @@
   ACT.a3CardBg = el => {
     const c = cardById(V.card); if (!c) return;
     if (el.dataset.k === 'color') { delete c.bgImg; save(); haptic(); render(); return; }
-    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
-    inp.onchange = () => { const f = inp.files && inp.files[0]; if (!f) return; const img = new Image(); const u = URL.createObjectURL(f);
-      img.onload = () => { const W = 520, sc = Math.min(1, W / img.width); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
-        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(u); c.bgImg = cv.toDataURL('image/jpeg', .62); save(); haptic(); render(); };
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.style.cssText = 'position:fixed;left:-999px;top:0;opacity:0'; document.body.appendChild(inp); /* iOS only opens the picker for an input that is in the page */
+    inp.onchange = () => { const f = inp.files && inp.files[0]; inp.remove(); if (!f) return; const img = new Image(); const u = URL.createObjectURL(f);
+      img.onload = () => { /* crop to the shape of the card in Spaces (3:4), centred */ const W = 540, H = 720, sc = Math.max(W / img.width, H / img.height); const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        cv.getContext('2d').drawImage(img, (W - img.width * sc) / 2, (H - img.height * sc) / 2, img.width * sc, img.height * sc); URL.revokeObjectURL(u); c.bgImg = cv.toDataURL('image/jpeg', .62); save(); haptic(); render(); };
+      img.onerror = () => { URL.revokeObjectURL(u); toast(esc(L('This photo could not be read', 'Tuhle fotku se nepodařilo načíst'))); };
       img.src = u; };
     inp.click();
   };
@@ -577,7 +583,7 @@
   let masRO = null;
   function masonry(root) {
     const g = (root || document).querySelector('.a3bg'); if (!g) return; g.classList.add('mas');
-    const fit = () => { [...g.children].forEach(el => { const ch = [...el.children].filter(x => !x.matches('.a3bksel,.a3bkm,.a3grip2')); const h = ch.reduce((a, x) => a + x.getBoundingClientRect().height, 0) + Math.max(0, ch.length - 1) * 8; el.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + 16) / 4)); }); };
+    const fit = () => { [...g.children].forEach(el => { const ch = [...el.children].filter(x => !x.matches('.a3bksel,.a3bkm,.a3grip2')); const h = ch.reduce((a, x) => a + (x.offsetHeight || x.getBoundingClientRect().height), 0) + Math.max(0, ch.length - 1) * 8; el.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + 16) / 4)); }); };
     fit(); if (masRO) masRO.disconnect();
     try { masRO = new ResizeObserver(() => requestAnimationFrame(fit)); [...g.querySelectorAll('.a3bk > *')].forEach(x => masRO.observe(x)); } catch (e) {}
   }
@@ -780,8 +786,10 @@
     else { u = thumb(m); const r = Math.max(.55, Math.min(1.8, +m.r || 1)); h = Math.max(.9, Math.min(1.9, 1 / r * 1.15)); }
     const isV = m.kind === 'video';
     const cap = m.kind === 'link' ? (m.title || m.url || '') : (m.note || '');
-        return { h: h + (cap ? .25 : 0), html: '<div class="a2-in a3bt" style="--i:' + i + '"><button class="a3bimg" style="aspect-ratio:1/' + h.toFixed(2) + ';' + (u ? 'background:#14202a url(' + esc(u) + ') center/cover' : 'background:linear-gradient(160deg,#1f3a5f,#0e1b2e)') + '" data-a="viewMoment" data-id="' + m.id + '">' + inner
-      + (isV && m.dur ? '<span class="a3bdur">' + Math.floor(m.dur / 60) + ':' + String(Math.round(m.dur % 60)).padStart(2, '0') + '</span>' : '') + (isV ? '<span class="a2-icon a3bplay">' + ico('play', 16, 2) + '</span><span class="a3bcut" role="button" data-a="stNew" data-mom="' + m.id + '" data-id="studio">' + ico('spark', 12, 2.2) + esc(L('Cut', 'Střih')) + '</span>' : '') + plan + (m.pin ? '<span class="a3bpin">' + ico('pin', 13, 2) + '</span>' : '') + '</button>'
+    const more = m.kind === 'photo' && m.more && m.more.length ? m.more.slice(0, 2) : null;
+    const back = more ? more.map((x, k) => '<span class="a3sly s' + (k + 2) + '" style="background-image:url(' + esc(mediaNow(x.k)) + ')"></span>').reverse().join('') : '';
+        return { h: h + (cap ? .25 : 0) + (more ? .08 : 0), html: '<div class="a2-in a3bt' + (more ? ' a3stk' : '') + '" style="--i:' + i + '"' + (more ? ' data-stk="' + m.id + '"' : '') + '>' + (more ? '<div class="a3stw" style="aspect-ratio:1/' + h.toFixed(2) + '">' + back : '') + '<button class="a3bimg' + (more ? ' s1' : '') + '" style="aspect-ratio:1/' + h.toFixed(2) + ';' + (u ? 'background:#14202a url(' + esc(u) + ') center/cover' : 'background:linear-gradient(160deg,#1f3a5f,#0e1b2e)') + '" data-a="viewMoment" data-id="' + m.id + '">' + inner
+      + (isV && m.dur ? '<span class="a3bdur">' + Math.floor(m.dur / 60) + ':' + String(Math.round(m.dur % 60)).padStart(2, '0') + '</span>' : '') + (isV ? '<span class="a2-icon a3bplay">' + ico('play', 16, 2) + '</span><span class="a3bcut" role="button" data-a="stNew" data-mom="' + m.id + '" data-id="studio">' + ico('spark', 12, 2.2) + esc(L('Cut', 'Střih')) + '</span>' : '') + plan + (m.pin ? '<span class="a3bpin">' + ico('pin', 13, 2) + '</span>' : '') + (more ? '<span class="a3stn">' + (more.length + 1) + '</span>' : '') + '</button>' + (more ? '</div>' : '')
       + (cap ? '<span class="a3bcap">' + dot + '<span>' + esc(cap.split('\n')[0]) + '</span></span>' : '') + '</div>' };
   }
   function boardCols(ms, n) {
@@ -803,7 +811,7 @@
       + '<div class="a2-in a3chips" style="--i:1">' + boardChips() + '</div><div id="a3bg">' + (ms.length ? boardCols(ms, 2) : boardEmpty()) + '</div></div>';
   }
   function boardDesk() {
-    const ms = deskBoardList(); const ty = V.boardType || 'all'; const w = innerWidth; const n = Math.max(2, Math.min(4, Math.floor((w - 120) / 330)));
+    const ms = deskBoardList(); const ty = V.boardType || 'all'; const w = innerWidth; const n = Math.max(3, Math.min(6, Math.floor((w - 100) / 290)));
     const seg = '<div class="a2-seg" style="margin-left:auto;flex:none">' + [['all', L('All types', 'Všechno')], ['img', L('Images', 'Obrázky')], ['link', L('Links', 'Odkazy')], ['note', L('Notes', 'Poznámky')]].map(([k, l]) => '<button class="' + (ty === k ? 'on' : '') + '" data-a="a3BType" data-k="' + k + '">' + esc(l) + '</button>').join('') + '</div>';
     return '<main class="dmain a2 a3d a3dboard scr2"><div class="a2-in a3btit" style="--i:1"><b class="a2-d">Board</b><div class="a3chips">' + boardChips() + '</div>' + seg + '</div>'
       + (V.boardSearch ? '<div class="a2-glass a3srch" style="max-width:520px">' + ico('search', 17, 2) + '<input id="a3boardQ" type="search" placeholder="' + esc(t('searchPh')) + '" value="' + esc(V.boardQ || '') + '" autocomplete="off"></div>' : '')
@@ -1025,7 +1033,7 @@
     const errTxt = e => (e && e.status ? e.status + ' · ' : '') + ((e && e.message) || String(e)).slice(0, 90);
     const pull = cr => syncApi('/s/pull', { sp: cr.sp, secret: cr.secret, since: Number.MAX_SAFE_INTEGER, sinceK: '' });
     openSheet({ title: L('Connection check', 'Kontrola spojení'), right: L('Again', 'Znovu'), cls: 'a3cksheet',
-      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2062 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
+      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2064 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
       mount: el => { paint(el); const run = async () => {
         const set = (k, v) => { R[k] = v; paint(el); };
         try { const r = await fetch(pushBase() + '/', { cache: 'no-store' }); const j = await r.json().catch(() => null); set('srv', r.ok && j && j.sync ? [1, L('running', 'běží')] : [0, 'http ' + r.status]); } catch (e) { set('srv', [0, L('not reachable', 'nedostupný') + ' · ' + errTxt(e)]); }
@@ -1145,6 +1153,7 @@
   /* ================= AI orb · v2059: soft light that moves like a symbiont (liquid, reaches out, melts back) ================= */
   const ORB_PRE = [['aurora', 'Aurora', ['#ff3fd2', '#4d5cff', '#46e6ff']], ['sunset', L('Sunset', 'Západ'), ['#f2a541', '#e9557c', '#8b6cf0']], ['forest', L('Forest', 'Les'), ['#3ecf8e', '#1d7a8c', '#c8f2a0']], ['ice', L('Ice', 'Led'), ['#cfe9ff', '#7aa8ff', '#ffffff']], ['sym', L('Symbiote', 'Symbiont'), ['#0b0b10', '#3a3a48', '#f4f4f8']], ['fire', L('Fire', 'Oheň'), ['#ff2a2a', '#ff8a3d']]];
   const orbCols = () => (S && Array.isArray(S.orbCols) && S.orbCols.length ? S.orbCols : ORB_PRE[0][2]).slice(0, 3);
+  window.A3ORB = () => orbPaint();
   function orbPaint() { const c = orbCols(); const R = document.documentElement.style; R.setProperty('--o1', c[0]); R.setProperty('--o2', c[1] || c[0]); R.setProperty('--o3', c[2] || c[1] || c[0]); }
   const SYM = { list: [], raf: 0, t0: performance.now() };
   function symMake(host) {
@@ -1219,6 +1228,15 @@
     const go = () => { const h = sc.clientHeight + 12; [...sc.children].forEach((c, i) => { const d = (i * h - sc.scrollTop) / h; const a = Math.min(1, Math.abs(d)); c.style.transform = d < 0 ? 'scale(' + (1 - a * .08).toFixed(3) + ')' : ''; c.style.opacity = (1 - a * .55).toFixed(2); c.style.transformOrigin = '50% 100%'; }); };
     let r = 0; sc.addEventListener('scroll', () => { cancelAnimationFrame(r); r = requestAnimationFrame(go); }, { passive: true }); requestAnimationFrame(go);
   }
+  /* photo stacks on the Board: they lean out a little, fan on press, and stay inside their own tile */
+  function fan(el, o) {
+    const G = window.gsap, a = el.querySelector('.s2'), b = el.querySelector('.s3'), f = el.querySelector('.s1'); if (!f) return;
+    const P = o ? [[-4, 0, -3], [10, -4, 5], [20, -6, 10]] : [[0, 0, 0], [5, -4, 3], [10, -8, 6]];
+    [[f, P[0]], [a, P[1]], [b, P[2]]].forEach(([x, p], i) => { if (!x) return; if (G && !RM) G.to(x, { xPercent: p[0], yPercent: p[1], rotation: p[2], duration: .45, ease: 'back.out(1.6)', delay: o ? i * .03 : 0, overwrite: true }); else x.style.transform = 'translate(' + p[0] + '%,' + p[1] + '%) rotate(' + p[2] + 'deg)'; });
+  }
+  document.addEventListener('pointerenter', e => { const s2 = e.target.closest && e.target.closest('.a3stk'); if (s2 && e.pointerType === 'mouse') fan(s2, true); }, true);
+  document.addEventListener('pointerleave', e => { const s2 = e.target.closest && e.target.closest('.a3stk'); if (s2 && e.pointerType === 'mouse') fan(s2, false); }, true);
+  document.addEventListener('pointerdown', e => { const s2 = e.target.closest && e.target.closest('.a3stk'); if (s2 && e.pointerType !== 'mouse') { fan(s2, true); setTimeout(() => fan(s2, false), 700); } }, true);
   function install() {
     orbPaint(); setTimeout(symScan, 300); try { new MutationObserver(() => { if (document.querySelector('.orbv:not(.sym)')) symScan(); }).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
     /* photo wallpaper: the computer no longer forces a heavy blur; old heavy blur values settle on "Soft" once */
@@ -1228,6 +1246,7 @@
     try { const _al = applyLook; applyLook = function () { const r = _al.apply(this, arguments); try { if (S && S.wall === 'photo' && S.wallKey) S.a3wall = 'photo'; wall(); } catch (e) {} return r; }; } catch (e) {}
     /* old settings pages fill in late (Automation loads first): wrap them whenever they land */
     try { const se = $('#s-settings'); se && new MutationObserver(() => { if (V.settingsOpen && (V.settingsPage || 'main') in OLDG) wrapOld(se); }).observe(se, { childList: true }); } catch (e) {}
+    try { const _cc = closeCard; closeCard = function () { V.blkEdit = null; return _cc.apply(this, arguments); }; } catch (e) {}
     document.body.classList.add('a3', 'a3boot'); setTimeout(() => document.body.classList.remove('a3boot'), 1400);
     let hq = 0; try { new MutationObserver(() => { if (hq) return; hq = requestAnimationFrame(() => { hq = 0; heads(); }); }).observe($('#app') || document.body, { childList: true, subtree: true }); } catch (e) {}
     /* phone pages */
@@ -1279,7 +1298,7 @@
       const c = V.card && cardById(V.card); const el = $('#s-card'); if (!c || !el) { el && el.classList.remove('a3s'); return r; }
       const keep = [...el.querySelectorAll('.srcp, .stud')];
       el.classList.add('a3s'); settle(el, 'c:' + c.id + CNAV); el.innerHTML = cardPhone(c);
-      const slot = el.querySelector('.a3slot'); keep.forEach(p => slot ? slot.before(p) : null); adoptPanels(el); bindAdd(el); bindNotes(el); bindBlkDrag(el); masonry(el);
+      const slot = el.querySelector('.a3slot'); keep.forEach(p => slot ? slot.before(p) : null); adoptPanels(el); bindAdd(el); bindNotes(el); bindBlkDrag(el); bindEditList(el); masonry(el);
       return r;
     };
     /* computer pages */
