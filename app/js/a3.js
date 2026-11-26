@@ -1041,7 +1041,7 @@
     const errTxt = e => (e && e.status ? e.status + ' · ' : '') + ((e && e.message) || String(e)).slice(0, 90);
     const pull = cr => syncApi('/s/pull', { sp: cr.sp, secret: cr.secret, since: Number.MAX_SAFE_INTEGER, sinceK: '' });
     openSheet({ title: L('Connection check', 'Kontrola spojení'), right: L('Again', 'Znovu'), cls: 'a3cksheet',
-      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2066 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
+      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2067 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
       mount: el => { paint(el); const run = async () => {
         const set = (k, v) => { R[k] = v; paint(el); };
         try { const r = await fetch(pushBase() + '/', { cache: 'no-store' }); const j = await r.json().catch(() => null); set('srv', r.ok && j && j.sync ? [1, L('running', 'běží')] : [0, 'http ' + r.status]); } catch (e) { set('srv', [0, L('not reachable', 'nedostupný') + ' · ' + errTxt(e)]); }
@@ -1239,6 +1239,7 @@
   /* photo stacks on the Board: they lean out a little, fan on press, and stay inside their own tile */
   function fan(el, o) {
     const G = window.gsap, a = el.querySelector('.s2'), b = el.querySelector('.s3'), f = el.querySelector('.s1'); if (!f) return;
+    el.classList.toggle('fan', !!o);
     const P = o ? [[-4, 0, -3], [10, -4, 5], [20, -6, 10]] : [[0, 0, 0], [5, -4, 3], [10, -8, 6]];
     [[f, P[0]], [a, P[1]], [b, P[2]]].forEach(([x, p], i) => { if (!x) return; if (G && !RM) G.to(x, { xPercent: p[0], yPercent: p[1], rotation: p[2], duration: .45, ease: 'back.out(1.6)', delay: o ? i * .03 : 0, overwrite: true }); else x.style.transform = 'translate(' + p[0] + '%,' + p[1] + '%) rotate(' + p[2] + 'deg)'; });
   }

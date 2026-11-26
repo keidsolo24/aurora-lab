@@ -1130,3 +1130,8 @@ body.a3:not(.desk) .a3p > .a3hd.a3fh.a3hown > b.a2-d { text-shadow:0 1px 14px rg
 .a3dc.a3fc .a2-well { background: rgba(0,0,0,.2) !important; box-shadow:none !important; }
 .a3dc.a3fc .a3nxs, .a3dc.a3fc .a3nowb { color:#fff; }
 body.a3:not(.desk) .a3p.a3pown > .a3edge { height: calc(var(--st, 0px) + 104px); margin-bottom:-104px; background: linear-gradient(180deg, rgba(8,12,18,.78) 55%, rgba(8,12,18,0)); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); -webkit-mask: linear-gradient(180deg, #000 72%, transparent); mask: linear-gradient(180deg, #000 72%, transparent); }
+/* the photos behind the first one sit slightly out of focus; they sharpen when the stack fans out */
+.a3sly { transition: filter .3s ease; }
+.a3sly.s2 { filter: blur(1.6px) brightness(.86); }
+.a3sly.s3 { filter: blur(3px) brightness(.74); }
+.a3stk.fan .a3sly { filter:none; }
