@@ -1135,3 +1135,5 @@ body.a3:not(.desk) .a3p.a3pown > .a3edge { height: calc(var(--st, 0px) + 104px);
 .a3sly.s2 { filter: blur(1.6px) brightness(.86); }
 .a3sly.s3 { filter: blur(3px) brightness(.74); }
 .a3stk.fan .a3sly { filter:none; }
+/* v2068 · no blurred band under the top area on phones */
+body.a3:not(.desk) .a3edge { display:none !important; }
