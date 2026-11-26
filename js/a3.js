@@ -1041,7 +1041,7 @@
     const errTxt = e => (e && e.status ? e.status + ' · ' : '') + ((e && e.message) || String(e)).slice(0, 90);
     const pull = cr => syncApi('/s/pull', { sp: cr.sp, secret: cr.secret, since: Number.MAX_SAFE_INTEGER, sinceK: '' });
     openSheet({ title: L('Connection check', 'Kontrola spojení'), right: L('Again', 'Znovu'), cls: 'a3cksheet',
-      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2068 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
+      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2069 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
       mount: el => { paint(el); const run = async () => {
         const set = (k, v) => { R[k] = v; paint(el); };
         try { const r = await fetch(pushBase() + '/', { cache: 'no-store' }); const j = await r.json().catch(() => null); set('srv', r.ok && j && j.sync ? [1, L('running', 'běží')] : [0, 'http ' + r.status]); } catch (e) { set('srv', [0, L('not reachable', 'nedostupný') + ' · ' + errTxt(e)]); }
@@ -1229,7 +1229,7 @@
       requestAnimationFrame(() => { const rw = right && right !== pill && right !== back && !right.matches('b') ? right.offsetWidth : 0; pill.style.maxWidth = Math.max(80, hd.clientWidth - (back ? 56 : 0) - rw - 14) + 'px'; });
     });
   }
-  document.addEventListener('scroll', e => { const s = e.target; if (!s || !s.classList || !s.classList.contains('scr')) return; const p = s.querySelector(':scope > .a3p'); if (!p) return; const y = s.scrollTop; p.classList.toggle('a3sc1', y > 4); p.classList.toggle('a3scd', y > 52); }, { capture: true, passive: true });
+  document.addEventListener('scroll', e => { const s = e.target; if (!s || !s.classList || !s.classList.contains('scr')) return; const p = s.querySelector(':scope > .a3p'); if (!p) return; const y = s.scrollTop; p.classList.toggle('a3sc1', y > 4); p.classList.toggle('a3scd', y > 52); underFade(s, p); }, { capture: true, passive: true });
   /* Home stack: the page that leaves shrinks and fades a little, so a half-way swipe still reads as one stack */
   function stackFx(root) {
     const sc = root.querySelector('#hst'); if (!sc || sc._fx) return; sc._fx = 1;
@@ -1330,6 +1330,39 @@
     wall();
     if (S && S.onboarded) { if (desk()) deskRender(); else render(); }
   }
+  /* v2069 · the top area is its own zone: whatever scrolls up to it fades out before it reaches the title (nothing is drawn over the page) */
+  function underFade(s, p) {
+    if (desk() || s._uf) return; s._uf = requestAnimationFrame(() => {
+      s._uf = 0; const hd = p.querySelector(':scope > .a3hd'); if (!hd) return;
+      const on = s.scrollTop > 4, cut = hd.getBoundingClientRect().bottom + 2;
+      for (const k of p.children) {
+        if (k === hd || k.classList.contains('a3edge') || k.classList.contains('a3wal')) continue;
+        const r = on ? k.getBoundingClientRect() : null;
+        if (r && r.height && r.top < cut && r.bottom > 0) { const n = Math.round(cut - r.top), m = 'linear-gradient(to bottom, transparent ' + n + 'px, #000 ' + (n + 18) + 'px)'; k.style.webkitMaskImage = m; k.style.maskImage = m; k._ufm = 1; }
+        else if (k._ufm) { k.style.webkitMaskImage = ''; k.style.maskImage = ''; k._ufm = 0; }
+      }
+    });
+  }
+  /* v2069 · motion engine: tabs and card pages move on GSAP; the top area never takes part */
+  const TABS = ['home', 'spaces', 'board', 'plan'];
+  function kids(scr) { const p = scr && scr.querySelector(':scope > .a3p'); if (!p) return []; return [...p.children].filter(k => !k.matches('.a3hd,.a3edge,.a3tpill') && k.offsetHeight && k.getBoundingClientRect().top < innerHeight); }
+  function motion() {
+    const G = window.gsap; if (!G || RM || motion.on) return; motion.on = 1; document.body.classList.add('a3g');
+    const go0 = window.go;
+    window.go = function (tab) {
+      const from = V.tab, was = !!V.card || !!V.settingsOpen; go0(tab);
+      if (desk() || was || from === tab) return;
+      const d = Math.sign(TABS.indexOf(tab) - TABS.indexOf(from)) || 1, ks = kids(document.getElementById('s-' + tab)).slice(0, 8); if (!ks.length) return;
+      G.killTweensOf(ks); G.fromTo(ks, { x: 26 * d, opacity: 0 }, { x: 0, opacity: 1, duration: .42, ease: 'power3.out', stagger: .035, overwrite: true, clearProps: 'transform,opacity' });
+    };
+    const oc0 = window.openCard;
+    window.openCard = function (id) {
+      oc0(id); if (desk()) return;
+      const ks = kids(document.getElementById('s-card')).slice(0, 8); if (!ks.length) return;
+      G.fromTo(ks, { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: .5, ease: 'power3.out', stagger: .045, delay: .08, overwrite: true, clearProps: 'transform,opacity' });
+    };
+  }
+  document.addEventListener('DOMContentLoaded', () => setTimeout(motion, 50));
   A3.install = install;
   document.addEventListener('DOMContentLoaded', () => setTimeout(install, 0));
 })();

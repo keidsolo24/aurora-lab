@@ -1117,7 +1117,6 @@ body:has(.a3elist) #orbFab { opacity:0 !important; pointer-events:none !importan
 /* nothing at the top moves: no rubber band, the title and the buttons stay where they are */
 body.a3 .scr { overscroll-behavior:none; }
 .a3p.a3scd > .a3hd.a3fh.a3hown > b.a2-d { opacity:1; pointer-events:auto; }
-body.a3:not(.desk) .a3p > .a3hd.a3fh.a3hown > b.a2-d { text-shadow:0 1px 14px rgba(0,0,0,.35); }
 .orbq { width:78px; height:78px; }
 .orbq span { max-width:70px; text-align:center; line-height:1.1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 /* desk Spaces: the same full-colour cards as on the phone */
@@ -1137,3 +1136,5 @@ body.a3:not(.desk) .a3p.a3pown > .a3edge { height: calc(var(--st, 0px) + 104px);
 .a3stk.fan .a3sly { filter:none; }
 /* v2068 · no blurred band under the top area on phones */
 body.a3:not(.desk) .a3edge { display:none !important; }
+/* v2069 · tabs move on GSAP, so the old CSS fade is off when it runs */
+body.a3g:not(.desk) .scr.on:not(.push) { animation:none; }
