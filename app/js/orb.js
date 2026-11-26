@@ -235,7 +235,7 @@
       : [fx(L('New card', 'Nová karta'), '', () => window.QUICK ? window.QUICK.card('') : ACT.newCard()), fx(L('Add a task', 'Přidat úkol'), '', () => { const ctx = {}; if (V.tab === 'plan' && V.planMode === 'list') ctx.date = V.planDay; openAdd(ctx); }), fx(L('Photo or idea', 'Fotka nebo nápad'), '', () => openAdd({ mode: 'note' }))];
     const t = c ? { type: 'card', card: c.id } : V.tab === 'plan' ? { type: 'day', d: V.planDay || T() } : { type: 'now' };
     const ph = L('e.g. run Tue Thu 6pm · card Running 3× a week', 'např. běh út čt v 18 · karta Běhání 3× týdně');
-    if (!desk()) return radial(b, steps.slice(0, 3), () => bubble({ x, y, title: c ? c.name : L('Ask Aurora', 'Zeptej se Aurory'), steps: [], t, ph, focus: true }));
+    return radial(b, steps.slice(0, 3), () => bubble({ x, y: desk() ? y + 10 : y, title: c ? c.name : L('Ask Aurora', 'Zeptej se Aurory'), steps: [], t, ph, focus: true }));
     bubble({ x, y: y + 10, title: c ? c.name : L('What do you need?', 'Co potřebuješ?'), steps, t, ph });
   }
   /* v2063 · phone: a tap on the orb throws up to three actions and "AI" out of it in an arc */
@@ -252,9 +252,12 @@
     const r = orb.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     const kinds = steps.map(s2 => /card|kart/i.test(s2.label) ? 'card' : /photo|fot|idea|náp/i.test(s2.label) ? 'photo' : 'task');
     const all = steps.map((s2, i) => ({ lab: s2.label.replace(/^(Add a |Přidat |New |Nová )/i, '').replace(/ or idea| nebo nápad/i, ''), k: kinds[i], run: s2.run })).concat([{ lab: 'AI', k: 'ai', run: askFn, ai: true }]);
-    const n = all.length, R = Math.min(116, innerWidth / 2 - 52), span = Math.PI * .7, a0 = Math.PI / 2 + span / 2;
+    /* the fan opens away from the nearest edges: up from the bar, to the upper left from a corner, down from the top */
+    const n = all.length, W = innerWidth, edgeR = cx > W - 110, edgeL = cx < 110, down = cy < innerHeight / 2;
+    const half = (edgeR || edgeL) ? Math.PI * .23 : Math.PI * .4, mid = edgeR ? Math.PI * .73 : edgeL ? Math.PI * .27 : Math.PI / 2;
+    const R = (edgeR || edgeL) ? 192 : Math.min(140, W / 2 - 50), a0 = mid + half, span = half * 2, sy = down ? 1 : -1, off = (edgeR || edgeL) ? 0 : 30;
     const el = document.createElement('div'); el.id = 'orbRad';
-    el.innerHTML = '<div class="orsc" style="-webkit-mask:radial-gradient(circle ' + (r.width / 2 + 10) + 'px at ' + cx + 'px ' + cy + 'px,transparent 96%,#000);mask:radial-gradient(circle ' + (r.width / 2 + 10) + 'px at ' + cx + 'px ' + cy + 'px,transparent 96%,#000)"></div>' + all.map((x, i) => { const a = a0 - span * (n === 1 ? .5 : i / (n - 1)); return '<button class="orbq' + (x.ai ? ' ai' : '') + '" data-i="' + i + '" data-x="' + (Math.cos(a) * R).toFixed(1) + '" data-y="' + (-Math.sin(a) * R - 24).toFixed(1) + '" style="left:' + cx + 'px;top:' + cy + 'px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + RIC[x.k] + '</svg><span>' + esc(x.lab.charAt(0).toUpperCase() + x.lab.slice(1)) + '</span></button>'; }).join('');
+    el.innerHTML = '<div class="orsc" style="-webkit-mask:radial-gradient(circle ' + (r.width / 2 + 10) + 'px at ' + cx + 'px ' + cy + 'px,transparent 96%,#000);mask:radial-gradient(circle ' + (r.width / 2 + 10) + 'px at ' + cx + 'px ' + cy + 'px,transparent 96%,#000)"></div>' + all.map((x, i) => { const a = a0 - span * (n === 1 ? .5 : i / (n - 1)); return '<button class="orbq' + (x.ai ? ' ai' : '') + '" data-i="' + i + '" data-x="' + Math.max(47 - cx, Math.min(W - 47 - cx, Math.cos(a) * R)).toFixed(1) + '" data-y="' + (sy * (Math.sin(a) * R + off)).toFixed(1) + '" style="left:' + cx + 'px;top:' + cy + 'px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + RIC[x.k] + '</svg><span>' + esc(x.lab.charAt(0).toUpperCase() + x.lab.slice(1)) + '</span></button>'; }).join('');
     document.body.appendChild(el); RAD = { el, orb }; const bs = [...el.querySelectorAll('button')]; const G = window.gsap;
     requestAnimationFrame(() => el.classList.add('on'));
     if (G && !RM) { G.set(bs, { xPercent: -50, yPercent: -50, scale: .4, opacity: 0 }); bs.forEach((b2, i) => G.to(b2, { x: +b2.dataset.x, y: +b2.dataset.y, scale: 1, opacity: 1, duration: .5, delay: i * .045, ease: 'back.out(1.7)' })); G.to(orb, { scale: 1.12, duration: .3, ease: 'back.out(2)' }); }

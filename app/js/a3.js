@@ -402,6 +402,14 @@
     let raf = 0; d.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { const mid = d.scrollLeft + d.clientWidth / 2; let best = 0, bd = 1e9; [...d.children].forEach((c, k) => { const dd = Math.abs(c.offsetLeft + c.clientWidth / 2 - mid); if (dd < bd) { bd = dd; best = k; } }); if (best !== V.deckIdx) { V.deckIdx = best; dots && [...dots.children].forEach((x, k) => x.classList.toggle('on', k === best)); } }); }, { passive: true });
   }
   function spaceDeskCard(x, i) {
+    const col = x.s ? STC : x.k ? x.k.color : x.c.color; let h = spaceDeskCard0(x, i);
+    if (!col || h.indexOf('a3dc"') < 0) return h;
+    h = h.split(col).join('#fff').split('--c:#fff').join('--c:' + col).split('rgba(var(--wr),.12)').join('rgba(255,255,255,.24)').split('rgba(var(--wr),.14)').join('rgba(255,255,255,.24)');
+    const img = x.c && x.c.bgImg ? ' img" style="--img:url(' + x.c.bgImg + ');' : null;
+    h = h.replace('a3dc"', 'a3dc a3fc u' + urg(x) + '"'); if (img) h = h.replace('a3fc u' + urg(x) + '" style="', 'a3fc u' + urg(x) + img);
+    return h;
+  }
+  function spaceDeskCard0(x, i) {
     if (x.s) return studioPhoneCard(i);
     const nxt = (lab, txt, w, col) => '<div class="a3nxs"><span class="a2-lab" style="color:color-mix(in oklab,' + col + ' 55%,var(--mw))">' + esc(lab) + '</span><span>' + esc(txt) + (w ? ' <span class="a2-t2">· ' + esc(w) + '</span>' : '') + '</span></div>';
     if (x.k) { const k = x.k, fa = keiroFacts(k);
@@ -1033,7 +1041,7 @@
     const errTxt = e => (e && e.status ? e.status + ' · ' : '') + ((e && e.message) || String(e)).slice(0, 90);
     const pull = cr => syncApi('/s/pull', { sp: cr.sp, secret: cr.secret, since: Number.MAX_SAFE_INTEGER, sinceK: '' });
     openSheet({ title: L('Connection check', 'Kontrola spojení'), right: L('Again', 'Znovu'), cls: 'a3cksheet',
-      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2065 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
+      body: '<p class="a3blp">' + esc(L('Checks every connection, writes nothing. Send a screenshot if something is red.', 'Projde všechna spojení, nic nezapisuje. Když něco svítí červeně, pošli screenshot.')) + '</p><div id="a3ck" class="a3ckl"></div><p class="a2-t3 a3ckv">Lab v2066 · ' + esc(pushBase().replace(/^https:\/\//, '')) + '</p>',
       mount: el => { paint(el); const run = async () => {
         const set = (k, v) => { R[k] = v; paint(el); };
         try { const r = await fetch(pushBase() + '/', { cache: 'no-store' }); const j = await r.json().catch(() => null); set('srv', r.ok && j && j.sync ? [1, L('running', 'běží')] : [0, 'http ' + r.status]); } catch (e) { set('srv', [0, L('not reachable', 'nedostupný') + ' · ' + errTxt(e)]); }
@@ -1213,7 +1221,7 @@
     (root || document).querySelectorAll('.a3p:not(.a3home) > .a3hd:not(.a3fh)').forEach(hd => {
       hd.classList.add('a3fh'); const p = hd.parentNode;
       if (!p.querySelector(':scope > .a3edge')) p.insertAdjacentHTML('afterbegin', '<div class="a3edge" aria-hidden="true"></div>');
-      const own = hd.querySelector(':scope > b.a2-d'); const nxt = p.querySelector(':scope > .a3cti b.a2-d, :scope > .a3cti .a3ctn b.a2-d');
+      const own = hd.querySelector(':scope > b.a2-d'); if (own) { hd.classList.add('a3hown'); p.classList.add('a3pown'); return; } const nxt = p.querySelector(':scope > .a3cti b.a2-d, :scope > .a3cti .a3ctn b.a2-d');
       const txt = ((own || nxt || {}).textContent || '').trim(); if (!txt) return;
       const back = hd.querySelector('[data-a="closeCard"],[data-a="closeSettings"],[data-a="settingsBack"],[data-a="a3StClose"],[data-a="krClose"]');
       hd.insertAdjacentHTML('beforeend', '<span class="a3tpill' + (back ? ' bk' : '') + '" aria-hidden="true">' + esc(txt) + '</span>');

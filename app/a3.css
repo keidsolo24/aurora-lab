@@ -1112,3 +1112,21 @@ body:has(.a3elist) #orbFab { opacity:0 !important; pointer-events:none !importan
 /* Plan desk: "Tomorrow" scrolls inside itself and fades at the bottom instead of being cut */
 .a3ptm2 { overflow-y:auto; scrollbar-width:none; -webkit-mask:linear-gradient(180deg,#000 calc(100% - 30px),transparent); mask:linear-gradient(180deg,#000 calc(100% - 30px),transparent); padding-bottom:26px !important; }
 .a3ptm2::-webkit-scrollbar { display:none; }
+
+/* ===== v2066 · one rule everywhere ===== */
+/* nothing at the top moves: no rubber band, the title and the buttons stay where they are */
+body.a3 .scr { overscroll-behavior:none; }
+.a3p.a3scd > .a3hd.a3fh.a3hown > b.a2-d { opacity:1; pointer-events:auto; }
+body.a3:not(.desk) .a3p > .a3hd.a3fh.a3hown > b.a2-d { text-shadow:0 1px 14px rgba(0,0,0,.35); }
+.orbq { width:78px; height:78px; }
+.orbq span { max-width:70px; text-align:center; line-height:1.1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+/* desk Spaces: the same full-colour cards as on the phone */
+.a3dc.a3fc { color:#fff; background: linear-gradient(165deg, color-mix(in oklab, var(--c) 86%, #fff 14%), color-mix(in oklab, var(--c) 56%, #000)) !important; box-shadow: 0 10px 28px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.3), inset 0 0 0 1px rgba(255,255,255,.08) !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+.a3dc.a3fc.img { background: linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.6)), var(--img) center/cover !important; }
+.a3dc.a3fc.u3 { filter: saturate(.35) brightness(.8); }
+.a3dc.a3fc::before, .a3dc.a3fc::after { display:none !important; }
+.a3dc.a3fc b, .a3dc.a3fc .a2-d, .a3dc.a3fc .a2-lab, .a3dc.a3fc .a2-t2, .a3dc.a3fc .a2-t3, .a3dc.a3fc span { color:#fff !important; }
+.a3dc.a3fc .a2-lab, .a3dc.a3fc .a2-t2 { opacity:.82; }
+.a3dc.a3fc .a2-well { background: rgba(0,0,0,.2) !important; box-shadow:none !important; }
+.a3dc.a3fc .a3nxs, .a3dc.a3fc .a3nowb { color:#fff; }
+body.a3:not(.desk) .a3p.a3pown > .a3edge { height: calc(var(--st, 0px) + 104px); margin-bottom:-104px; background: linear-gradient(180deg, rgba(8,12,18,.78) 55%, rgba(8,12,18,0)); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); -webkit-mask: linear-gradient(180deg, #000 72%, transparent); mask: linear-gradient(180deg, #000 72%, transparent); }
